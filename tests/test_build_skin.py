@@ -25,7 +25,8 @@ BASE_ANIMATIONS = (
 )
 # The order the client loads them in (default's EQUI.xml).
 LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CASTSPELL_FILE,
-              skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE, skin.HOTBUTTON_FILE,
+              skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
+              skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE]
 
 
@@ -149,6 +150,32 @@ def screen(name):
 
 def parts(root):
     return {e.get('item'): e for tag in ('Gauge', 'Label', 'Button') for e in root.iter(tag)}
+
+
+def anchored_rect(element, inside):
+    """Where the client draws an AutoStretch control in a window whose inside is that size (eqgame.exe's
+    GetLocation, 0x5750C0): each edge its offset in from the near side, or in from the far side where its flag is
+    false (every flag is true by default, in SIDL.xml)."""
+    width, height = inside
+
+    def edge(side, flag, far):
+        offset = number(element, f'{side}AnchorOffset')
+        return offset if element.findtext(flag, 'true') == 'true' else far - offset
+
+    left, top = edge('Left', 'LeftAnchorToLeft', width), edge('Top', 'TopAnchorToTop', height)
+    right, bottom = edge('Right', 'RightAnchorToLeft', width), edge('Bottom', 'BottomAnchorToTop', height)
+    return left, top, right - left, bottom - top
+
+
+def drawn_size(element):
+    """A control's size as the client draws it: its Size, or an anchored one's where that doesn't depend on the
+    window's size (both sides measured from the same edge)."""
+    if element.findtext('AutoStretch') != 'true':
+        return box(element)[2:]
+    flags = [element.findtext(tag, 'true') for tag in
+             ('LeftAnchorToLeft', 'RightAnchorToLeft', 'TopAnchorToTop', 'BottomAnchorToTop')]
+    assert flags[0] == flags[1] and flags[2] == flags[3], element.get('item')
+    return anchored_rect(element, (0, 0))[2:]
 
 
 # Textures
@@ -276,20 +303,21 @@ def test_button_art_is_the_button_size_in_every_state():
     root = everything()
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
-    # Not the hidden ones, nor the effect slots, which the client paints (see the effects tests).
+    # Not the hidden ones, nor the effect slots, which the client paints (see the effects tests). An anchored button
+    # is drawn at its anchors' size (the bag window's: see its tests).
     buttons = [b for b in root.iter('Button')
-               if box(b)[2:] != (0, 0) and b.find('ButtonDrawTemplate/NormalDecal') is None]
+               if drawn_size(b) != (0, 0) and b.find('ButtonDrawTemplate/NormalDecal') is None]
     assert buttons
     for b in buttons:
         template = b.find('ButtonDrawTemplate')
         assert [e.tag for e in template] == list(skin.BUTTON_STATES)
         for state in template:
-            assert cut(atlas, anims[state.text]).size == box(b)[2:]
+            assert cut(atlas, anims[state.text]).size == drawn_size(b)
     # Each labeled button size in use has its own art (the selector's icon toggles have theirs, and the hot button
     # window's macros their own solid art: see its tests).
     buttons = [b for b in buttons if b.find('Text') is not None
                and not b.findtext('ButtonDrawTemplate/Normal').startswith('TUI_HotButton')]
-    assert {box(b)[2:] for b in buttons} == set(skin.BUTTON_LABELS)
+    assert {drawn_size(b) for b in buttons} == set(skin.BUTTON_LABELS)
     art = {state: cut(atlas, anims[f'TUI_{skin.button_art(skin.BUTTON_WIDTH, skin.BUTTON_HEIGHT, "Invite", state)}'])
            for state in skin.BUTTON_LOOKS}
     beside = (4, skin.BUTTON_HEIGHT // 2)  # inside the edge, left of the label
@@ -460,7 +488,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     ours = [e.get('item') for e in root if e.get('item') and e.get('item') != 'A_Base']
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
-                     'HotButtonWnd', 'BreathWindow', 'RaidWindow'}
+                     'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -495,6 +523,8 @@ def check_inside_frame(name, expected_width=skin.WINDOW_WIDTH):
     assert window.find('Style_Titlebar').text == 'false'
     inner_width, inner_height = width - 2 * skin.BORDER, height - 2 * skin.BORDER
     for element in direct_pieces(root, window):
+        if element.findtext('AutoStretch') == 'true':
+            continue  # placed by its anchors, as the window's size comes out (see the bag window's tests)
         x, y, w, h = box(element)
         assert 0 <= x and x + w <= inner_width and 0 <= y and y + h <= inner_height, element.get('item')
     return root, window
@@ -1785,6 +1815,139 @@ def test_hot_button_spell_gems_center_the_spells_icon_on_the_button():
         template = gem.find('SpellGemDrawTemplate')
         assert [template.findtext(p) for p in ('Holder', 'Background', 'Highlight')] == [
             'TUI_HotButtonNormal', 'TUI_HotButtonNormal', 'TUI_Clear']
+
+
+BAG_IDS = ['Container_Label', 'Container_Icon', *(f'ContainerSlot{n}' for n in range(1, 11)), 'Container_Combine',
+           'DoneButton']
+
+
+def bag_window():
+    """The bag window's file, the window, and its controls by ScreenID."""
+    root, window = check_inside_frame(skin.CONTAINER_FILE, skin.BAG_WIDTH)
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+
+
+def bag_layout(slots, tradeskill):
+    """The bag window as the client lays it out for a bag of that many slots (eqgame.exe, SetContainer at
+    0x41717D): a box around the label, the icon and the visible slots, each measured as a plain rectangle, a
+    control of no size as a point; Combine (in a tradeskill container) then Done moved BAG_BUTTON_GAP under it,
+    each growing it by its XML height; the window the box plus 14 across and 36 down. Returns the window's outer
+    size and where the visible controls are drawn, by ScreenID: the slots where they are, the anchored buttons
+    where their anchors put them in the window's inside."""
+    root, window = screen(skin.CONTAINER_FILE)
+    controls = {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+    shown = [f'ContainerSlot{n}' for n in range(1, slots + 1)]
+    edges = []
+    for screen_id in ['Container_Label', 'Container_Icon', *shown]:
+        x, y, w, h = box(controls[screen_id])
+        edges.append((x, y, x + w, y + h))
+    left, top = min(e[0] for e in edges), min(e[1] for e in edges)
+    right, bottom = max(e[2] for e in edges), max(e[3] for e in edges)
+    for screen_id in (['Container_Combine'] if tradeskill else []) + ['DoneButton']:
+        bottom += skin.BAG_BUTTON_GAP + box(controls[screen_id])[3]
+        shown.append(screen_id)
+    width, height = right - left + skin.BAG_EXTRA_WIDTH, bottom - top + skin.BAG_EXTRA_HEIGHT
+    inside = width - 2 * skin.BORDER, height - 2 * skin.BORDER
+    drawn = {screen_id: anchored_rect(controls[screen_id], inside)
+             if controls[screen_id].findtext('AutoStretch') == 'true' else box(controls[screen_id])
+             for screen_id in shown}
+    return (width, height), drawn
+
+
+def test_bag_window_keeps_every_control_the_client_looks_for():
+    # eqgame.exe looks up the label, the icon, ContainerSlot1 to 10, Combine and DoneButton by ScreenID (the
+    # constructor at 0x416AE1) and no more: the installed copy of duxaUI's, which has no icon, logged "Could not find
+    # child Container_Icon". Each once, in the stock order.
+    root, window, controls = bag_window()
+    assert window.get('item') == 'ContainerWindow'
+    assert [e.findtext('ScreenID') for e in direct_pieces(root, window)] == BAG_IDS
+    slots = [controls[f'ContainerSlot{n}'] for n in range(1, 11)]
+    assert {s.tag for s in slots} == {'InvSlot'} and [int(s.findtext('EQType')) for s in slots] == list(range(30, 40))
+    # duxaUI's flags, and the hot bar's plain slot, solid like everything there (see its tests).
+    for s in slots:
+        assert [s.findtext(f) for f in ('Style_VScroll', 'Style_HScroll', 'Style_Transparent')] == ['false'] * 3
+        assert s.findtext('Background') == 'TUI_HotButtonNormal'
+    assert [controls[i].tag for i in ('Container_Icon', 'Container_Combine', 'DoneButton')] == ['Button'] * 3
+    # A fixed size like the other windows, so it drags by its background, and no title bar or close box: Done, Esc
+    # or the bag's own slot close it.
+    assert window.findtext('Style_Sizable') == 'false' and window.findtext('Style_Closebox') == 'false'
+
+
+def test_bags_show_no_name_or_icon_but_keep_both_at_the_grids_top_corners():
+    # The bags don't need to show their own name (the user). The client writes it into the label and puts the bag's
+    # icon on the icon button, so both stay, with no size or text. Its box starts with them, so they sit at the
+    # grid's top corners, points that make every bag's window the grid's width from the grid's top: at 0, 0 the
+    # window would have 4px on the left and 10 on the right, and a bag of a few slots a narrower window.
+    root, window, controls = bag_window()
+    label, icon = controls['Container_Label'], controls['Container_Icon']
+    assert label.tag == 'Label' and not label.findtext('Text') and label.find('EQType') is None
+    assert {s.text for s in icon.find('ButtonDrawTemplate')} == {'TUI_Clear'} and not icon.findtext('Text')
+    first, fourth = box(controls['ContainerSlot1']), box(controls['ContainerSlot4'])
+    assert box(icon) == (*first[:2], 0, 0) == (skin.BAG_LEFT, skin.BAG_TOP, 0, 0)
+    assert box(label) == (fourth[0] + fourth[2], fourth[1], 0, 0)
+    assert {bag_layout(slots, False)[0][0] for slots in range(1, 11)} == {skin.BAG_WIDTH}
+
+
+def test_bag_window_follows_the_spacing_standard_for_every_bag():
+    # The user's picks: four across on the hot bar's 36px grid, the window hugging each bag, Done across the bottom
+    # and Combine over it in a tradeskill container. The game adds 14px across, so the sides are 7px each (the
+    # user's pick over 6 and 8); down, everything is the standard's.
+    assert (skin.BAG_EXTRA_WIDTH, skin.BAG_EXTRA_HEIGHT, skin.BAG_BUTTON_GAP) == (14, 36, 4)  # eqgame.exe's
+    step = skin.HOT_SIZE + skin.PADDING
+    heights = {}
+    for slots in range(1, 11):
+        for tradeskill in (False, True):
+            (width, height), drawn = bag_layout(slots, tradeskill)
+            heights[slots, tradeskill] = height
+            inside = width - 2 * skin.BORDER, height - 2 * skin.BORDER
+            for screen_id, (x, y, w, h) in drawn.items():
+                assert 0 <= x and x + w <= inside[0] and 0 <= y and y + h <= inside[1], (slots, screen_id)
+            # The slots 36px, a padding apart, four to a row, 7px from the sides and 6 from the top.
+            grid = [drawn[f'ContainerSlot{n}'] for n in range(1, slots + 1)]
+            for n, spot in enumerate(grid):
+                assert spot == (skin.BAG_LEFT + n % 4 * step, skin.BAG_TOP + n // 4 * step, 36, 36)
+            assert width == skin.BAG_WIDTH == 176
+            assert skin.BORDER + skin.BAG_LEFT == 7 == width - (skin.BORDER + skin.BAG_LEFT + skin.BAG_CONTENT_WIDTH)
+            assert skin.BORDER + skin.BAG_TOP == skin.PADDING
+            # Then the buttons across the grid, a padding under the last row and apart, and the window's edge a
+            # padding under Done.
+            buttons = [drawn[i] for i in ('Container_Combine', 'DoneButton') if i in drawn]
+            assert len(buttons) == 1 + tradeskill
+            above = grid[-1][1] + skin.HOT_SIZE
+            for x, y, w, h in buttons:
+                assert (x, w, h) == (skin.BAG_LEFT, skin.BAG_CONTENT_WIDTH, skin.BUTTON_HEIGHT)
+                assert y - above == skin.PADDING, (slots, tradeskill)
+                above = y + h
+            assert height - (skin.BORDER + above) == skin.PADDING, (slots, tradeskill)
+    # A 10-slot bag, an 8-slot one, a 4-slot one and a 10-slot tradeskill container.
+    assert (heights[10, False], heights[8, False], heights[4, False], heights[10, True]) == (154, 112, 70, 176)
+    # The XML's size is a 10-slot bag's (the game sets its own).
+    root, window = screen(skin.CONTAINER_FILE)
+    assert box(window)[2:] == bag_layout(10, False)[0]
+
+
+def test_bag_buttons_are_pinned_to_the_bottom_with_their_labels_drawn_in():
+    # The game moves Combine and Done 4px under the slots and leaves 36px down to share (see CONTAINER_FILE), so
+    # both are pinned to the window's bottom, where the client draws them, and their XML heights are only what
+    # grows its box: Done's is negative, the game's 36px being more than the paddings need.
+    root, window, controls = bag_window()
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    assert [label for _, label, _, _ in skin.BAG_BUTTONS] == ['Combine', 'Done']
+    assert (skin.BAG_COMBINE_LAYOUT_HEIGHT, skin.BAG_DONE_LAYOUT_HEIGHT) == (18, -6)
+    for screen_id, label, bottom, layout_height in skin.BAG_BUTTONS:
+        button = controls[screen_id]
+        assert button.findtext('AutoStretch') == 'true'
+        assert anchors(button) == (skin.BAG_LEFT, bottom + skin.BUTTON_HEIGHT, skin.BAG_LEFT + skin.BAG_CONTENT_WIDTH,
+                                   bottom)
+        assert [button.findtext(f) for f in ('TopAnchorToTop', 'BottomAnchorToTop', 'RightAnchorToLeft')] == [
+            'false', 'false', 'true']
+        assert box(button)[2:] == (skin.BAG_CONTENT_WIDTH, layout_height)
+        assert button.findtext('Text') == '' and button.findtext('Style_Checkbox') == 'false'
+        for state in button.find('ButtonDrawTemplate'):
+            art = skin.button_art(skin.BAG_CONTENT_WIDTH, skin.BUTTON_HEIGHT, label, skin.BUTTON_ART[state.tag])
+            assert state.text == f'TUI_{art}'
+            assert cut(atlas, anims[state.text]).size == (skin.BAG_CONTENT_WIDTH, skin.BUTTON_HEIGHT)
 
 
 def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():

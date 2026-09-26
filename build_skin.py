@@ -228,7 +228,8 @@ LABEL_TOP = (BUTTON_HEIGHT - LABEL_HEIGHT) // 2
 LABEL_GLYPHS = {
     'A': ('.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'),
     'B': ('####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'),
-    'D': ('####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'),
+    'C': ('.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'),
+    'D':('####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'),
     'F': ('####', '#...', '#...', '###.', '#...', '#...', '#...'),
     'G': ('.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'),
     'I': ('#', '#', '#', '#', '#', '#', '#'),
@@ -611,6 +612,50 @@ HOT_PAGE_LABEL = 'HB_CurrentPageLabel'
 HOT_PAGE_WIDTH = 2 * HOT_SIZE + BUTTON_GAP  # the page row, over the two macro columns
 HOT_PAGE_LABEL_TOP = round(HOT_SIZE / 2 - DIGITS_INK_MIDDLE)  # the digits' ink centered on the row
 HOT_GEM_OFFSET = (HOT_SIZE - GEM_ICON) // 2  # a spell's 24px icon, centered on its spot
+# The bag window, the one each open bag gets (Screen ContainerWindow): its slots on the hot button window's grid,
+# four across (the user's pick), and Done across the window under them, with Combine over it in a tradeskill
+# container. No name: the bags don't need to show their own (the user). The game lays the window out itself
+# whenever a bag opens (eqgame.exe, SetContainer at 0x41717D): it hides the slots past the bag's size, never
+# moving one, shows Combine only in a tradeskill container, and measures a box around the label, the icon and the
+# visible slots (a plain min/max union at 0x4176EC, so a control of no size still counts, as a point, and the box
+# starts at the inside's corner if the label or the icon is missing). It moves Combine, then Done, BAG_BUTTON_GAP
+# under the box, each growing it by its XML height, and sizes the window to the box plus BAG_EXTRA_WIDTH across
+# and BAG_EXTRA_HEIGHT down (0x417633), whatever the XML's size.
+CONTAINER_FILE = 'EQUI_Container.xml'
+BAG_EXTRA_WIDTH = 14
+BAG_EXTRA_HEIGHT = 36
+BAG_BUTTON_GAP = 4
+BAG_SLOTS = 10  # ContainerSlot1 to 10, EQTypes 30 to 39: the client looks up no more
+BAG_SLOT_TYPE = 30
+BAG_COLUMNS = 4
+BAG_ROWS = -(-BAG_SLOTS // BAG_COLUMNS)
+BAG_CONTENT_WIDTH = BAG_COLUMNS * HOT_SIZE + (BAG_COLUMNS - 1) * BUTTON_GAP
+# Across, the game's 14px leave 7 each side of the grid (the user's pick over 6 and 8), an exception to the
+# spacing standard. Down, the grid starts a padding from the window's top.
+BAG_LEFT = (BAG_EXTRA_WIDTH - 2 * BORDER) // 2
+BAG_WIDTH = BAG_CONTENT_WIDTH + BAG_EXTRA_WIDTH
+BAG_TOP = LEFT
+# The label and the icon, hidden, are the box's points at the grid's top corners, so every bag's window is the
+# grid's width from the grid's top, however few its slots.
+BAG_ICON_SPOT = (BAG_LEFT, BAG_TOP)
+BAG_LABEL_SPOT = (BAG_LEFT + BAG_CONTENT_WIDTH, BAG_TOP)
+# Down, the game's 36px would leave about 30 under Done. So Combine and Done are pinned to the window's bottom
+# (AutoStretch): the client draws an anchored control where its anchors put it (GetLocation, 0x5750C0), wherever it
+# moved it, but grows its box by the XML height, which the loader keeps apart from the anchors (0x59BC9C). Each
+# button's XML height is its share of the window under the slots, less the gap the game adds anyway: Combine its
+# own row; Done the padding over it, itself and the window's bottom padding, less the game's 36 (so it's negative).
+BAG_DONE_BOTTOM = LEFT  # up from the inside's bottom, a padding from the window's edge
+BAG_COMBINE_BOTTOM = BAG_DONE_BOTTOM + BUTTON_HEIGHT + BUTTON_ROW_GAP
+BAG_COMBINE_LAYOUT_HEIGHT = BUTTON_ROW_GAP + BUTTON_HEIGHT - BAG_BUTTON_GAP
+BAG_DONE_LAYOUT_HEIGHT = (BAG_TOP + PADDING + BUTTON_HEIGHT + BAG_DONE_BOTTOM + 2 * BORDER - BAG_BUTTON_GAP
+                          - BAG_EXTRA_HEIGHT)
+# (ScreenID, label, bottom offset, XML height), in the stock order.
+BAG_BUTTONS = (('Container_Combine', 'Combine', BAG_COMBINE_BOTTOM, BAG_COMBINE_LAYOUT_HEIGHT),
+               ('DoneButton', 'Done', BAG_DONE_BOTTOM, BAG_DONE_LAYOUT_HEIGHT))
+BUTTON_LABELS[(BAG_CONTENT_WIDTH, BUTTON_HEIGHT)] = tuple(label for _, label, _, _ in BAG_BUTTONS)
+# The XML size is a 10-slot bag's; the game sets its own.
+BAG_HEIGHT = (2 * BORDER + BAG_TOP + BAG_ROWS * HOT_SIZE + (BAG_ROWS - 1) * BUTTON_ROW_GAP + PADDING + BUTTON_HEIGHT
+              + BAG_DONE_BOTTOM)
 # The Player window, trimmed to what the user wants, in the layout the user gave: "Health" and its
 # "current/max" (label 70) on a line, the HP bar under it as in the group window, the same for
 # "Mana" (Zeal's label 80, its numbers green, its bar a soft blue), a line with your XP/hour, then the
@@ -1722,8 +1767,6 @@ def button(name, screen_id, label, x, y, width=BUTTON_WIDTH, height=BUTTON_HEIGH
     """A button whose label is drawn in its art (see LABEL_GLYPHS), so its own text is empty. With font, the
     button shows text in that font over art with no label, or, with text empty, what the game writes there
     (an ability's or a social's name)."""
-    template = node('ButtonDrawTemplate', [node(state, f'TUI_{button_art(width, height, label, BUTTON_ART[state])}')
-                                           for state in BUTTON_STATES])
     children = [node('ScreenID', screen_id)] if screen_id else []
     if font is not None:
         children.append(node('Font', font))
@@ -1738,7 +1781,31 @@ def button(name, screen_id, label, x, y, width=BUTTON_WIDTH, height=BUTTON_HEIGH
     children += [node('Style_Checkbox', False), node('Text', text)]
     if font is not None:
         children.append(color('TextColor', TEXT_RGB))
-    return node('Button', children + [template], name)
+    return node('Button', children + [button_template(width, height, label)], name)
+
+
+def button_template(width, height, label):
+    """A button's art in every state, drawn at its size with its label in it."""
+    return node('ButtonDrawTemplate', [node(state, f'TUI_{button_art(width, height, label, BUTTON_ART[state])}')
+                                       for state in BUTTON_STATES])
+
+
+def anchored_button(name, screen_id, label, left, bottom, width, height, layout_height):
+    """A button like button()'s, width x height, pinned left in from the window's inner left edge and bottom up
+    from its bottom (the window's width never changes, so its right is measured from the left too). Its Location
+    and Size are only what the client's own layout reads: the Size's height is layout_height (see
+    CONTAINER_FILE)."""
+    return node('Button', [
+        node('ScreenID', screen_id),
+        node('RelativePosition', True),
+        point('Location', 0, 0),
+        size(width, layout_height),
+        *anchor_nodes((left, bottom + height, left + width, bottom), True, right_from_left=True),
+        node('Style_Transparent', False),
+        node('Style_Checkbox', False),
+        node('Text', ''),
+        button_template(width, height, label),
+    ], name)
 
 
 def icon_square(name, screen_id, x, y, tooltip, icon, side, checkbox, art, height=None):
@@ -1768,13 +1835,14 @@ def icon_button(name, screen_id, x, y, tooltip, icon, side=TOGGLE_SIZE):
     return icon_square(name, screen_id, x, y, tooltip, icon, side, False, ICON_ART)
 
 
-def hidden_button(name, screen_id):
+def hidden_button(name, screen_id, x=0, y=0):
     """A button the client looks up when it builds a window (it reports an error if one is missing) but
-    the user doesn't want: no size, no text and clear art, so it can't be seen or clicked."""
+    the user doesn't want: no size, no text and clear art, so it can't be seen or clicked. It sits at x, y,
+    which matters only where the client measures it (see BAG_ICON_SPOT)."""
     return node('Button', [
         node('ScreenID', screen_id),
         node('RelativePosition', True),
-        point('Location', 0, 0),
+        point('Location', x, y),
         size(0, 0),
         node('Style_Transparent', True),
         node('Style_Checkbox', False),
@@ -1819,22 +1887,31 @@ def window(item, title, height, parts, tooltip=None, width=WINDOW_WIDTH, inner=(
     return list(inner) + parts + [node('Screen', children + [node('Pieces', part[2]) for part in parts], item)]
 
 
-def stretched(tag, name, screen_id, template, offsets, top_from_bottom, extra):
-    """A control that stretches with a resizable window. offsets are (left, top, right, bottom) in from
-    the window's inner edges; top_from_bottom measures the top edge up from the bottom instead."""
+def anchor_nodes(offsets, top_from_bottom, right_from_left=False):
+    """AutoStretch and the anchors that pin a control to its window's inner edges: offsets are (left, top, right,
+    bottom) in from them, the bottom measured up from the bottom edge. top_from_bottom measures the top up from the
+    bottom too, and right_from_left the right from the left edge."""
     left, top, right, bottom = offsets
-    return node(tag, [
-        node('ScreenID', screen_id),
-        node('DrawTemplate', template),
-        node('RelativePosition', True),
+    return [
         node('AutoStretch', True),
         node('LeftAnchorOffset', left),
         node('TopAnchorOffset', top),
         node('RightAnchorOffset', right),
         node('BottomAnchorOffset', bottom),
         node('TopAnchorToTop', not top_from_bottom),
-        node('RightAnchorToLeft', False),
+        node('RightAnchorToLeft', right_from_left),
         node('BottomAnchorToTop', False),
+    ]
+
+
+def stretched(tag, name, screen_id, template, offsets, top_from_bottom, extra):
+    """A control that stretches with a resizable window. offsets are (left, top, right, bottom) in from
+    the window's inner edges; top_from_bottom measures the top edge up from the bottom instead."""
+    return node(tag, [
+        node('ScreenID', screen_id),
+        node('DrawTemplate', template),
+        node('RelativePosition', True),
+        *anchor_nodes(offsets, top_from_bottom),
     ] + extra, name)
 
 
@@ -2122,10 +2199,11 @@ def hidden_gauge(name, screen_id, eq_type):
     ], name)
 
 
-def hidden_label(name, screen_id):
+def hidden_label(name, screen_id, x=0, y=0):
     """A label the client looks up (and may write in) but the user doesn't want: no size and no text, in the
-    panel's color in case the client draws its text anyway."""
-    return label(name, None, (0, 0, 0, 0), '', screen_id=screen_id, rgb=PANEL_RGBA[:3])
+    panel's color in case the client draws its text anyway. It sits at x, y, which matters only where the client
+    measures it (see BAG_LABEL_SPOT)."""
+    return label(name, None, (x, y, 0, 0), '', screen_id=screen_id, rgb=PANEL_RGBA[:3])
 
 
 def listbox(name, screen_id, rect, tooltip, columns):
@@ -2321,6 +2399,22 @@ def hot_button_window():
                   tooltip='Hot Buttons', width=HOT_WIDTH)
 
 
+def container_window():
+    """A bag's window (see CONTAINER_FILE): its slots four across, then Done across the bottom, with Combine over it
+    in a tradeskill container. The bag's name and icon are there, hidden, at the grid's top corners."""
+    name = hidden_label('TUI_Bag_Label', 'Container_Label', *BAG_LABEL_SPOT)
+    icon = hidden_button('TUI_Bag_Icon', 'Container_Icon', *BAG_ICON_SPOT)
+    slots = [inv_slot(f'TUI_Bag_Slot{n}', f'ContainerSlot{n}', BAG_SLOT_TYPE + n - 1,
+                      (BAG_LEFT + (n - 1) % BAG_COLUMNS * HOT_PITCH, BAG_TOP + (n - 1) // BAG_COLUMNS * HOT_PITCH),
+                      'TUI_HotButtonNormal')
+             for n in range(1, BAG_SLOTS + 1)]
+    buttons = [anchored_button(f'TUI_Bag_{label_text}', screen_id, label_text, BAG_LEFT, bottom, BAG_CONTENT_WIDTH,
+                               BUTTON_HEIGHT, layout_height)
+               for screen_id, label_text, bottom, layout_height in BAG_BUTTONS]
+    return window('ContainerWindow', 'Container', BAG_HEIGHT, [name, icon, *slots, *buttons], tooltip='Container',
+                  width=BAG_WIDTH)
+
+
 def raid_window():
     """The raid's players in a group, then those in none under a caption, each list's columns group, name, class
     and rank, and the raid's buttons under them in two rows of three (see RAID_FILE)."""
@@ -2345,7 +2439,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
-                BREATH_FILE: breath_window, RAID_FILE: raid_window}
+                BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window}
 
 
 def stranded_definitions(skin_xml):
