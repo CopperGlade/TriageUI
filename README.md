@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · by 
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, casting, chat, pet, window selector, actions, hot button, effects, songs and player windows, and the spell bar.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, casting, air, chat, pet, window selector, actions, hot button, effects, songs and player windows, and the spell bar.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows. Drag a window by its background to move it, and a chat window by the thin strip along its top.
 
@@ -29,6 +29,10 @@ The buttons along the bottom are **Invite** and **Disband**. While you have an i
 ## The casting window
 
 **Casting:** and the spell's name, in a soft red, above a bar in the same red across the whole window that fills as the cast completes. It's as wide as the target window, so the two line up when stacked. The spell's name comes from Zeal. The bar is the countdown: the game doesn't give skins the remaining time as a number.
+
+## The air window
+
+Your air while you're underwater: **Air Remaining**, in a soft cyan, above a bar in the same cyan across the whole window that empties as your air runs out. It's the casting window's size, so the two line up when stacked. The bar is all there is: the game doesn't give skins your air as a number.
 
 ## The spell bar
 
@@ -120,7 +124,7 @@ Both windows share the game's blue and red effect backgrounds with a few other w
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
-- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow` or `TUI_` are about TriageUI.
+- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 

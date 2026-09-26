@@ -26,7 +26,7 @@ BASE_ANIMATIONS = (
 # The order the client loads them in (default's EQUI.xml).
 LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CASTSPELL_FILE,
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE, skin.HOTBUTTON_FILE,
-              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE]
+              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE]
 
 
 @functools.cache
@@ -248,9 +248,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     # Not the hidden ones, which have no size.
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The server tick, the target's bar and %, the casting bar, your pet's bar and %, each group member,
-    # pet and %, the Player window's HP and mana and its XP/hour's %, and the spell bar's recast bars and global
-    # recovery.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 3 + skin.GEM_COUNT + 1
+    # pet and %, the Player window's HP and mana and its XP/hour's %, the spell bar's recast bars and global
+    # recovery, and the air bar.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 3 + skin.GEM_COUNT + 1 + 1
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -453,7 +453,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     ours = [e.get('item') for e in root if e.get('item') and e.get('item') != 'A_Base']
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
-                     'HotButtonWnd'}
+                     'HotButtonWnd', 'BreathWindow'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -610,7 +610,8 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Target_ZealTick',
-                                                  'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast', *group_percents))
+                                                  'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge',
+                                                  *group_percents))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
 
@@ -821,6 +822,28 @@ def test_casting_window_is_the_target_windows_size_with_a_full_width_bar():
     width, height = box(screen(skin.TARGET_FILE)[1])[2:]
     assert height - skin.TARGET_NAME_TOP == skin.TARGET_HEIGHT
     assert box(screen(skin.CASTING_FILE)[1])[2:] == (width, skin.TARGET_HEIGHT)
+
+
+def test_air_window_is_the_casting_windows_twin_in_soft_cyan():
+    # The user's picks: "Air Remaining" over a full-width bar, the casting window's size so the two line up when
+    # stacked, both in a soft cyan. The game gives skins no number for the air left.
+    root, window = check_inside_frame(skin.BREATH_FILE, skin.TARGET_WIDTH)
+    assert box(window)[2:] == box(screen(skin.CASTING_FILE)[1])[2:]
+    assert window.findtext('Text') == 'Air Remaining'
+    assert window.findtext('TooltipReference') == 'The Breath Meter'  # the default skin's
+    found = parts(root)
+    caption, bar = found['TUI_Breath_Caption'], found['TUI_Breath_Gauge']
+    assert caption.findtext('Text') == 'Air Remaining' and caption.find('EQType') is None
+    assert box(caption)[:2] == (skin.LEFT, 0)
+    # The stock window's gauge, where the casting bar is, with its own text hidden.
+    assert bar.findtext('EQType') == '8' and bar.findtext('ScreenID') == 'Gauge'
+    assert box(bar) == box(parts(everything())['TUI_Casting_Gauge'])
+    assert number(bar, 'TextOffsetY') > box(bar)[3]
+    assert skin.AIR_RGB == (128, 216, 232)
+    assert rgb(caption, 'TextColor') == rgb(bar, 'FillTint') == skin.AIR_RGB
+    anims = items(everything(), 'Ui2DAnimation')
+    assert colors(anims[bar.findtext('GaugeDrawTemplate/Fill')]) == {skin.BAR_FILL}
+    assert colors(anims[bar.findtext('GaugeDrawTemplate/Background')]) == {skin.EDGE_FADED}
 
 
 def test_pet_window_is_the_target_windows_shape_with_its_commands():

@@ -48,6 +48,9 @@ PET_RGB = (138, 138, 138)  # the overlay's grey, '#8a8a8a'
 # white, and came back to this.
 SPELL_RGB = (232, 128, 128)
 MANA_RGB = (120, 165, 235)  # the mana bar: a soft blue, so mana reads apart from HP (the user's pick)
+# The air window's caption and bar: a soft cyan, '#80d8e8', the stock bar's cyan toned down like the casting
+# red (the user's pick).
+AIR_RGB = (128, 216, 232)
 # The group window's member names and health %: the mana bar's soft blue, which the user asked to try, as the
 # members didn't read well in the text's white.
 GROUP_RGB = MANA_RGB
@@ -111,6 +114,7 @@ ANIMATIONS_FILE = 'EQUI_Animations.xml'
 GROUP_FILE = 'EQUI_GroupWindow.xml'
 TARGET_FILE = 'EQUI_TargetWindow.xml'
 CASTING_FILE = 'EQUI_CastingWindow.xml'
+BREATH_FILE = 'EQUI_BreathWindow.xml'  # the air window: duxaUI has none, so it was default's
 CHAT_FILE = 'EQUI_ChatWindow.xml'
 
 # Layout. Positions inside a window are relative to the area inside the frame. EQ's built-in fonts run
@@ -1834,6 +1838,17 @@ def casting_window():
     ], width=TARGET_WIDTH)
 
 
+def breath_window():
+    """'Air Remaining' above a bar that empties as your air runs out (gauge 8): the casting window's twin, so the
+    two line up when stacked, in soft cyan (the user's picks). No label gives the air as a number."""
+    return window('BreathWindow', 'Air Remaining', TARGET_HEIGHT, [
+        label('TUI_Breath_Caption', None, (LEFT, 0, TARGET_RIGHT - LEFT, TEXT_HEIGHT), 'Air Remaining', rgb=AIR_RGB),
+        # The casting bar's art, which is this bar's size.
+        gauge('TUI_Breath_Gauge', 'Gauge', 8, (LEFT, TWIN_BAR_TOP, CAST_BAR_WIDTH, TWIN_BAR_HEIGHT), 'TUI_CastFill',
+              AIR_RGB, track='TUI_CastTrack'),
+    ], tooltip='The Breath Meter', width=TARGET_WIDTH)
+
+
 def chat_window():
     """Every chat window: a really thin title bar to drag it by, the chat straight on the panel with a
     slim scrollbar, and the input line on a plain strip along the bottom. All of it follows the window
@@ -2176,7 +2191,8 @@ def hot_button_window():
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
-                ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window}
+                ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
+                BREATH_FILE: breath_window}
 
 
 def stranded_definitions(skin_xml):
