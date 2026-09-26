@@ -248,8 +248,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     # Not the hidden ones, which have no size.
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The server tick, the target's bar and %, the casting bar, your pet's bar and %, each group member,
-    # pet and %, the Player window's HP and mana, and the spell bar's recast bars and global recovery.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 2 + skin.GEM_COUNT + 1
+    # pet and %, the Player window's HP and mana and its XP/hour's %, and the spell bar's recast bars and global
+    # recovery.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 3 + skin.GEM_COUNT + 1
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -1430,8 +1431,9 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         assert b.findtext('ButtonDrawTemplate/NormalDecal') == skin.BUFF_ICONS
         # The decal offset is within the slot; the icon's place in the window stays ROW_ICON_X.
         assert (x + number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
-        # The icon 18px further in than the window's padding (the user's call), 24px from its edge.
-        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + skin.TIMER_WIDTH == 24
+        # The icon 23px further in than the window's padding (the user's call: at 18 Zeal's time box covered
+        # some icons), 29px from its edge.
+        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + skin.TIMER_WIDTH == 29
         assert (number(b, 'DecalSize/CX'), number(b, 'DecalSize/CY')) == (skin.ROW_ICON, skin.ROW_ICON)
         assert skin.BORDER + skin.ROW_ICON_MARGIN == skin.PADDING
         # The name a padding after the icon, centered in the row, ending a padding from the edge.
@@ -1522,15 +1524,20 @@ def test_spell_bar_is_a_table_of_gems_with_names_recast_bars_and_the_book():
     assert line.size == (right - skin.LEFT, 1) and set(pixels(line)) == {skin.ROW_DIVIDER_RGBA}
     # The book: an icon toggle like the selector's but across the window, a big target for a hurried click (the
     # user's request), pressed while the book is open, with the default tooltip. In a row of its own under the
-    # last gem's divider, for balance: a padding under it and from the window's edges.
+    # last gem's divider, for balance: a padding under it and from the window's sides. Under it, as many clear
+    # pixels as over it: the window's 1px edge line doesn't count toward the gap (the user saw the gap under
+    # the book smaller than the one over it when it did).
     book = next(root.iter('Button'))
     bx, by, bw, bh = box(book)
     assert (bx, bw, bh) == (skin.LEFT, right - skin.LEFT, skin.TOGGLE_SIZE)
     assert skin.BORDER + bx == skin.PADDING == box(window)[2] - (skin.BORDER + bx + bw)
     last_divider = box(list(root.iter('StaticAnimation'))[-1])
     assert last_divider[1] == box(gems[-1])[1] + skin.GEM_ROW_HEIGHT
-    assert by - (last_divider[1] + 1) == skin.PADDING
-    assert height - (skin.BORDER + by + bh) == skin.PADDING
+    clear_over = by - (last_divider[1] + 1)
+    edge_line = height - skin.EDGE_LINE  # the window's last row
+    assert clear_over == edge_line - (skin.BORDER + by + bh) == skin.PADDING
+    column = [row[box(window)[2] // 2] for row in skin.panel_texture(box(window)[2], height).rows]
+    assert column[edge_line] != skin.PANEL_RGBA and column[edge_line - 1] == skin.PANEL_RGBA
     assert book.findtext('Style_Checkbox') == 'true'
     assert book.findtext('TooltipReference') == 'Opens and closes Your Spellbook'
     assert {s.text for s in book.find('ButtonDrawTemplate')} == {
@@ -1665,15 +1672,16 @@ def test_hot_button_window_art_is_solid_and_empty_slots_show_dimmed_icons():
         fill = skin.button_look('Wash', state)[0]
         assert cut(atlas, anims[f'TUI_HotButton{state}']).getpixel(fill_spot) == skin.snapped(
             skin.over(fill, 1, skin.PANEL_RGBA))
-    # Each empty weapon slot shows its own icon, in the middle 16px of the macros' plain button, dimmed like a
-    # closed selector toggle's. An empty bag slot is the plain button: anything goes there, and a sack icon read
-    # as a ring in game (the user).
+    # Each empty weapon slot shows its own icon, big, in the middle of the macros' plain button (see the next
+    # test), in the row dividers' color as it shows over the panel (the user wanted them subdued). An empty bag
+    # slot is the plain button: anything goes there, and a sack icon read as a ring in game (the user).
     slots = [e for e in root.iter('InvSlot') if e.findtext('EQType') != '-1']
     icons = {int(e.findtext('EQType')): e.findtext('Background') for e in slots}
     assert [icons[t] for t in (13, 14, 11, 21)] == [f'TUI_HotSlot{n}' for n in ('Primary', 'Secondary', 'Range', 'Ammo')]
     assert {icons[t] for t in range(22, 30)} == {'TUI_HotButtonNormal'}
-    inset = (skin.HOT_SIZE - skin.ICON_SIZE) // 2
-    icon_box = (inset, inset, inset + skin.ICON_SIZE, inset + skin.ICON_SIZE)
+    inset = int((skin.HOT_SIZE - skin.SLOT_ICON_SHARE * skin.HOT_SIZE) / 2)  # 4: the ink starts 4.5px in
+    icon_box = (inset, inset, skin.HOT_SIZE - inset, skin.HOT_SIZE - inset)
+    divider = skin.snapped(skin.over(skin.ROW_DIVIDER_RGBA, 1, skin.PANEL_RGBA))
     plain = cut(atlas, anims['TUI_HotButtonNormal'])
     plain.paste((0, 0, 0, 0), icon_box)
     drawn = set()
@@ -1681,11 +1689,29 @@ def test_hot_button_window_art_is_solid_and_empty_slots_show_dimmed_icons():
         art = cut(atlas, anims[f'TUI_HotSlot{name}'])
         assert art.size == (skin.HOT_SIZE, skin.HOT_SIZE)
         drawn.add(art.crop(icon_box).tobytes())
-        brightest = max(sum(p[:3]) for p in pixels(art.crop(icon_box)))
-        assert sum(skin.ICON_RGB) > brightest > sum(plain.getpixel(fill_spot)[:3])
+        assert max(pixels(art.crop(icon_box)), key=lambda p: sum(p[:3])) == divider, name
+        assert sum(divider[:3]) > sum(plain.getpixel(fill_spot)[:3])
         art.paste((0, 0, 0, 0), icon_box)
         assert art.tobytes() == plain.tobytes(), name
     assert len(drawn) == len(skin.SLOT_ICONS) == 4
+
+
+def test_the_empty_slots_icons_fill_three_quarters_of_the_slot():
+    # The user asked for the sword, shield, bow and arrow to take about 75% of the slot's diagonal: each icon's
+    # ink fills a box 75% of the slot's side at its longer side (27px, 4.5px in from each side), centered on the
+    # slot, so the sword and arrow, running corner to corner, take about 75% of the diagonal.
+    for name, shape in skin.SLOT_ICONS.items():
+        coverage = skin.slot_icon_coverage(shape)
+        assert len(coverage) == len(coverage[0]) == skin.HOT_SIZE
+        rows = [y for y, row in enumerate(coverage) if max(row)]
+        columns = [x for x in range(skin.HOT_SIZE) if max(row[x] for row in coverage)]
+        assert max(rows[-1] - rows[0], columns[-1] - columns[0]) == 27, name  # ink from 4.5 to 31.5: pixels 4 to 31
+        assert rows[0] + rows[-1] == columns[0] + columns[-1] == skin.HOT_SIZE - 1, name  # centered
+        if name in ('Primary', 'Ammo'):
+            # Along the diagonal: a pixel's x - y steps by 2 for every pixel diagonal (HOT_SIZE of them).
+            inked = [(x, y) for y, row in enumerate(coverage) for x, amount in enumerate(row) if amount]
+            along = max(x - y for x, y in inked) - min(x - y for x, y in inked)
+            assert 0.7 < along / (2 * skin.HOT_SIZE) < 0.8, name
 
 
 def test_hot_button_spell_gems_center_the_spells_icon_on_the_button():
@@ -1701,8 +1727,8 @@ def test_hot_button_spell_gems_center_the_spells_icon_on_the_button():
             'TUI_HotButtonNormal', 'TUI_HotButtonNormal', 'TUI_Clear']
 
 
-def test_player_window_shows_hp_mana_and_resists_only():
-    # The user wanted only the HP and mana bars and values and the resists, abbreviated.
+def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
+    # The user wanted only the HP and mana bars and values and the resists, abbreviated, then XP/hour.
     # 10% narrower than the others, then 10% more (the user's requests), with the usual padding each side.
     assert skin.PLAYER_WIDTH == skin.PET_WIDTH == 177  # as wide as the pet window (the user's request)
     assert skin.PLAYER_CONTENT_WIDTH == skin.PLAYER_WIDTH - 2 * skin.PADDING
@@ -1763,9 +1789,28 @@ def test_player_window_shows_hp_mana_and_resists_only():
     assert [c for c, _ in skin.RESISTS] == ['DR', 'PR', 'MR', 'FR', 'CR']
     assert columns[0][0] == skin.LEFT and columns[-1][0] + columns[-1][1] == skin.PLAYER_RIGHT
     assert all(a[0] + a[1] == b[0] for a, b in zip(columns, columns[1:]))
-    # The resist captions' ink two paddings under the mana bar (the user asked for 6px more).
+    # XP/hour on its own line under Mana (the user's pick), like a section with no bar: its caption's ink a
+    # padding under the mana bar, then Zeal's label 81 (a whole percent of a level an hour) with the drawn %
+    # after it ending at the window's padding, both in the values' green. The % shows while your own health is
+    # above 0, so always.
     mana_bar = box(by_id['PlayerMana'])
-    assert box(labels['TUI_PW_DRCaption'])[1] + skin.CAPTION_INK_TOP - (mana_bar[1] + mana_bar[3]) == 2 * skin.PADDING
+    xp_head, xp_number = labels['TUI_PW_ExpPerHourCaption'], labels['TUI_PW_ExpPerHour']
+    xp_top = box(xp_head)[1]
+    assert xp_head.findtext('Text') == 'XP/hour' and rgb(xp_head, 'TextColor') == skin.CAPTION_RGB
+    assert box(xp_head)[0] == skin.LEFT and xp_top == skin.PLAYER_SECTIONS_TOP + 2 * skin.PLAYER_SECTION_PITCH
+    assert skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (mana_bar[1] + mana_bar[3]) < skin.PADDING + 1
+    assert xp_number.findtext('EQType') == '81' and xp_number.findtext('AlignRight') == 'true'
+    assert rgb(xp_number, 'TextColor') == skin.VALUE_RGB and not xp_number.findtext('Text')
+    nx, ny, nw, nh = box(xp_number)
+    assert ny == xp_top and box(xp_head)[0] + box(xp_head)[2] <= nx
+    clip = items(root, 'Screen')['TUI_PW_ExpPerHourPercent_Clip']
+    assert box(clip) == (nx + nw, xp_top + skin.PERCENT_INK_TOP, skin.PERCENT_WIDTH, skin.PERCENT_GLYPH_HEIGHT)
+    assert box(clip)[0] + box(clip)[2] == skin.PLAYER_RIGHT
+    percent = items(root, 'Gauge')[clip.find('Pieces').text]
+    assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.VALUE_RGB
+    # The resist captions' ink two paddings under the XP/hour line's ink (the user asked for 6px more).
+    xp_ink_bottom = xp_top + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
+    assert box(labels['TUI_PW_DRCaption'])[1] + skin.CAPTION_INK_TOP - xp_ink_bottom == 2 * skin.PADDING
     # The window's bottom edge a padding under the resists' numbers' ink (the drawn %'s bottom).
     numbers = box(labels['TUI_PW_DR'])
     ink_bottom = skin.BORDER + numbers[1] + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
@@ -1779,8 +1824,8 @@ def test_player_window_shows_hp_mana_and_resists_only():
     # The name at the top like the other windows' first lines: the server tick moved to the target window
     # (the user's request).
     assert box(name)[1] == 0 and 'ZealTick' not in by_id
-    # Nothing else: no stamina, experience or other stats.
-    assert len(labels) == 1 + 2 * 4 + 2 * len(skin.RESISTS)
+    # Nothing else: no stamina, experience bar or other stats.
+    assert len(labels) == 1 + 2 * 4 + 2 + 2 * len(skin.RESISTS)
 
 
 def test_slot_backgrounds_are_redefined_solid_panel_and_a_faint_red():

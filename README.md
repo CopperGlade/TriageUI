@@ -65,11 +65,11 @@ The window is only as tall as the socials page, the tallest. The game needs all 
 
 ## The hot button window
 
-Your hot bar in duxaUI's shape, so everything is where you're used to it, on a grid of square buttons. On the left, the page arrows with the page number between them, and your ten hot buttons under them, two to a row, each with its name in the game's small font (or the item's or spell's icon). On the right, your **Primary** and **Secondary**, **Range** and **Ammo** slots, then your eight bag slots in two columns, 1 to 4 and 5 to 8. An empty weapon slot shows a faint icon of what goes there: a sword, a shield, a bow and an arrow. An empty bag slot is a plain square.
+Your hot bar in duxaUI's shape, so everything is where you're used to it, on a grid of square buttons. On the left, the page arrows with the page number between them, and your ten hot buttons under them, two to a row, each with its name in the game's small font (or the item's or spell's icon). On the right, your **Primary** and **Secondary**, **Range** and **Ammo** slots, then your eight bag slots in two columns, 1 to 4 and 5 to 8. An empty weapon slot shows a large, faint icon of what goes there, in the color of the lines between rows elsewhere: a sword, a shield, a bow and an arrow. An empty bag slot is a plain square.
 
 ## The player window
 
-Just what you need at a glance, as wide as the pet window. Your name, **Health** with your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in a soft blue. The numbers are green, like the resists' values, with a white slash between them. Mana's numbers come from Zeal. Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white like your name.
+Just what you need at a glance, as wide as the pet window. Your name, **Health** with your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in a soft blue. The numbers are green, like the resists' values, with a white slash between them. Mana's numbers come from Zeal. Then **XP/hour**, from Zeal: the percent of a level you're gaining an hour, averaged over up to the last two hours (type `/resetexp` to start it over). Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white like your name.
 
 ## The effects and songs windows
 

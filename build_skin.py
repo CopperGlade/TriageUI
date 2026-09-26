@@ -485,9 +485,10 @@ ROW_WIDTH = WINDOW_WIDTH - 2 * BORDER
 SLOT_WIDTH = ROW_WIDTH - 2 * LEFT
 # Zeal's Buff Timers draws each effect's time left as a tooltip box pinned to its slot button's top left
 # (ui_buff.cpp, BuffWindow_PostDraw), in its largest unit only ("2h", "18m", "45s"). It sat over the
-# start of the names in game, so the icon starts TIMER_WIDTH further in than the window's padding: 18px,
-# the user's call in game (36, then 24 left too much room before the names), then the name.
-TIMER_WIDTH = 18
+# start of the names in game, so the icon starts TIMER_WIDTH further in than the window's padding: 23px,
+# the user's call in game (36, then 24 left too much room before the names; at 18 the box covered some of
+# the icons, so 5 more), then the name.
+TIMER_WIDTH = 23
 ROW_ICON_X = LEFT + TIMER_WIDTH  # from the inside's left edge; the slot button starts LEFT in
 ROW_NAME_X = ROW_ICON_X + ROW_ICON + PADDING
 HARMFUL_RGBA = (255, 68, 68, 34)  # the faint red over a harmful row, on the 16-bit steps
@@ -539,11 +540,14 @@ RECAST_TOP = GEM_NAME_TOP + TEXT_HEIGHT + PET_BAR_GAP  # a pixel under the name'
 RECAST_WIDTH = SPELL_BAR_RIGHT - GEM_NAME_X
 GEMS_TOP = TICK_TOP + TICK_HEIGHT + PADDING - GEM_ICON_MARGIN  # the first icon a padding under the global bar
 # The book's toggle a padding under the divider that closes the last gem's row, from padding to padding across
-# the window; the window ends a padding under it.
+# the window. Under it, a padding of clear pixels over the window's 1px edge line (EDGE_LINE), as over the
+# divider: the usual padding to the window's outer edge counts the edge line, which left the gap under the book
+# visibly smaller than the one above it (the user).
+EDGE_LINE = 1
 LAST_DIVIDER_TOP = GEMS_TOP + GEM_COUNT * GEM_ROW_PITCH - DIVIDER_HEIGHT
 BOOK_TOP = LAST_DIVIDER_TOP + DIVIDER_HEIGHT + PADDING
 BOOK_WIDTH = SPELL_BAR_CONTENT_WIDTH
-SPELL_BAR_HEIGHT = 2 * BORDER + BOOK_TOP + TOGGLE_SIZE + LEFT
+SPELL_BAR_HEIGHT = 2 * BORDER + BOOK_TOP + TOGGLE_SIZE + LEFT + EDGE_LINE
 # The hot button window, which the user calls the slot window: duxaUI's shape (the user's pick) in our look.
 # On the left, the page arrows and page number over the ten macros, two to a row; on the right, the weapon
 # slots (Primary and Secondary, Range and Ammo) over the bag slots, two columns of four. Every spot is a 36px
@@ -582,8 +586,8 @@ HOT_PAGE_LABEL_TOP = round(HOT_SIZE / 2 - DIGITS_INK_MIDDLE)  # the digits' ink 
 HOT_GEM_OFFSET = (HOT_SIZE - GEM_ICON) // 2  # a spell's 24px icon, centered on its spot
 # The Player window, trimmed to what the user wants, in the layout the user gave: "Health" and its
 # "current/max" (label 70) on a line, the HP bar under it as in the group window, the same for
-# "Mana" (Zeal's label 80, its numbers green, its bar a soft blue), then the resists as a small
-# table, a caption over each number, abbreviated as the user prefers. Each section starts a padding
+# "Mana" (Zeal's label 80, its numbers green, its bar a soft blue), a line with your XP/hour, then the
+# resists as a small table, a caption over each number, abbreviated as the user prefers. Each section starts a padding
 # under the bar above, measured to the caption's ink. The client looks up its four gauges; stamina and
 # pet stay, hidden.
 PLAYER_FILE = 'EQUI_PlayerWindow.xml'
@@ -614,8 +618,13 @@ CAPTION_HEIGHT = 12
 # them in the overlay's subdued grey.
 CAPTION_RGB = TEXT_RGB
 CAPTION_INK_TOP = 2  # font 2's capitals start about this far into their line (Arial 10px)
-# The resists a padding further down than the rule's (the user's request).
-RESISTS_TOP = PLAYER_SECTIONS_TOP + PLAYER_SECTION_PITCH + BAR_TOP + BAR_HEIGHT + 2 * PADDING - CAPTION_INK_TOP
+# XP/hour (the user's request), on its own line under the mana bar like a section with no bar (the user's pick
+# from a mockup): Zeal's label 81, the percent of a level you gain an hour, a whole number from 0 to 600, averaged
+# over up to the last two hours (/resetexp starts it over), with the drawn % after it.
+XP_PER_HOUR_TYPE = 81
+PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH
+# The resists a padding further down than the rule's (the user's request), under the XP/hour line's ink.
+RESISTS_TOP = PLAYER_XP_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + 2 * PADDING - CAPTION_INK_TOP
 # Under the resists' numbers, whose ink ends where the drawn %'s does, the window's edge a padding away.
 PLAYER_BOTTOM_GAP = PADDING - BORDER - (TEXT_HEIGHT - PERCENT_INK_TOP - PERCENT_GLYPH_HEIGHT)
 ROW_DIVIDER_RGBA = (255, 255, 255, 34)  # softer than the bars' track, at the user's request
@@ -1046,16 +1055,42 @@ def ammo_icon(x, y):
 
 
 SLOT_ICONS = {'Primary': primary_icon, 'Secondary': secondary_icon, 'Range': range_icon, 'Ammo': ammo_icon}
+# They're drawn big, strokes and all: each icon's ink fills a box SLOT_ICON_SHARE of the slot's side at its
+# longer side, centered on the slot, so the sword and arrow, running corner to corner, take about that much of
+# its diagonal. The user asked for about 75% of the diagonal for all four; by the diagonal alone, the upright
+# shield would outgrow the slot.
+SLOT_ICON_SHARE = 0.75
+# In the row dividers' color (the group and effects windows') as it shows over the panel: the user wanted the
+# icons more subdued.
+SLOT_ICON_RGBA = snapped(over(ROW_DIVIDER_RGBA, 1, PANEL_RGBA))
+INK_STEP = 1 / 8  # how finely ink_box() looks for an icon's ink
 
 
-def icon_coverage(shape):
-    """How much of each pixel of the ICON_SIZE grid shape inks, 0 to 1, rows top first. Only pixels near
+def ink_box(shape):
+    """The box (left, top, right, bottom) around shape's ink, to INK_STEP, on its ICON_SIZE grid and a margin."""
+    steps = [i * INK_STEP for i in range(round(-2 / INK_STEP), round((ICON_SIZE + 2) / INK_STEP) + 1)]
+    ink = [(x, y) for y in steps for x in steps if shape(x, y) < 0]
+    return (min(x for x, _ in ink), min(y for _, y in ink), max(x for x, _ in ink), max(y for _, y in ink))
+
+
+def slot_icon_coverage(shape):
+    """shape's coverage on a HOT_SIZE grid, scaled up so its ink's box is SLOT_ICON_SHARE of the slot at its
+    longer side, and centered on it."""
+    left, top, right, bottom = ink_box(shape)
+    scale = SLOT_ICON_SHARE * HOT_SIZE / max(right - left, bottom - top)
+    middle_x, middle_y, half = (left + right) / 2, (top + bottom) / 2, HOT_SIZE / 2
+    return icon_coverage(
+        lambda x, y: shape(middle_x + (x - half) / scale, middle_y + (y - half) / scale) * scale, HOT_SIZE)
+
+
+def icon_coverage(shape, size=ICON_SIZE):
+    """How much of each pixel of the size-square grid shape inks, 0 to 1, rows top first. Only pixels near
     the ink's edge are supersampled."""
     step = 1 / SUPERSAMPLE
     rows = []
-    for py in range(ICON_SIZE):
+    for py in range(size):
         row = []
-        for px in range(ICON_SIZE):
+        for px in range(size):
             center = shape(px + 0.5, py + 0.5)
             if abs(center) > 1.5:
                 row.append(1.0 if center < 0 else 0.0)
@@ -1087,6 +1122,17 @@ def tab_art(coverage, state, width):
     art = Texture(width, TAB_ART_HEIGHT)
     art.paste(toggle_art(coverage, state, width, TOGGLE_SIZE), 0, TAB_SHIFT if state == 'Pressed' else 0)
     return art
+
+
+def slot_icon_art(shape):
+    """An empty item slot in the hot button window: the macros' plain button with shape's icon on it, big and
+    in the dividers' color (see SLOT_ICON_SHARE), solid()."""
+    art = labeled_button_art(HOT_SIZE, HOT_SIZE, '', 'Normal')
+    for y, row in enumerate(slot_icon_coverage(shape)):
+        for x, amount in enumerate(row):
+            if amount:
+                art.rows[y][x] = over(SLOT_ICON_RGBA, amount, art.rows[y][x])
+    return solid(art)
 
 
 def frame_pieces():
@@ -1225,8 +1271,7 @@ def pieces():
         # item's or a spell's hot button under its icon, each empty slot with its icon, and the page arrows, as
         # wide as the Actions window's and a row tall.
         **{f'HotButton{state}': solid(labeled_button_art(HOT_SIZE, HOT_SIZE, '', state)) for state in BUTTON_LOOKS},
-        **{f'HotSlot{name}': solid(toggle_art(icon_coverage(shape), 'Normal', HOT_SIZE))
-           for name, shape in SLOT_ICONS.items()},
+        **{f'HotSlot{name}': slot_icon_art(shape) for name, shape in SLOT_ICONS.items()},
         **{f'ToggleHot{name}{state}': solid(toggle_art(icons[name][0], state, ARROW_SIZE, HOT_SIZE))
            for name in ARROW_ICONS for state in ICON_LOOKS},
         'TitleBar': title_piece(),
@@ -1484,18 +1529,24 @@ def tooltip_spot(name, rect, tooltip):
 
 
 def health_readout(item, number_type, gauge_type, top, right, number_id, rgb=TEXT_RGB):
-    """Health at the right end of a line: the number (label number_type, right-aligned) with a drawn %
-    after it, ending at right, both in rgb. The % shows only while gauge_type is above 0, so it hides along
-    with whoever the line is about.
+    """Health at the right end of a line (see percent_readout()), the % hiding along with whoever the line is
+    about."""
+    return percent_readout(f'{item}_HPLabel', f'{item}_HPPercent', number_type, gauge_type, top, right, number_id,
+                           rgb)
+
+
+def percent_readout(number_name, percent_name, number_type, gauge_type, top, right, number_id=None, rgb=TEXT_RGB):
+    """A percentage at the right end of a line: the number (label number_type, right-aligned) with a drawn %
+    after it, ending at right, both in rgb. The % shows only while gauge_type is above 0.
 
     Returns the %'s gauge, defined but not a piece of the window, and the pieces.
     """
     percent_x = right - PERCENT_WIDTH
     percent, percent_clip = shown_with_target(
-        f'{item}_HPPercent', 'TUI_PercentSign',
+        percent_name, 'TUI_PercentSign',
         (percent_x, top + PERCENT_INK_TOP, PERCENT_WIDTH, PERCENT_GLYPH_HEIGHT), eq_type=gauge_type, tint=rgb)
     # Blank until the client fills it: a 0 showed in the group window's empty slots.
-    number = label(f'{item}_HPLabel', number_type, (percent_x - NUMBER_WIDTH, top, NUMBER_WIDTH, TEXT_HEIGHT), '',
+    number = label(number_name, number_type, (percent_x - NUMBER_WIDTH, top, NUMBER_WIDTH, TEXT_HEIGHT), '',
                    align_right=True, screen_id=number_id, rgb=rgb)
     return percent, [number, percent_clip]
 
@@ -1962,8 +2013,8 @@ def hidden_gauge(name, screen_id, eq_type):
 
 
 def player_window():
-    """Your name, then Health and Mana, each a line with its "current/max" and a bar under it, and the
-    resists under them as a small table."""
+    """Your name, then Health and Mana, each a line with its "current/max" and a bar under it, a line with
+    your XP/hour, and the resists under them as a small table."""
     parts = [label('TUI_PW_Name', PLAYER_NAME_TYPE, (LEFT, PLAYER_NAME_TOP, PLAYER_CONTENT_WIDTH, TEXT_HEIGHT), '')]
     max_x = PLAYER_RIGHT - PLAYER_NUMBER_WIDTH
     slash_x = max_x - PLAYER_SLASH_WIDTH
@@ -1984,6 +2035,13 @@ def player_window():
             gauge(f'TUI_PW_{screen_id}', screen_id, eq_type, (LEFT, top + BAR_TOP, PLAYER_CONTENT_WIDTH, BAR_HEIGHT),
                   'TUI_PlayerFill', tint, track='TUI_PlayerTrack'),
         ]
+    # The number and its % in the values' green. The drawn % needs a gauge above 0 to show: your own health,
+    # so it always shows, 0% too.
+    xp_percent, xp_readout = percent_readout('TUI_PW_ExpPerHour', 'TUI_PW_ExpPerHourPercent', XP_PER_HOUR_TYPE, 1,
+                                             PLAYER_XP_TOP, PLAYER_RIGHT, rgb=VALUE_RGB)
+    xp_number_x = PLAYER_RIGHT - PERCENT_WIDTH - NUMBER_WIDTH
+    parts += [label('TUI_PW_ExpPerHourCaption', None, (LEFT, PLAYER_XP_TOP, xp_number_x - LEFT, TEXT_HEIGHT),
+                    'XP/hour', rgb=CAPTION_RGB), *xp_readout]
     for c, (caption, eq_type) in enumerate(RESISTS):
         x = LEFT + c * PLAYER_CONTENT_WIDTH // len(RESISTS)
         width = LEFT + (c + 1) * PLAYER_CONTENT_WIDTH // len(RESISTS) - x
@@ -1993,7 +2051,7 @@ def player_window():
                            align_center=True, rgb=VALUE_RGB))
     parts += [hidden_gauge('TUI_PW_PlayerFatigue', 'PlayerFatigue', 3), hidden_gauge('TUI_PW_PetHP', 'PetHP', 16)]
     height = 2 * BORDER + RESISTS_TOP + CAPTION_HEIGHT + TEXT_HEIGHT + PLAYER_BOTTOM_GAP
-    return window('PlayerWindow', 'Player', height, parts, width=PLAYER_WIDTH)
+    return window('PlayerWindow', 'Player', height, parts, width=PLAYER_WIDTH, inner=[xp_percent])
 
 
 def buff_window():
