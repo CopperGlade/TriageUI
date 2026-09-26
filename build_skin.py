@@ -1267,7 +1267,7 @@ def pieces():
         'GroupDivider': Texture(GROUP_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the group window's width
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
-        'GemSlot': Texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT, PANEL_RGBA),  # a spell gem's row, solid (see spell_gem())
+        'GemSlot': clear_texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT),  # a spell gem's row, clear (see spell_gem())
         'SpellBarDivider': Texture(SPELL_BAR_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the row divider, this window's width
         'RecastFill': Texture(RECAST_WIDTH, TICK_HEIGHT, BAR_FILL),
         'CastRecoveryFill': Texture(SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
@@ -2081,8 +2081,9 @@ def song_window():
 
 def spell_gem(name, screen_id, top):
     """A spell gem as wide as the window's inside and a row tall, so all of the row casts. The client draws
-    its Holder or Background (both a solid row in the panel's color) and the spell's icon over it, the icon
-    a padding from the window's edges."""
+    its Holder or Background and the spell's icon over it, the icon a padding from the window's edges. Both
+    are a clear row the gem's size: solid rows in the panel's color showed under each gem at a window Alpha
+    below 255, drawn over the see-through panel a second time, and the user had them removed."""
     return node('SpellGem', [
         node('ScreenID', screen_id),
         node('RelativePosition', True),

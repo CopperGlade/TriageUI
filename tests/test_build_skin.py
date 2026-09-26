@@ -1509,11 +1509,12 @@ def test_spell_bar_is_a_table_of_gems_with_names_recast_bars_and_the_book():
         # Effects table's so the rows are big targets (the user's calls: 36 was a bit too large).
         assert (number(gem, 'SpellIconOffsetX'), number(gem, 'SpellIconOffsetY')) == (skin.LEFT, skin.GEM_ICON_MARGIN)
         assert skin.BORDER + skin.LEFT == skin.PADDING and h == skin.GEM_ICON + 2 * skin.GEM_ICON_MARGIN == 32
-        # Under the icon, a solid row in the panel's color exactly the gem's size, empty or not.
+        # Under the icon, a clear row exactly the gem's size, empty or not: solid rows in the panel's color
+        # showed as a background under each row at the window's Alpha of 230, and the user had them removed.
         template = gem.find('SpellGemDrawTemplate')
         for part in ('Holder', 'Background'):
             art = cut(atlas, anims[template.findtext(part)])
-            assert art.size == (w, h) and set(pixels(art)) == {skin.PANEL_RGBA}, part
+            assert art.size == (w, h) and {p[3] for p in pixels(art)} == {0}, part
         assert template.findtext('Highlight') == 'TUI_Clear'
         # The name a padding after the icon, centered in the row, ending a padding from the edge.
         name = names[f'CSPW_Spell{n}_Name']
