@@ -708,8 +708,8 @@ def test_group_window_has_every_member_pet_and_health_the_client_looks_for():
     # (the user's rule) and as far below the last pet row.
     assert invite[0] == skin.LEFT and disband[0] + disband[2] == skin.GROUP_RIGHT
     assert disband[0] - (invite[0] + invite[2]) == skin.BUTTON_GAP == skin.PADDING
-    # The row's width is odd, so the second button takes the extra pixel rather than the edge.
-    assert (invite[2], disband[2]) == skin.GROUP_BUTTON_WIDTHS and 0 <= disband[2] - invite[2] <= 1
+    # The row splits evenly (were it odd, the second button would take the extra pixel rather than the edge).
+    assert (invite[2], disband[2]) == skin.GROUP_BUTTON_WIDTHS == (78, 78)
     last_pet = box(by_id[f'PetGauge{skin.GROUP_SIZE}'])
     assert invite[1] - (last_pet[1] + last_pet[3]) == skin.PADDING
 
@@ -725,8 +725,8 @@ def test_group_members_are_divided_by_the_effects_windows_row_divider():
     group_line, effects_line = (cut(atlas, anims[name]) for name in ('TUI_GroupDivider', 'TUI_RowDivider'))
     assert set(pixels(group_line)) == set(pixels(effects_line)) == {skin.ROW_DIVIDER_RGBA}
     assert group_line.size == (skin.GROUP_CONTENT_WIDTH, 1)
-    # The group window is 20% narrower than the others (the user's call).
-    assert skin.GROUP_WIDTH == skin.PET_WIDTH == 177 == box(window)[2]  # as wide as the pet window (the user)
+    # As wide as the pet window, and so the hot button window (the user's calls).
+    assert skin.GROUP_WIDTH == skin.PET_WIDTH == skin.HOT_WIDTH == 174 == box(window)[2]
     assert sorted(lines) == [f'TUI_GW_Divider{n}' for n in range(2, skin.GROUP_SIZE + 1)]
     for n in range(2, skin.GROUP_SIZE + 1):
         line = lines[f'TUI_GW_Divider{n}']
@@ -765,17 +765,18 @@ def test_solid_button_styles_lighten_on_hover_darken_when_pressed_and_fade_when_
 def test_group_members_are_one_line_with_no_bar_and_pets_keep_a_thin_one():
     # The user wanted just the values, and a shorter window: a member is their name and health % on one
     # line; their pet's line follows straight under it, with a thin bar (the client gives no number for a
-    # pet's health) ending where the target window's bar does.
+    # pet's health) ending where the pet window's bar does (the user's pick; the target's before).
     root = everything()
     anims = items(root, 'Ui2DAnimation')
-    target = rect_of(anims[parts(root)['TUI_Target_HP'].find('GaugeDrawTemplate/Fill').text])[2]
+    pet_window = rect_of(anims[parts(root)['TUI_PIW_PetHPGauge'].find('GaugeDrawTemplate/Fill').text])[2]
     for n in range(1, skin.GROUP_SIZE + 1):
         member, pet = parts(root)[f'TUI_GW_Gauge{n}'], parts(root)[f'TUI_GW_PetGauge{n}']
         template = member.find('GaugeDrawTemplate')
         assert [e.tag for e in template] == ['Fill'] and template.findtext('Fill') == 'TUI_Clear'
         assert box(member)[3] == skin.TEXT_HEIGHT and box(pet)[1] == box(member)[1] + skin.TEXT_HEIGHT
         pet_bar = rect_of(anims[pet.find('GaugeDrawTemplate/Fill').text])[2]
-        assert box(pet)[0] + number(pet, 'GaugeOffsetX') + pet_bar == skin.LEFT + target == skin.LEFT + skin.GROUP_BAR_WIDTH
+        assert box(pet)[0] + number(pet, 'GaugeOffsetX') + pet_bar == skin.LEFT + pet_window
+    assert skin.GROUP_BAR_WIDTH == skin.PIW_BAR_WIDTH == pet_window
     assert skin.MEMBER_PITCH == 39
 
 
@@ -854,14 +855,17 @@ def test_air_window_is_the_casting_windows_twin_in_soft_cyan():
 
 
 def test_pet_window_is_the_target_windows_shape_with_its_commands():
-    # A pixel wider than the target window, so its three columns of buttons come out even.
-    assert skin.PET_WIDTH == skin.TARGET_WIDTH + 1
+    # As wide as the hot button window (the user's call), two pixels narrower than the target window: its
+    # readout sits that much further left, and its bar is that much shorter.
+    assert skin.PET_WIDTH == skin.HOT_WIDTH == 174
+    shift = skin.PET_WIDTH - skin.TARGET_WIDTH
+    assert shift == -2
     root, window = check_inside_frame(skin.PET_WINDOW_FILE, skin.PET_WIDTH)
     everything_root = everything()
     found = parts(root)
     by_id = {e.findtext('ScreenID'): e for e in found.values() if e.findtext('ScreenID')}
     # Your pet's gauge: its own text is the pet's name ("No Pet" until the client sets it) on the first
-    # line, and its bar where the target window's is, a pixel longer like the window.
+    # line, and its bar where the target window's is, shorter like the window.
     health = by_id['PetHPGauge']
     assert health.find('EQType').text == '16'
     assert (number(health, 'TextOffsetX'), number(health, 'TextOffsetY')) == (0, 0)
@@ -869,19 +873,19 @@ def test_pet_window_is_the_target_windows_shape_with_its_commands():
     target_bar = without_tick(box(parts(everything_root)['TUI_Target_HP']))
     x, y, w, h = box(health)
     assert (x + number(health, 'GaugeOffsetX'), y + number(health, 'GaugeOffsetY')) == target_bar[:2]
-    assert (w, h - number(health, 'GaugeOffsetY')) == (target_bar[2] + 1, target_bar[3])
+    assert (w, h - number(health, 'GaugeOffsetY')) == (target_bar[2] + shift, target_bar[3])
     # Its HP number and drawn % on the target's line, ending at the window's padding; at 100% the bar
     # ends a padding's width before the number, as in the target window. The % shows only while you
     # have a pet.
     number_label = by_id['PIW_PetHPLabel']
     assert number_label.find('EQType').text == '69'
     target_number = without_tick(box(parts(everything_root)['TUI_Target_HPLabel']))
-    assert box(number_label) == (target_number[0] + 1, *target_number[1:])
+    assert box(number_label) == (target_number[0] + shift, *target_number[1:])
     assert box(number_label)[0] - (x + w) == skin.PADDING
     clips = items(root, 'Screen')
     percent = box(clips['TUI_PIW_HPPercent_Clip'])
     target_percent = without_tick(box(items(everything_root, 'Screen')['TUI_Target_HPPercent_Clip']))
-    assert percent == (target_percent[0] + 1, *target_percent[1:])
+    assert percent == (target_percent[0] + shift, *target_percent[1:])
     assert skin.PET_WIDTH - skin.BORDER - (percent[0] + percent[2]) == skin.PADDING
     hidden = found[clips['TUI_PIW_HPPercent_Clip'].find('Pieces').text]
     assert hidden.find('EQType').text == '16' and hidden.find('ScreenID') is None
@@ -900,6 +904,7 @@ def test_pet_commands_are_three_columns_of_related_pairs():
         label = labels[b.findtext('ScreenID')]
         assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], label, "Normal")}'
     w, top = skin.PET_BUTTON_WIDTH, skin.PET_BUTTONS_TOP
+    assert w == 50  # the hot button window's row, split evenly
     xs = sorted({box(b)[0] for b in visible})
     # Between columns, between a pair's buttons, and under the health line, the window's side padding
     # (the user's rule), the columns even and filling the name line's width exactly. The health line's
@@ -922,6 +927,18 @@ def test_pet_commands_are_three_columns_of_related_pairs():
     # the lettering).
     assert 'Dismiss' in labels.values()
     assert box(window)[3] == 2 * skin.BORDER + top + 2 * skin.BUTTON_HEIGHT + skin.PET_PAIR_GAP + skin.BOTTOM_GAP
+
+
+def test_pet_and_group_windows_are_as_wide_as_the_hot_button_window():
+    # The user's call, like the Actions window's, so they line up stacked. The row inside splits evenly for the
+    # pet window's three columns and the group window's two buttons.
+    hot = box(screen(skin.HOTBUTTON_FILE)[1])[2]
+    assert hot == skin.HOT_WIDTH == 174
+    for name in (skin.PET_WINDOW_FILE, skin.GROUP_FILE):
+        assert box(screen(name)[1])[2] == hot, name
+    content = hot - 2 * skin.PADDING
+    assert 3 * skin.PET_BUTTON_WIDTH + 2 * skin.BUTTON_GAP == content
+    assert sum(skin.GROUP_BUTTON_WIDTHS) + skin.BUTTON_GAP == content
 
 
 def test_sit_is_hidden_but_still_there_for_the_client():

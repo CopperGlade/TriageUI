@@ -194,12 +194,10 @@ CAST_BAR_WIDTH = TARGET_RIGHT - LEFT  # the casting bar, across the whole width 
 # and a shorter window), then their pet's line straight under it, indented, with a thin bar: the client
 # gives no number for a pet's health. Each line stays a full-width gauge, so all of it can be clicked.
 GROUP_SIZE = 5
-# GROUP_WIDTH and its RIGHT and CONTENT_WIDTH are set with the pet window's constants: the group window
-# is as wide as the pet window (the user's call).
+# GROUP_WIDTH and its RIGHT and CONTENT_WIDTH, and GROUP_BAR_WIDTH, are set with the pet window's constants:
+# the group window is as wide as the pet window (the user's call), and its pets' bars as long as that window's.
 PET_TOP = TEXT_HEIGHT
 PET_INDENT = 12
-# The pets' bars end where the members' did, as long as the target window's.
-GROUP_BAR_WIDTH = TWIN_BAR_WIDTH
 PET_BAR_HEIGHT = 2
 # Pets' names in the smaller font 2, on a shorter line, so the window is less tall (the user's call).
 PET_FONT = 2
@@ -266,13 +264,18 @@ LABEL_ALPHA = {'Normal': 255, 'Flyby': 255, 'Pressed': 255, 'Disabled': 119}
 # Invite and Disband while you have an invitation. duxaUI's LFG button is left out at the user's request.
 GROUP_BUTTONS = (('InviteButton', 'Invite', 0), ('FollowButton', 'Follow', 0),
                  ('DisbandButton', 'Disband', 1), ('DeclineButton', 'Decline', 1))
+# The hot button window's grid (see HOTBUTTON_FILE), set here since the pet, group and Actions windows take
+# its width.
+HOT_SIZE = 36
+HOT_COLUMNS = 4
+HOT_WIDTH = 2 * PADDING + HOT_COLUMNS * HOT_SIZE + (HOT_COLUMNS - 1) * BUTTON_GAP
 # The pet window: the target window's shape, the pet's name on the first line, the bar and HP % on the
 # second, then its commands in three columns of two, each column a pair of related ones stacked so they
 # read together (the user's idea): Attack over Back (fight, stop fighting), Guard over Follow (hold a
 # spot, stop holding it), Taunt (the user's most-clicked) over Dismiss (the default skin's "Go Away" was
-# a bit too wide for the button in game). Columns and pairs are a padding apart, and the window is a
-# pixel wider than the target's so the three columns come out even (the user's call) and fill the name
-# line exactly. Sit, which nobody uses, is hidden.
+# a bit too wide for the button in game). Columns and pairs are a padding apart. The window is as wide as
+# the hot button window (the user's call; it was a pixel wider than the target's before), and the three
+# columns fill its row exactly. Sit, which nobody uses, is hidden.
 PET_WINDOW_FILE = 'EQUI_PetInfoWindow.xml'
 PET_COLUMNS = (  # each column top to bottom: (ScreenID, text, tooltip), the tooltips the default skin's
     (('AttackButton', 'Attack', 'Pet Attack'), ('BackButton', 'Back', 'Pet Back Off')),
@@ -281,19 +284,23 @@ PET_COLUMNS = (  # each column top to bottom: (ScreenID, text, tooltip), the too
 )
 PET_HIDDEN = ('SitButton',)  # the client looks these up, so they stay in the window, unseen
 PET_PAIR_GAP = BUTTON_ROW_GAP  # 2, 3 and 4 looked cramped in game
-PET_BUTTON_WIDTH = math.ceil((TARGET_RIGHT - LEFT - (len(PET_COLUMNS) - 1) * BUTTON_GAP) / len(PET_COLUMNS))
-PET_WIDTH = 2 * PADDING + len(PET_COLUMNS) * PET_BUTTON_WIDTH + (len(PET_COLUMNS) - 1) * BUTTON_GAP
+PET_WIDTH = HOT_WIDTH
 PET_RIGHT = PET_WIDTH - 2 * BORDER - LEFT
-PIW_BAR_WIDTH = health_bar_width(PET_RIGHT)  # a pixel longer than the target's, keeping its gaps
+PET_BUTTON_WIDTH = (PET_RIGHT - LEFT - (len(PET_COLUMNS) - 1) * BUTTON_GAP) // len(PET_COLUMNS)
+PIW_BAR_WIDTH = health_bar_width(PET_RIGHT)  # two pixels shorter than the target's, keeping its gaps
 # Measured from the bottom of the health line's ink: the HP number and the drawn %, whose bottom matches
 # the digits', hang 3px below the bar, and the user found the buttons too close under them.
 PET_BUTTONS_TOP = TARGET_LINE2 + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + BUTTON_ROW_GAP
-# The group window is as wide as the pet window (the user's call; 20% narrower than the others before).
+# The group window is as wide as the pet window, and so the hot button window (the user's call; 20% narrower
+# than the others before).
 GROUP_WIDTH = PET_WIDTH
 GROUP_RIGHT = GROUP_WIDTH - 2 * BORDER - LEFT
 GROUP_CONTENT_WIDTH = GROUP_RIGHT - LEFT
-# The group window's two buttons fill its row with a gap between: the content width is odd, so the second
-# button is a pixel wider than the first rather than leave a pixel at the edge (both gaps stay PADDING).
+# The pets' bars end where the pet window's bar does, a padding before the members' HP numbers (the user's pick
+# when the window went to the hot button window's width; as long as the target window's before).
+GROUP_BAR_WIDTH = PIW_BAR_WIDTH
+# The group window's two buttons fill its row with a gap between. The row splits evenly; were its width odd,
+# the second button would take the extra pixel rather than leave it at the edge (both gaps stay PADDING).
 BUTTON_WIDTH = (GROUP_CONTENT_WIDTH - BUTTON_GAP) // 2
 GROUP_BUTTON_WIDTHS = (BUTTON_WIDTH, GROUP_CONTENT_WIDTH - BUTTON_GAP - BUTTON_WIDTH)
 # Every labeled button in use, by size: each gets its own art, drawn at its own size with its label in it.
@@ -373,11 +380,7 @@ SOCIALS = tuple(f'ASP_SocialButton{n}' for n in range(1, 13))
 SOCIAL_ARROWS = (('ASP_SocialPageLeftButton', 'Previous Page', 'Left'),
                  ('ASP_SocialPageRightButton', 'Next Page', 'Right'))
 SOCIAL_PAGE_LABEL = 'ASP_CurrentSocialPageLabel'
-# The hot button window's grid (see HOTBUTTON_FILE), set here since the Actions window takes its width.
-HOT_SIZE = 36
-HOT_COLUMNS = 4
-HOT_WIDTH = 2 * PADDING + HOT_COLUMNS * HOT_SIZE + (HOT_COLUMNS - 1) * BUTTON_GAP
-# As wide as the hot button window (the user's call; it was as wide as the group and player windows before).
+# As wide as the hot button window, like the pet and group windows (the user's call; 177 before, as they were).
 # The buttons are in two columns across the row, the tabs filling the same row; both split evenly. The buttons
 # are tall enough for font 3's line with room around it, but the names are in font 2, like the socials (the
 # user asked for those first): at 78px, font 3's "Sense Heading" (about 85px) wouldn't fit.
@@ -583,7 +586,8 @@ SPELL_BAR_HEIGHT = 2 * BORDER + BOOK_TOP + TOGGLE_SIZE + LEFT + EDGE_LINE
 # ring in game). Everything is solid, the button look over the panel's color, since it's the window clicked
 # most and the client seems to ignore clicks where a button's art is see-through (see HELPFUL_RGBA).
 HOTBUTTON_FILE = 'EQUI_HotButtonWnd.xml'
-# HOT_SIZE, HOT_COLUMNS and HOT_WIDTH are set before the Actions window, which takes its width.
+# HOT_SIZE, HOT_COLUMNS and HOT_WIDTH are set before the pet window: the pet, group and Actions windows take its
+# width.
 HOT_PITCH = HOT_SIZE + BUTTON_GAP  # BUTTON_ROW_GAP down, the same
 HOT_ROWS = 6
 HOT_HEIGHT = 2 * PADDING + HOT_ROWS * HOT_SIZE + (HOT_ROWS - 1) * BUTTON_ROW_GAP
@@ -1850,7 +1854,7 @@ def pet_window():
     # The drawn % shows only while you have a pet (gauge 16 above 0).
     percent, readout = health_readout('TUI_PIW', 69, 16, TARGET_LINE2, PET_RIGHT, 'PIW_PetHPLabel')
     # One gauge for the name and the bar, as in the default skin: its own text is the pet's name ("No Pet"
-    # without one) and its bar starts where the target's does, a pixel longer like the window.
+    # without one) and its bar starts where the target's does, two pixels shorter, like the window.
     health = gauge('TUI_PIW_PetHPGauge', 'PetHPGauge', 16, (LEFT, 0, PIW_BAR_WIDTH, TWIN_BAR_TOP + TWIN_BAR_HEIGHT),
                    'TUI_PIWFill', TEXT_RGB, track='TUI_PIWTrack', text_at=(0, 0), bar_at=(0, TWIN_BAR_TOP),
                    text='No Pet')

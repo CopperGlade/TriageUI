@@ -20,7 +20,7 @@ Health bars are the name's color, softened to 70% so they don't glare next to th
 
 ## The group window
 
-Each group member is one line: their name, and their health % on the right (only for group slots with someone in them), both in the soft blue of the player window's mana bar. No bars, to keep the window short. A faint line separates each member from the one above, as in the effects window. Empty slots show nothing, not even a 0. Under each member, their pet gets a line of its own, indented, with its name smaller and in grey and a thin health bar: the game gives skins no number for a pet's health.
+As wide as the pet and hot button windows. Each group member is one line: their name, and their health % on the right (only for group slots with someone in them), both in the soft blue of the player window's mana bar. No bars, to keep the window short. A faint line separates each member from the one above, as in the effects window. Empty slots show nothing, not even a 0. Under each member, their pet gets a line of its own, indented, with its name smaller and in grey and a thin health bar: the game gives skins no number for a pet's health.
 
 **Click anywhere on a row to target that member or pet.** Pet rows are as big as member rows, instead of the hairline pet bars of most skins. A member without a pet leaves their pet row empty.
 
@@ -58,7 +58,7 @@ Every chat window is the same: a thin strip along the top with the window's name
 
 ## The pet window
 
-Your pet in the target window's shape, a pixel wider so its three columns of buttons come out even: its name on the first line, its health bar and % on the second (the % only while you have a pet), and its commands below in three columns of related pairs: **Attack** over **Back** (fight, stop fighting), **Guard** over **Follow** (hold a spot, stop holding it), and **Taunt** over **Dismiss** (`/pet get lost`). There's no Sit button; type `/pet sit` if you ever need it.
+Your pet in the target window's shape, as wide as the hot button window: its name on the first line, its health bar and % on the second (the % only while you have a pet), and its commands below in three columns of related pairs: **Attack** over **Back** (fight, stop fighting), **Guard** over **Follow** (hold a spot, stop holding it), and **Taunt** over **Dismiss** (`/pet get lost`). There's no Sit button; type `/pet sit` if you ever need it.
 
 ## The window selector
 
