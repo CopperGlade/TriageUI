@@ -81,7 +81,7 @@ Your hot bar in duxaUI's shape, so everything is where you're used to it, on a g
 
 ## The player window
 
-Just what you need at a glance, as wide as the pet window. Your name, **Health** with your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in a soft blue. The numbers are green, like the resists' values, with a white slash between them. Mana's numbers come from Zeal. Then **XP/hour**, from Zeal: the percent of a level you're gaining an hour, averaged over up to the last two hours (type `/resetexp` to start it over). Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white like your name.
+Just what you need at a glance, as wide as the hot button and actions windows. Your name, **Health** with your health % in the middle of the line, your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in a soft blue. The numbers are green, like the resists' values, with a white slash between them. Mana's current/max come from Zeal. Then **XP/hour**, from Zeal: the percent of a level you're gaining an hour, averaged over up to the last two hours (type `/resetexp` to start it over). Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white like your name. Health, Mana, XP/hour and the resists are spaced evenly apart, so each reads on its own.
 
 ## The effects and songs windows
 

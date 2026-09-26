@@ -611,18 +611,22 @@ HOT_GEM_OFFSET = (HOT_SIZE - GEM_ICON) // 2  # a spell's 24px icon, centered on 
 # The Player window, trimmed to what the user wants, in the layout the user gave: "Health" and its
 # "current/max" (label 70) on a line, the HP bar under it as in the group window, the same for
 # "Mana" (Zeal's label 80, its numbers green, its bar a soft blue), a line with your XP/hour, then the
-# resists as a small table, a caption over each number, abbreviated as the user prefers. Each section starts a padding
-# under the bar above, measured to the caption's ink. The client looks up its four gauges; stamina and
-# pet stay, hidden.
+# resists as a small table, a caption over each number, abbreviated as the user prefers. Health and Mana
+# show your % (labels 19 and 20) in the middle of their line. Each section starts two paddings under the
+# bar above, measured to the caption's ink. The client looks up its four gauges; stamina and pet stay,
+# hidden.
 PLAYER_FILE = 'EQUI_PlayerWindow.xml'
-PLAYER_WIDTH = PET_WIDTH  # as wide as the pet window (the user's requests: 200, 180, 162, then the pet's 177)
+# As wide as the hot button and actions windows (the user's requests: 200, 180, 162, the pet's 177, then this).
+PLAYER_WIDTH = HOT_WIDTH
 PLAYER_RIGHT = PLAYER_WIDTH - 2 * BORDER - LEFT
 PLAYER_CONTENT_WIDTH = PLAYER_RIGHT - LEFT
 PLAYER_NAME_TYPE = 1  # your name, the first line (the user's request)
 # At the top, like the other windows' first lines, since the server tick moved to the target window.
 PLAYER_NAME_TOP = 0
 PLAYER_SECTIONS_TOP = PLAYER_NAME_TOP + TEXT_HEIGHT + PADDING  # the user asked for 6px more under the name
-PLAYER_SECTION_PITCH = BAR_TOP + BAR_HEIGHT + math.ceil(PADDING - PERCENT_INK_TOP - PERCENT_SUBPIXEL)
+# Two paddings from a bar to the next caption's ink, as from XP/hour to the resists: the user asked for the
+# sections set apart, less cluttered.
+PLAYER_SECTION_PITCH = BAR_TOP + BAR_HEIGHT + math.ceil(2 * PADDING - PERCENT_INK_TOP - PERCENT_SUBPIXEL)
 # The health bar: '#8fd19e', the soft green the current HP number had at first (the user's pick).
 HP_RGB = (143, 209, 158)
 # The values: the current number, "/" and the max, as separate labels (the current right-aligned against
@@ -643,8 +647,9 @@ CAPTION_HEIGHT = 12
 CAPTION_RGB = TEXT_RGB
 CAPTION_INK_TOP = 2  # font 2's capitals start about this far into their line (Arial 10px)
 # XP/hour (the user's request), on its own line under the mana bar like a section with no bar (the user's pick
-# from a mockup): Zeal's label 81, the percent of a level you gain an hour, a whole number from 0 to 600, averaged
-# over up to the last two hours (/resetexp starts it over), with the drawn % after it.
+# from a mockup), two paddings under it like the sections: Zeal's label 81, the percent of a level you gain an
+# hour, a whole number from 0 to 600, averaged over up to the last two hours (/resetexp starts it over), with the
+# drawn % after it.
 XP_PER_HOUR_TYPE = 81
 PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH
 # The resists a padding further down than the rule's (the user's request), under the XP/hour line's ink.
@@ -2140,20 +2145,29 @@ def listbox(name, screen_id, rect, tooltip, columns):
 
 
 def player_window():
-    """Your name, then Health and Mana, each a line with its "current/max" and a bar under it, a line with
-    your XP/hour, and the resists under them as a small table."""
+    """Your name, then Health and Mana, each a line with its %, its "current/max" and a bar under it, a line
+    with your XP/hour, and the resists under them as a small table."""
     parts = [label('TUI_PW_Name', PLAYER_NAME_TYPE, (LEFT, PLAYER_NAME_TOP, PLAYER_CONTENT_WIDTH, TEXT_HEIGHT), '')]
     max_x = PLAYER_RIGHT - PLAYER_NUMBER_WIDTH
     slash_x = max_x - PLAYER_SLASH_WIDTH
     current_x = slash_x - PLAYER_NUMBER_WIDTH
-    # (gauge ScreenID, gauge EQType, caption, current and max label EQTypes, bar tint): Zeal gives mana's.
-    for n, (screen_id, eq_type, caption, current_type, max_type, tint) in enumerate((
-            ('PlayerHP', 1, 'Health', 17, 18, HP_RGB),
-            ('PlayerMana', 2, 'Mana', 124, 125, MANA_RGB))):
+    # The % a padding before the current number, in the values' green, shown by your own health, so always.
+    percent_right = current_x - PADDING
+    percent_number_x = percent_right - PERCENT_WIDTH - NUMBER_WIDTH
+    percents = []
+    # (gauge ScreenID, gauge EQType, caption, % label EQType, current and max label EQTypes, bar tint): Zeal
+    # gives mana's current and max.
+    for n, (screen_id, eq_type, caption, percent_type, current_type, max_type, tint) in enumerate((
+            ('PlayerHP', 1, 'Health', 19, 17, 18, HP_RGB),
+            ('PlayerMana', 2, 'Mana', 20, 124, 125, MANA_RGB))):
         top = PLAYER_SECTIONS_TOP + n * PLAYER_SECTION_PITCH
+        percent, readout = percent_readout(f'TUI_PW_{screen_id}Percent', f'TUI_PW_{screen_id}PercentSign',
+                                           percent_type, 1, top, percent_right, rgb=VALUE_RGB)
+        percents.append(percent)
         parts += [
-            label(f'TUI_PW_{screen_id}Caption', None, (LEFT, top, current_x - LEFT, TEXT_HEIGHT), caption,
+            label(f'TUI_PW_{screen_id}Caption', None, (LEFT, top, percent_number_x - LEFT, TEXT_HEIGHT), caption,
                   rgb=CAPTION_RGB),
+            *readout,
             label(f'TUI_PW_{screen_id}Current', current_type, (current_x, top, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '',
                   align_right=True, rgb=VALUE_RGB),
             label(f'TUI_PW_{screen_id}Slash', None, (slash_x, top, PLAYER_SLASH_WIDTH, TEXT_HEIGHT), '/',
@@ -2178,7 +2192,7 @@ def player_window():
                            align_center=True, rgb=VALUE_RGB))
     parts += [hidden_gauge('TUI_PW_PlayerFatigue', 'PlayerFatigue', 3), hidden_gauge('TUI_PW_PetHP', 'PetHP', 16)]
     height = 2 * BORDER + RESISTS_TOP + CAPTION_HEIGHT + TEXT_HEIGHT + PLAYER_BOTTOM_GAP
-    return window('PlayerWindow', 'Player', height, parts, width=PLAYER_WIDTH, inner=[xp_percent])
+    return window('PlayerWindow', 'Player', height, parts, width=PLAYER_WIDTH, inner=[*percents, xp_percent])
 
 
 def buff_window():

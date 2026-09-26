@@ -248,9 +248,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     # Not the hidden ones, which have no size.
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The server tick, the target's bar and %, the casting bar, your pet's bar and %, each group member,
-    # pet and %, the Player window's HP and mana and its XP/hour's %, the spell bar's recast bars and global
-    # recovery, and the air bar.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 3 + skin.GEM_COUNT + 1 + 1
+    # pet and %, the Player window's HP and mana with their %s and its XP/hour's %, the spell bar's recast bars
+    # and global recovery, and the air bar.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 5 + skin.GEM_COUNT + 1 + 1
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -1786,7 +1786,8 @@ def test_hot_button_spell_gems_center_the_spells_icon_on_the_button():
 def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     # The user wanted only the HP and mana bars and values and the resists, abbreviated, then XP/hour.
     # 10% narrower than the others, then 10% more (the user's requests), with the usual padding each side.
-    assert skin.PLAYER_WIDTH == skin.PET_WIDTH == 177  # as wide as the pet window (the user's request)
+    # As wide as the hot button and actions windows (the user's request; the pet window's 177 before).
+    assert skin.PLAYER_WIDTH == skin.HOT_WIDTH == skin.ACTIONS_WIDTH == 174
     assert skin.PLAYER_CONTENT_WIDTH == skin.PLAYER_WIDTH - 2 * skin.PADDING
     root, window = check_inside_frame(skin.PLAYER_FILE, skin.PLAYER_WIDTH)
     assert window.get('item') == 'PlayerWindow'
@@ -1796,10 +1797,11 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     assert {by_id[i].findtext('EQType') for i in ('PlayerHP', 'PlayerMana')} == {'1', '2'}
     for screen_id, eq_type in (('PlayerFatigue', '3'), ('PetHP', '16')):
         assert by_id[screen_id].findtext('EQType') == eq_type and box(by_id[screen_id])[2:] == (0, 0)
-    for n, (screen_id, caption, current_type, max_type) in enumerate((
-            ('PlayerHP', 'Health', '17', '18'), ('PlayerMana', 'Mana', '124', '125'))):
+    for n, (screen_id, caption, percent_type, current_type, max_type) in enumerate((
+            ('PlayerHP', 'Health', '19', '17', '18'), ('PlayerMana', 'Mana', '20', '124', '125'))):
         # The user's layout: the caption on the left and current/max on the right of one line, the bar
-        # under it as in the group window, the next section a padding under the bar (to the caption's ink).
+        # under it as in the group window, the next section two paddings under the bar (to the caption's
+        # ink; the user asked for the sections set apart, like the resists from XP/hour).
         top = skin.PLAYER_SECTIONS_TOP + n * skin.PLAYER_SECTION_PITCH
         head = labels[f'TUI_PW_{screen_id}Caption']
         assert head.findtext('Text') == caption and head.findtext('AlignLeft') == 'true'
@@ -1819,15 +1821,28 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
         sx, sy, sw, sh = box(slash)
         mx, my, mw, mh = box(most)
         assert cy == sy == my == top and cx + cw == sx and sx + sw == mx and mx + mw == skin.PLAYER_RIGHT
-        assert cw == mw == skin.PLAYER_NUMBER_WIDTH and box(head)[0] + box(head)[2] <= cx
+        assert cw == mw == skin.PLAYER_NUMBER_WIDTH
         # A space either side of the slash, so the numbers read apart (the user's request).
         assert sw == 4 + 2 * skin.SPACE_WIDTH and slash.findtext('AlignCenter') == 'true'
+        # Your % in the middle of the line (the user's pick, so the layout stays): the game's label 19 or 20,
+        # right-aligned with the drawn % after it, a padding before the current number, in the values'
+        # green. The % shows while your own health is above 0, so always. The caption ends before it.
+        percent_number = labels[f'TUI_PW_{screen_id}Percent']
+        assert percent_number.findtext('EQType') == percent_type and percent_number.findtext('AlignRight') == 'true'
+        assert rgb(percent_number, 'TextColor') == skin.VALUE_RGB and not percent_number.findtext('Text')
+        px, py, pw, ph = box(percent_number)
+        assert py == top and box(head)[0] + box(head)[2] <= px
+        percent_clip = items(root, 'Screen')[f'TUI_PW_{screen_id}PercentSign_Clip']
+        assert box(percent_clip) == (px + pw, top + skin.PERCENT_INK_TOP, skin.PERCENT_WIDTH,
+                                     skin.PERCENT_GLYPH_HEIGHT)
+        assert box(percent_clip)[0] + box(percent_clip)[2] + skin.PADDING == cx
+        percent_sign = items(root, 'Gauge')[percent_clip.find('Pieces').text]
+        assert percent_sign.findtext('EQType') == '1' and rgb(percent_sign, 'FillTint') == skin.VALUE_RGB
         bar = box(by_id[screen_id])
         assert bar == (skin.LEFT, top + skin.BAR_TOP, skin.PLAYER_CONTENT_WIDTH, skin.BAR_HEIGHT)
         if n:
             above = box(by_id['PlayerHP'])
-            assert top + skin.TEXT_INK_TOP - (above[1] + above[3]) >= skin.PADDING
-            assert top + skin.TEXT_INK_TOP - (above[1] + above[3]) < skin.PADDING + 1
+            assert 2 * skin.PADDING <= top + skin.TEXT_INK_TOP - (above[1] + above[3]) < 2 * skin.PADDING + 1
     # Mana's bar a soft blue and HP's the soft green the current HP number had at first (the user's picks).
     assert rgb(by_id['PlayerMana'], 'FillTint') == skin.MANA_RGB
     assert rgb(by_id['PlayerHP'], 'FillTint') == skin.HP_RGB == (143, 209, 158)
@@ -1845,8 +1860,8 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     assert [c for c, _ in skin.RESISTS] == ['DR', 'PR', 'MR', 'FR', 'CR']
     assert columns[0][0] == skin.LEFT and columns[-1][0] + columns[-1][1] == skin.PLAYER_RIGHT
     assert all(a[0] + a[1] == b[0] for a, b in zip(columns, columns[1:]))
-    # XP/hour on its own line under Mana (the user's pick), like a section with no bar: its caption's ink a
-    # padding under the mana bar, then Zeal's label 81 (a whole percent of a level an hour) with the drawn %
+    # XP/hour on its own line under Mana (the user's pick), like a section with no bar: its caption's ink two
+    # paddings under the mana bar (the user asked for it less grouped with Health and Mana), then Zeal's label 81 (a whole percent of a level an hour) with the drawn %
     # after it ending at the window's padding, both in the values' green. The % shows while your own health is
     # above 0, so always.
     mana_bar = box(by_id['PlayerMana'])
@@ -1854,7 +1869,7 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     xp_top = box(xp_head)[1]
     assert xp_head.findtext('Text') == 'XP/hour' and rgb(xp_head, 'TextColor') == skin.CAPTION_RGB
     assert box(xp_head)[0] == skin.LEFT and xp_top == skin.PLAYER_SECTIONS_TOP + 2 * skin.PLAYER_SECTION_PITCH
-    assert skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (mana_bar[1] + mana_bar[3]) < skin.PADDING + 1
+    assert 2 * skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (mana_bar[1] + mana_bar[3]) < 2 * skin.PADDING + 1
     assert xp_number.findtext('EQType') == '81' and xp_number.findtext('AlignRight') == 'true'
     assert rgb(xp_number, 'TextColor') == skin.VALUE_RGB and not xp_number.findtext('Text')
     nx, ny, nw, nh = box(xp_number)
@@ -1864,7 +1879,8 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     assert box(clip)[0] + box(clip)[2] == skin.PLAYER_RIGHT
     percent = items(root, 'Gauge')[clip.find('Pieces').text]
     assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.VALUE_RGB
-    # The resist captions' ink two paddings under the XP/hour line's ink (the user asked for 6px more).
+    # The resist captions' ink two paddings under the XP/hour line's ink (the user asked for 6px more), the
+    # same as between the sections above, so the whole window keeps one spacing.
     xp_ink_bottom = xp_top + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
     assert box(labels['TUI_PW_DRCaption'])[1] + skin.CAPTION_INK_TOP - xp_ink_bottom == 2 * skin.PADDING
     # The window's bottom edge a padding under the resists' numbers' ink (the drawn %'s bottom).
@@ -1881,7 +1897,7 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     # (the user's request).
     assert box(name)[1] == 0 and 'ZealTick' not in by_id
     # Nothing else: no stamina, experience bar or other stats.
-    assert len(labels) == 1 + 2 * 4 + 2 + 2 * len(skin.RESISTS)
+    assert len(labels) == 1 + 2 * 5 + 2 + 2 * len(skin.RESISTS)
 
 
 # Every control of the stock raid window, which the client looks up by ScreenID (eqgame.exe's string table lists
