@@ -1457,8 +1457,10 @@ def test_every_icon_is_distinct_stays_in_its_square_and_dims_when_disabled():
 @pytest.mark.parametrize('name, item, slots, first_type', [
     (skin.BUFF_FILE, 'BuffWindow', 15, 45), (skin.SONG_FILE, 'ShortDurationBuffWindow', 6, 135)])
 def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_type):
-    # EQ Triage's table look, as the user asked: a row per slot, compact, with a divider between.
-    root, window = check_inside_frame(name)
+    # EQ Triage's table look, as the user asked: a row per slot, compact, with a divider between. 20px wider
+    # than the other windows' 200, so longer names fit (the user's call).
+    assert skin.EFFECTS_WIDTH == 220
+    root, window = check_inside_frame(name, skin.EFFECTS_WIDTH)
     assert window.get('item') == item
     every_button = list(root.iter('Button'))
     assert [b.findtext('ScreenID') for b in every_button] == [f'Buff{n}' for n in range(skin.CLIENT_SLOTS)]
@@ -1477,7 +1479,7 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         # lays the slots out itself, a pixel apart, and never hit-tested slots as wide as the inside (no
         # tooltip, no click, no red for harmful effects in game). Two don't fit across, so one per row.
         assert (x, y, w, h) == (skin.LEFT, n * skin.ROW_PITCH, skin.SLOT_WIDTH, skin.ROW_HEIGHT)
-        assert skin.SLOT_WIDTH == skin.BAR_WIDTH == inside - 2 * skin.LEFT == 188 and 2 * (w + 1) > inside
+        assert skin.SLOT_WIDTH == inside - 2 * skin.LEFT == 208 and 2 * (w + 1) > inside
         assert skin.ROW_PITCH == skin.ROW_HEIGHT + 1
         # The client paints the background and the spell's icon. Zeal's time left sits at the button's
         # top left (it covered the names' first letters in game), so the icon comes a padding after a
@@ -1486,23 +1488,25 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         assert b.findtext('ButtonDrawTemplate/NormalDecal') == skin.BUFF_ICONS
         # The decal offset is within the slot; the icon's place in the window stays ROW_ICON_X.
         assert (x + number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
-        # The icon 23px further in than the window's padding (the user's call: at 18 Zeal's time box covered
-        # some icons), 29px from its edge.
-        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + skin.TIMER_WIDTH == 29
+        # The icon 28px further in than the window's padding (the user's call: at 18 and then 23 Zeal's time
+        # box covered some icons), 34px from its edge.
+        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + skin.TIMER_WIDTH == 34
         assert (number(b, 'DecalSize/CX'), number(b, 'DecalSize/CY')) == (skin.ROW_ICON, skin.ROW_ICON)
         assert skin.BORDER + skin.ROW_ICON_MARGIN == skin.PADDING
         # The name a padding after the icon, centered in the row, ending a padding from the edge.
         label = names[f'Buff{n}Label']
         lx, ly, lw, lh = box(label)
         assert label.findtext('EQType') == str(first_type + n) and not label.findtext('Text')
-        assert lx == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING and lx + lw == skin.RIGHT
+        assert lx == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING and lx + lw == skin.EFFECTS_RIGHT
+        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 158
         assert ly - y == (skin.ROW_HEIGHT - lh) // 2
-    # A divider in each pixel between rows, as long as the bars, softer than the bars' track (the user).
+    # A divider in each pixel between rows, as long as the slots, softer than the bars' track (the user).
     dividers = [box(e) for e in root.iter('StaticAnimation')]
-    assert dividers == [(skin.LEFT, n * skin.ROW_PITCH - 1, skin.BAR_WIDTH, 1) for n in range(1, slots)]
+    assert dividers == [(skin.LEFT, n * skin.ROW_PITCH - 1, skin.SLOT_WIDTH, 1) for n in range(1, slots)]
     assert {e.findtext('Animation') for e in root.iter('StaticAnimation')} == {'TUI_RowDivider'}
     line = cut(decode(files()[skin.PIECES_TEXTURE]), items(everything(), 'Ui2DAnimation')['TUI_RowDivider'])
     assert set(pixels(line)) == {skin.ROW_DIVIDER_RGBA} and skin.ROW_DIVIDER_RGBA[3] < skin.EDGE_FADED[3]
+    assert line.size == (skin.SLOT_WIDTH, 1)
     assert box(window)[3] == 2 * skin.BORDER + slots * skin.ROW_PITCH - 1
     # The rows are solid, so the names are drawn after the buttons, over them, as in duxaUI (where a click
     # on a name clicks the effect off); the hidden slots come last.

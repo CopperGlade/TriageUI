@@ -124,7 +124,6 @@ TEXT_FONT = 3
 WINDOW_WIDTH = 200  # the group and casting windows; the target window is narrower
 LEFT = PADDING - BORDER
 RIGHT = WINDOW_WIDTH - 2 * BORDER - LEFT
-BAR_WIDTH = RIGHT - LEFT
 TEXT_HEIGHT = 14
 BAR_TOP = 16  # under a line of text; also SIDL's default GaugeOffsetY
 BAR_HEIGHT = 4
@@ -492,7 +491,11 @@ ROW_ICON = 16
 ROW_ICON_MARGIN = PADDING - BORDER
 ROW_HEIGHT = ROW_ICON + 2 * ROW_ICON_MARGIN
 ROW_PITCH = ROW_HEIGHT + 1
-ROW_WIDTH = WINDOW_WIDTH - 2 * BORDER
+# 20px wider than the other windows' 200 (the user's call, 2026-09-26), so longer names fit: 158px for a
+# name after Zeal's time column (TIMER_WIDTH), where long bard songs run to about 167 in Arial 12.
+EFFECTS_WIDTH = 220
+EFFECTS_RIGHT = EFFECTS_WIDTH - 2 * BORDER - LEFT
+ROW_WIDTH = EFFECTS_WIDTH - 2 * BORDER
 # The slot buttons are inset like the dividers, LEFT each side, so they're narrower than the window's inside.
 # The client lays the slots out itself (skins with every slot at 0,0 or with no Location work), a pixel
 # apart, and every working skin leaves room for that: duxaUI, poweroftwo and vert 4px (their slots at 3,3),
@@ -502,10 +505,10 @@ ROW_WIDTH = WINDOW_WIDTH - 2 * BORDER
 SLOT_WIDTH = ROW_WIDTH - 2 * LEFT
 # Zeal's Buff Timers draws each effect's time left as a tooltip box pinned to its slot button's top left
 # (ui_buff.cpp, BuffWindow_PostDraw), in its largest unit only ("2h", "18m", "45s"). It sat over the
-# start of the names in game, so the icon starts TIMER_WIDTH further in than the window's padding: 23px,
-# the user's call in game (36, then 24 left too much room before the names; at 18 the box covered some of
-# the icons, so 5 more), then the name.
-TIMER_WIDTH = 23
+# start of the names in game, so the icon starts TIMER_WIDTH further in than the window's padding: 28px,
+# the user's call in game (36, then 24 left too much room before the names; at 18 and then 23 the box
+# still covered some of the icons, so 5 more each time), then the name.
+TIMER_WIDTH = 28
 ROW_ICON_X = LEFT + TIMER_WIDTH  # from the inside's left edge; the slot button starts LEFT in
 ROW_NAME_X = ROW_ICON_X + ROW_ICON + PADDING
 # A harmful effect's mark: a red square behind its icon, the row's full height, so the opaque 16px icon the
@@ -1348,7 +1351,7 @@ def pieces():
         **thumb_pieces(),
         **{f'Toggle{name}{state}': toggle_art(coverage, state, width, height)
            for name, (coverage, width, height) in icons.items() for state in ICON_LOOKS},
-        'RowDivider': Texture(BAR_WIDTH, 1, ROW_DIVIDER_RGBA),
+        'RowDivider': Texture(SLOT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the effect slots' width
         'GroupDivider': Texture(GROUP_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the group window's width
         'ActionsDivider': Texture(ACTIONS_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the Actions window's width
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
@@ -2072,13 +2075,14 @@ def picture(name, animation_name, rect):
 def effects_table(item, title, slots, first_name_type, prefix):
     """A table of effect slots, one row each: the client's slot button (ScreenID BuffN) across the row,
     inset like the dividers (see SLOT_WIDTH), Zeal's time left at its start, then the spell's icon and the
-    spell's name (label first_name_type + N), rows ROW_PITCH apart with a divider between. The client looks
-    up CLIENT_SLOTS buttons whatever the window shows, so the slots beyond are hidden."""
+    spell's name (label first_name_type + N), rows ROW_PITCH apart with a divider between, in a window
+    EFFECTS_WIDTH wide. The client looks up CLIENT_SLOTS buttons whatever the window shows, so the slots
+    beyond are hidden."""
     dividers, buttons, names = [], [], []
     for n in range(slots):
         top = n * ROW_PITCH
         if n:
-            dividers.append(picture(f'{prefix}_Divider{n}', 'TUI_RowDivider', (LEFT, top - 1, BAR_WIDTH, 1)))
+            dividers.append(picture(f'{prefix}_Divider{n}', 'TUI_RowDivider', (LEFT, top - 1, SLOT_WIDTH, 1)))
         buttons.append(node('Button', [
             node('ScreenID', f'Buff{n}'),
             node('RelativePosition', True),
@@ -2094,13 +2098,14 @@ def effects_table(item, title, slots, first_name_type, prefix):
             node('DecalSize', [node('CX', ROW_ICON), node('CY', ROW_ICON)]),
         ], f'{prefix}_Buff{n}_Button'))
         names.append(label(f'{prefix}_Buff{n}_Name', first_name_type + n,
-                           (ROW_NAME_X, top + (ROW_HEIGHT - TEXT_HEIGHT) // 2, RIGHT - ROW_NAME_X, TEXT_HEIGHT),
+                           (ROW_NAME_X, top + (ROW_HEIGHT - TEXT_HEIGHT) // 2, EFFECTS_RIGHT - ROW_NAME_X,
+                            TEXT_HEIGHT),
                            '', screen_id=f'Buff{n}Label'))
     hidden = [hidden_button(f'{prefix}_Buff{n}_Button', f'Buff{n}') for n in range(slots, CLIENT_SLOTS)]
     height = 2 * BORDER + slots * ROW_PITCH - 1
     # The names go over the buttons, as in duxaUI (whose names overlap its slots too). Both orders were
     # tried in game while the slots weren't hit-tested at all (see SLOT_WIDTH); neither was the cause.
-    return window(item, title, height, dividers + buttons + names + hidden)
+    return window(item, title, height, dividers + buttons + names + hidden, width=EFFECTS_WIDTH)
 
 
 def hidden_gauge(name, screen_id, eq_type):

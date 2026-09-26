@@ -85,7 +85,7 @@ Just what you need at a glance, as wide as the hot button and actions windows. Y
 
 ## The effects and songs windows
 
-Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect's icon gets a thin red ring. The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
+Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect's icon gets a thin red ring. The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row, in a column of its own before the icons. Both windows are a little wider than the others, so longer effect names fit. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
 
 Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
 
