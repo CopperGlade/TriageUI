@@ -24,8 +24,9 @@ BASE_ANIMATIONS = (
     '</XML>\r\n'
 )
 # The order the client loads them in (default's EQUI.xml).
-LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CHAT_FILE,
-              skin.PET_WINDOW_FILE, skin.SELECTOR_FILE, skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE]
+LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CASTSPELL_FILE,
+              skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE, skin.HOTBUTTON_FILE,
+              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE]
 
 
 @functools.cache
@@ -177,7 +178,7 @@ def test_panel_is_the_overlay_colors_opaque_on_the_16_bit_steps():
 
 
 @pytest.mark.parametrize('name', ['triageui_pieces.tga', 'triageui_bg.tga', 'triageui_percent.tga',
-                                  'triageui_field.tga', 'triageui_gutter.tga', 'triageui_dot.tga'])
+                                  'triageui_field.tga', 'triageui_gutter.tga'])
 def test_every_texture_pixel_is_on_the_16_bit_steps(name):
     # The client dithers colors between the steps into a pattern (the buttons' hover and edges did).
     assert name in files()
@@ -246,9 +247,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     anims = items(root, 'Ui2DAnimation')
     # Not the hidden ones, which have no size.
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
-    # The target's bar and %, the casting bar, your pet's bar and %, each group member, pet and %, and
-    # the Player window's HP, mana and server tick.
-    assert len(gauges) == 5 + 3 * skin.GROUP_SIZE + 3
+    # The server tick, the target's bar and %, the casting bar, your pet's bar and %, each group member,
+    # pet and %, the Player window's HP and mana, and the spell bar's recast bars and global recovery.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 2 + skin.GEM_COUNT + 1
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -260,6 +261,8 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
             bar = (skin.GROUP_BAR_WIDTH - skin.PET_INDENT, bar[1])
         template = g.find('GaugeDrawTemplate')
         fill = skin.WHITE if g.get('item').startswith('TUI_GW_PetGauge') else skin.BAR_FILL
+        if g.get('item') == 'TUI_Target_ZealTick':
+            fill = skin.EDGE_FADED  # see the server tick test
         for part, color in (('Background', skin.EDGE_FADED), ('Fill', fill)):
             if template.find(part) is None:
                 continue
@@ -281,8 +284,10 @@ def test_button_art_is_the_button_size_in_every_state():
         assert [e.tag for e in template] == list(skin.BUTTON_STATES)
         for state in template:
             assert cut(atlas, anims[state.text]).size == box(b)[2:]
-    # Each labeled button size in use has its own art (the selector's icon toggles have theirs).
-    buttons = [b for b in buttons if b.find('Text') is not None]
+    # Each labeled button size in use has its own art (the selector's icon toggles have theirs, and the hot button
+    # window's macros their own solid art: see its tests).
+    buttons = [b for b in buttons if b.find('Text') is not None
+               and not b.findtext('ButtonDrawTemplate/Normal').startswith('TUI_HotButton')]
     assert {box(b)[2:] for b in buttons} == set(skin.BUTTON_LABELS)
     art = {state: cut(atlas, anims[f'TUI_{skin.button_art(skin.BUTTON_WIDTH, skin.BUTTON_HEIGHT, "Invite", state)}'])
            for state in skin.BUTTON_LOOKS}
@@ -301,7 +306,9 @@ def test_button_labels_are_our_own_lettering_centered_in_the_art():
     root = everything()
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
-    labeled = [b for b in root.iter('Button') if b.find('Text') is not None and box(b)[2:] != (0, 0)]
+    # (The Actions window's buttons carry their names in font 3 instead: see its tests.)
+    labeled = [b for b in root.iter('Button')
+               if b.find('Text') is not None and box(b)[2:] != (0, 0) and b.find('Font') is None]
     assert {b.findtext('Text') for b in labeled} == {''}
     assert skin.LETTER_SPACING == 2
     for (width, height), labels in skin.BUTTON_LABELS.items():
@@ -396,7 +403,17 @@ def test_every_reference_resolves():
     textures = items(root, 'TextureInfo')
     template = items(root, 'WindowDrawTemplate')[skin.FRAME_TEMPLATE]
     references = [e.text for e in template.find('Border') if not e.tag.startswith('Overlap')]
-    references += [e.text for tag in ('GaugeDrawTemplate', 'ButtonDrawTemplate') for t in root.iter(tag) for e in t]
+    references += [e.text for tag in ('GaugeDrawTemplate', 'ButtonDrawTemplate', 'SpellGemDrawTemplate')
+                   for t in root.iter(tag) for e in t]
+    # The Actions window's tab and page borders, and its tabs' icons.
+    frames = items(root, 'FrameTemplate')
+    assert {skin.TAB_BORDER, skin.PAGE_BORDER} <= set(frames)
+    references += [e.text for t in frames.values() for e in t if not e.tag.startswith('Overlap')]
+    references += [e.text for tag in ('TabIcon', 'TabIconActive') for e in root.iter(tag)]
+    # Item slots' backgrounds, shown while they're empty.
+    references += [e.findtext('Background') for e in root.iter('InvSlot')]
+    for tabs in root.iter('TabBox'):
+        assert {tabs.findtext(tag) for tag in ('TabBorderTemplate', 'PageBorderTemplate')} <= set(frames)
     # The spell icons are the stock ones (see the stock names test).
     for name in set(references) - {skin.BUFF_ICONS}:
         assert name in anims, name
@@ -412,13 +429,13 @@ def test_every_reference_resolves():
                 continue  # meant to run past its texture: see the % and divider tests
             assert x + w <= int(info.find('CX').text) and y + h <= int(info.find('CY').text)
     assert template.find('Background').text in textures
-    # Everything a window or its clips show is defined earlier in the window's own file.
+    # Everything a window, its clips or its tab pages show is defined earlier in the window's own file.
     for name in skin.WINDOW_FILES:
         file_root, window = screen(name)
-        assert window.find('DrawTemplate').text == skin.FRAME_TEMPLATE
+        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE)
         defined = set()
         for element in file_root:
-            for piece in element.findall('Pieces'):
+            for piece in element.findall('Pieces') + element.findall('Pages'):
                 assert piece.text in defined
             if element.get('item'):
                 defined.add(element.get('item'))
@@ -434,10 +451,12 @@ def test_our_names_never_clash_with_the_stock_skin():
     root = everything()
     ours = [e.get('item') for e in root if e.get('item') and e.get('item') != 'A_Base']
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
-                     'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow'}
+                     'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
+                     'HotButtonWnd'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
-    allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.FIELD_TEMPLATE, skin.DOT_TEMPLATE, *skin.REPLACED_ANIMATIONS}
+    allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
+                               *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
 
@@ -477,6 +496,13 @@ def percent_box(root):
     return box(items(root, 'Screen')['TUI_Target_HPPercent_Clip'])
 
 
+def without_tick(rect):
+    """A rect in the target window as it would be without the server tick above the name, which the
+    casting and pet windows don't have."""
+    x, y, width, height = rect
+    return x, y - skin.TARGET_NAME_TOP, width, height
+
+
 def test_target_window_shows_name_hp_percent_and_hp_bar():
     # 20% narrower than the other windows, then 10% wider, at the user's requests.
     assert skin.TARGET_WIDTH == 176 == round(skin.WINDOW_WIDTH * 0.8 * 1.1)
@@ -486,15 +512,24 @@ def test_target_window_shows_name_hp_percent_and_hp_bar():
     assert name.find('EQType').text == '28'
     assert number.find('EQType').text == '29'
     bars = [g for g in root.iter('Gauge') if g.find('ScreenID') is not None]
-    assert [g.get('item') for g in bars] == ['TUI_Target_HP']
-    assert bars[0].find('EQType').text == '6' and bars[0].find('ScreenID').text == 'TargetHP'
-    for element in list(root.iter('Label')) + list(root.iter('Gauge')):
+    assert [g.get('item') for g in bars] == ['TUI_Target_ZealTick', 'TUI_Target_HP']
+    assert bars[1].find('EQType').text == '6' and bars[1].find('ScreenID').text == 'TargetHP'
+    # The name and number in the text's color (see the target and casting colors test).
+    for element in root.iter('Label'):
         assert rgb(element, 'TextColor') == skin.TEXT_RGB
+    # Zeal's server tick along the top of the inside (in the frame it didn't show), as wide as the name's
+    # line, and the name's ink a padding under it. It moved here from the player window (the user's request).
+    tick = bars[0]
+    assert tick.findtext('EQType') == '24' and tick.findtext('ScreenID') == 'ZealTick'
+    assert box(tick) == (skin.LEFT, 0, box(name)[2], skin.TICK_HEIGHT) and skin.TICK_WIDTH == box(name)[2]
+    gap = box(name)[1] + skin.TEXT_INK_TOP - skin.TICK_HEIGHT
+    assert skin.PADDING <= gap < skin.PADDING + 1
+    assert box(window)[3] == skin.TARGET_NAME_TOP + skin.TARGET_HEIGHT
     # The name has the whole first line for long mob names, with the usual padding each side.
     assert box(name)[0] + skin.BORDER == skin.PADDING
     assert skin.TARGET_WIDTH - skin.BORDER - (box(name)[0] + box(name)[2]) == skin.PADDING
     # The number sits straight under the name's line, right-aligned, and the % hugs it.
-    assert box(number)[1] == skin.TARGET_LINE2 == box(name)[1] + box(name)[3]
+    assert box(number)[1] == skin.TARGET_NAME_TOP + skin.TARGET_LINE2 == box(name)[1] + box(name)[3]
     assert number.find('AlignRight').text == 'true'
     assert box(number)[0] + box(number)[2] == percent_box(root)[0]
     # No typed %: typed text would show even without a target.
@@ -524,7 +559,7 @@ def test_target_percent_is_drawn_and_shows_only_with_a_target():
     assert template.find('Background') is None
     fill = items(root, 'Ui2DAnimation')[template.find('Fill').text]
     assert rect_of(fill) == (0, 0, skin.SHOWN_REACH, h) and skin.SHOWN_REACH >= 10000
-    assert rgb(gauge, 'FillTint') == skin.TEXT_RGB
+    assert rgb(gauge, 'FillTint') == skin.TEXT_RGB  # like the number beside it
 
 
 def test_percent_glyph_is_a_white_percent_sign_alone_at_the_top_left():
@@ -570,9 +605,40 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     # The user found a solid bar in the text's color harsh next to the name.
     assert skin.BAR_FILL == (255, 255, 255, 170)  # about 70%, on a 16-bit step
     for g in everything().iter('Gauge'):
-        if (g.get('item').startswith('TUI_') and not g.get('item').startswith(('TUI_GW_PetGauge', 'TUI_PW_'))
+        if (g.get('item').startswith('TUI_')
+                and not g.get('item').startswith(('TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Target_ZealTick',
+                                                  'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast'))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
-            assert rgb(g, 'FillTint') == skin.TEXT_RGB
+            assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
+
+
+def test_casting_window_is_soft_red_and_target_window_the_text_color():
+    # The casting window's text and bar in the soft red, so it stands apart from the target window, whose name,
+    # bar, number and drawn % are in the text's color. The user tried them the other way round and came back.
+    root = everything()
+    found = parts(root)
+    assert skin.SPELL_RGB == (232, 128, 128)
+    for name in ('TUI_Casting_Prefix', 'TUI_Casting_Spell'):
+        assert rgb(found[name], 'TextColor') == skin.SPELL_RGB
+    bar = found['TUI_Casting_Gauge']
+    assert rgb(bar, 'FillTint') == skin.SPELL_RGB
+    assert colors(items(root, 'Ui2DAnimation')[bar.findtext('GaugeDrawTemplate/Fill')]) == {skin.BAR_FILL}
+    for name in ('TUI_Target_Name', 'TUI_Target_HPLabel'):
+        assert rgb(found[name], 'TextColor') == skin.TEXT_RGB
+    assert rgb(found['TUI_Target_HP'], 'FillTint') == rgb(found['TUI_Target_HPPercent'], 'FillTint') == skin.TEXT_RGB
+
+
+def test_server_tick_is_the_other_bars_track_color_with_no_track():
+    # The user wanted the tick itself in the color of the other bars' faint track ("shadow"), and no track
+    # behind it: a white tint over a fill of exactly the tracks' color.
+    root = everything()
+    tick = parts(root)['TUI_Target_ZealTick']
+    anims = items(root, 'Ui2DAnimation')
+    assert rgb(tick, 'FillTint') == skin.TICK_RGB == (255, 255, 255)
+    track = colors(anims[parts(root)['TUI_Target_HP'].findtext('GaugeDrawTemplate/Background')])
+    assert colors(anims[tick.findtext('GaugeDrawTemplate/Fill')]) == track == {skin.EDGE_FADED}
+    assert tick.find('GaugeDrawTemplate/Background') is None
+    assert 'TUI_TickTrack' not in anims
 
 
 def test_target_bar_is_thin_and_level_with_the_health_digits_beside_it():
@@ -621,7 +687,9 @@ def test_group_window_has_every_member_pet_and_health_the_client_looks_for():
     # Side by side, filling the row between the window's padding exactly, as far apart as that padding
     # (the user's rule) and as far below the last pet row.
     assert invite[0] == skin.LEFT and disband[0] + disband[2] == skin.GROUP_RIGHT
-    assert disband[0] - (invite[0] + invite[2]) == skin.BUTTON_GAP == skin.PADDING and invite[2] == disband[2]
+    assert disband[0] - (invite[0] + invite[2]) == skin.BUTTON_GAP == skin.PADDING
+    # The row's width is odd, so the second button takes the extra pixel rather than the edge.
+    assert (invite[2], disband[2]) == skin.GROUP_BUTTON_WIDTHS and 0 <= disband[2] - invite[2] <= 1
     last_pet = box(by_id[f'PetGauge{skin.GROUP_SIZE}'])
     assert invite[1] - (last_pet[1] + last_pet[3]) == skin.PADDING
 
@@ -638,7 +706,7 @@ def test_group_members_are_divided_by_the_effects_windows_row_divider():
     assert set(pixels(group_line)) == set(pixels(effects_line)) == {skin.ROW_DIVIDER_RGBA}
     assert group_line.size == (skin.GROUP_CONTENT_WIDTH, 1)
     # The group window is 20% narrower than the others (the user's call).
-    assert skin.GROUP_WIDTH == 160 == box(window)[2]
+    assert skin.GROUP_WIDTH == skin.PET_WIDTH == 177 == box(window)[2]  # as wide as the pet window (the user)
     assert sorted(lines) == [f'TUI_GW_Divider{n}' for n in range(2, skin.GROUP_SIZE + 1)]
     for n in range(2, skin.GROUP_SIZE + 1):
         line = lines[f'TUI_GW_Divider{n}']
@@ -719,8 +787,8 @@ def test_casting_window_shows_casting_the_spell_and_its_progress():
     prefix, spell = found['TUI_Casting_Prefix'], found['TUI_Casting_Spell']
     assert prefix.find('Text').text == 'Casting:' and prefix.find('EQType') is None
     assert spell.find('EQType').text == '134'
-    # The whole line in a soft red (the user's pick), so the casting window stands apart from the target window.
-    assert rgb(spell, 'TextColor') == rgb(prefix, 'TextColor') == skin.SPELL_RGB == (232, 128, 128)
+    # The whole line in one color (see the target and casting colors test).
+    assert rgb(spell, 'TextColor') == rgb(prefix, 'TextColor')
     # The spell name follows "Casting:" and a space, on the same line, to the window's padding.
     assert box(prefix)[0] == skin.LEFT and box(spell)[0] == box(prefix)[0] + box(prefix)[2] == skin.LEFT + 50
     assert box(prefix)[1] == box(spell)[1] == 0
@@ -730,14 +798,17 @@ def test_casting_window_shows_casting_the_spell_and_its_progress():
 
 
 def test_casting_window_is_the_target_windows_size_with_a_full_width_bar():
-    # The same size as the target window, the bar at the height of its health bar, as if there were
-    # text on the second line to center it on, but across the whole width (the user's request).
+    # The same size as the target window without its server tick, the bar at the height of its health
+    # bar, as if there were text on the second line to center it on, but across the whole width (the
+    # user's request).
     root = everything()
     cast = parts(root)['TUI_Casting_Gauge']
-    health = parts(root)['TUI_Target_HP']
-    assert box(cast)[1] == box(health)[1] and box(cast)[3] == box(health)[3]
+    health = without_tick(box(parts(root)['TUI_Target_HP']))
+    assert box(cast)[1] == health[1] and box(cast)[3] == health[3]
     assert box(cast)[0] == skin.LEFT and box(cast)[0] + box(cast)[2] == skin.TARGET_RIGHT
-    assert box(screen(skin.CASTING_FILE)[1])[2:] == box(screen(skin.TARGET_FILE)[1])[2:]
+    width, height = box(screen(skin.TARGET_FILE)[1])[2:]
+    assert height - skin.TARGET_NAME_TOP == skin.TARGET_HEIGHT
+    assert box(screen(skin.CASTING_FILE)[1])[2:] == (width, skin.TARGET_HEIGHT)
 
 
 def test_pet_window_is_the_target_windows_shape_with_its_commands():
@@ -753,7 +824,7 @@ def test_pet_window_is_the_target_windows_shape_with_its_commands():
     assert health.find('EQType').text == '16'
     assert (number(health, 'TextOffsetX'), number(health, 'TextOffsetY')) == (0, 0)
     assert health.find('Text').text == 'No Pet'
-    target_bar = box(parts(everything_root)['TUI_Target_HP'])
+    target_bar = without_tick(box(parts(everything_root)['TUI_Target_HP']))
     x, y, w, h = box(health)
     assert (x + number(health, 'GaugeOffsetX'), y + number(health, 'GaugeOffsetY')) == target_bar[:2]
     assert (w, h - number(health, 'GaugeOffsetY')) == (target_bar[2] + 1, target_bar[3])
@@ -762,12 +833,12 @@ def test_pet_window_is_the_target_windows_shape_with_its_commands():
     # have a pet.
     number_label = by_id['PIW_PetHPLabel']
     assert number_label.find('EQType').text == '69'
-    target_number = box(parts(everything_root)['TUI_Target_HPLabel'])
+    target_number = without_tick(box(parts(everything_root)['TUI_Target_HPLabel']))
     assert box(number_label) == (target_number[0] + 1, *target_number[1:])
     assert box(number_label)[0] - (x + w) == skin.PADDING
     clips = items(root, 'Screen')
     percent = box(clips['TUI_PIW_HPPercent_Clip'])
-    target_percent = box(items(everything_root, 'Screen')['TUI_Target_HPPercent_Clip'])
+    target_percent = without_tick(box(items(everything_root, 'Screen')['TUI_Target_HPPercent_Clip']))
     assert percent == (target_percent[0] + 1, *target_percent[1:])
     assert skin.PET_WIDTH - skin.BORDER - (percent[0] + percent[2]) == skin.PADDING
     hidden = found[clips['TUI_PIW_HPPercent_Clip'].find('Pieces').text]
@@ -832,17 +903,25 @@ def anchors(element):
     return tuple(number(element, f'{side}AnchorOffset') for side in ('Left', 'Top', 'Right', 'Bottom'))
 
 
-def test_chat_window_has_no_title_bar_and_resizes():
-    # The user: no header needed, everyone knows which window they chat in.
+def test_chat_window_has_a_thin_title_bar_to_drag_by_and_resizes():
+    # A sizable window with no title bar can't be dragged in this client (the corner grip never moved it;
+    # poweroftwo's readme says the same of its title-less chat window), so the user asked for a really
+    # thin header, with no name on it (everyone knows which window they chat in) and no boxes.
     root, window = screen(skin.CHAT_FILE)
     assert window.get('item') == 'ChatWindow'
-    for style in ('Style_Titlebar', 'Style_Closebox', 'Style_Minimizebox'):
+    assert window.find('Style_Titlebar').text == 'true'
+    for style in ('Style_Closebox', 'Style_Minimizebox'):
         assert window.find(style).text == 'false'
     assert window.find('Style_Sizable').text == 'true' and window.find('Style_Border').text == 'true'
-    assert window.find('DrawTemplate').text == skin.FRAME_TEMPLATE
-    # The client names each chat window itself.
-    assert window.find('Text') is None
+    assert window.find('DrawTemplate').text == skin.CHAT_TEMPLATE
+    # The client names each chat window itself and writes the name on the bar in its own color: neither a
+    # panel-colored TextColor nor one with alpha 0 hid it in game, so it stays, in font 2 (the user's pick
+    # after 0).
+    assert window.find('Text') is None and window.find('TextColor') is None
+    assert window.findtext('Font') == str(skin.TITLE_FONT) == '2'
     assert box(window)[2:] == skin.CHAT_SIZE
+    # No corner grip any more.
+    assert not [e for e in root if e.get('item', '').startswith('TUI_CW_GripDot')]
 
 
 def test_chat_text_and_input_stretch_with_the_window_and_never_overlap():
@@ -861,11 +940,10 @@ def test_chat_text_and_input_stretch_with_the_window_and_never_overlap():
     assert output.find('Style_VScroll').text == 'true' and output.find('Style_Transparent').text == 'true'
     assert output.find('DrawTemplate').text == skin.FRAME_TEMPLATE
     # The input line: a strip INPUT_HEIGHT tall along the bottom (its top measured up from the bottom),
-    # stopping short of the grab spot, drawn by a child window's background.
+    # across the whole width, drawn by a child window's background.
     strip = found['TUI_CW_InputStrip']
     assert strip.tag == 'Screen'
-    assert anchors(strip) == (skin.LEFT, skin.LEFT + skin.INPUT_HEIGHT, skin.LEFT + skin.GRIP_WIDTH + skin.INPUT_GAP,
-                              skin.LEFT)
+    assert anchors(strip) == (skin.LEFT, skin.LEFT + skin.INPUT_HEIGHT, skin.LEFT, skin.LEFT)
     assert strip.find('TopAnchorToTop').text == 'false' and strip.find('AutoStretch').text == 'true'
     # Its background and its 1px outline both drawn.
     assert strip.find('Style_Transparent').text == 'false' and strip.find('Style_Border').text == 'true'
@@ -876,43 +954,38 @@ def test_chat_text_and_input_stretch_with_the_window_and_never_overlap():
     assert anchors(field) == (l + skin.FIELD_PADDING, t, r + skin.FIELD_PADDING, b)
     assert field.find('TopAnchorToTop').text == 'false'
     assert field.find('Style_Transparent').text == 'true'
+    # The box draws nothing of its own: a clear background and border (with the field's template the user
+    # saw a second box under it in game), so the strip is the only field.
+    assert field.find('DrawTemplate').text == skin.EDIT_TEMPLATE
+    clear = items(everything(), 'WindowDrawTemplate')[skin.EDIT_TEMPLATE]
+    assert clear.findtext('Background') == skin.GUTTER_TEXTURE
+    assert {e.text for e in clear.find('Border') if e.tag in skin.BORDER_PIECES} == {'TUI_Clear'}
+    assert {p[3] for p in pixels(decode(files()[skin.GUTTER_TEXTURE]))} == {0}
     # Drawn after the strip, so the text is on top of it.
     order = [p.text for p in window.findall('Pieces')]
     assert order.index('TUI_CW_InputStrip') < order.index('TUI_CW_ChatInput')
 
 
-def test_chat_window_has_a_grab_spot_in_the_bottom_right_corner():
-    # With no title bar, the user asked for a small square in a corner to drag the window by. The spot is
-    # the window's own background, marked by six dots, each a tiny anchored child window: one child window
-    # holding all six showed them but took the drag, and a picture alone showed nothing in game.
-    root, window = screen(skin.CHAT_FILE)
-    found = {e.get('item'): e for e in direct_pieces(root, window)}
-    dots = [found[f'TUI_CW_GripDot{n}'] for n in range(len(skin.GRIP_DOTS))]
-    assert len(skin.GRIP_DOTS) == 6 and not [e for e in root.iter('StaticAnimation')]
-    covered = set()
-    for dot, (dx, dy) in zip(dots, skin.GRIP_DOTS):
-        assert dot.tag == 'Screen' and dot.find('ScreenID') is None and dot.findtext('DrawTemplate') == skin.DOT_TEMPLATE
-        assert dot.findtext('Style_Border') == 'false' and dot.find('Pieces') is None
-        # Pinned to the bottom right: every edge measured from the right or the bottom, 2x2, at its place
-        # in the GRIP_WIDTH x INPUT_HEIGHT spot under the scrollbar's column, level with the input line.
-        for side in ('LeftAnchorToLeft', 'TopAnchorToTop', 'RightAnchorToLeft', 'BottomAnchorToTop'):
-            assert dot.find(side).text == 'false'
-        left, top, right, bottom = anchors(dot)
-        assert (left - right, top - bottom) == (2, 2)
-        spot_x, spot_y = skin.LEFT + skin.GRIP_WIDTH - left, skin.LEFT + skin.INPUT_HEIGHT - top
-        assert (spot_x, spot_y) == (dx, dy)
-        covered |= {(spot_x + i, spot_y + j) for i in (0, 1) for j in (0, 1)}
-    # Centered in the spot, and most of it bare background to drag by.
-    xs, ys = [x for x, _ in covered], [y for _, y in covered]
-    assert min(xs) + max(xs) == skin.GRIP_WIDTH - 1 and min(ys) + max(ys) == skin.INPUT_HEIGHT - 1
-    assert len(covered) * 5 < skin.GRIP_WIDTH * skin.INPUT_HEIGHT
-    assert skin.GRIP_WIDTH == skin.SCROLL_WIDTH
-    # The input line's strip ends a gap before the spot.
-    assert number(found['TUI_CW_InputStrip'], 'RightAnchorOffset') - (skin.LEFT + skin.GRIP_WIDTH) == skin.INPUT_GAP
-    # The dot template draws only its background: the dot's soft white.
-    template = items(everything(), 'WindowDrawTemplate')[skin.DOT_TEMPLATE]
-    assert template.findtext('Background') == skin.DOT_TEXTURE
-    assert set(pixels(decode(files()[skin.DOT_TEXTURE]))) == {(255, 255, 255, skin.GRIP_ALPHA)}
+def test_chat_title_bar_is_a_thin_strip_of_the_panel_with_a_divider_under_it():
+    # The chat frame is the usual one plus its own title pieces: TITLE_HEIGHT tall, the panel's color, a
+    # row divider along the bottom to show where to drag (the stock rounded title pieces are opaque
+    # rectangles, so the client draws the bar inside the border, under the top edge).
+    templates = items(everything(), 'WindowDrawTemplate')
+    chat, usual = templates[skin.CHAT_TEMPLATE], templates[skin.FRAME_TEMPLATE]
+    assert chat.findtext('Background') == usual.findtext('Background') == skin.BACKGROUND_TEXTURE
+    assert [(e.tag, e.text) for e in chat.find('Border')] == [(e.tag, e.text) for e in usual.find('Border')]
+    assert {chat.findtext(f'Titlebar/{side}') for side in ('Left', 'Middle', 'Right')} == {'TUI_TitleBar'}
+    assert {usual.findtext(f'Titlebar/{side}') for side in ('Left', 'Middle', 'Right')} == {
+        f'A_RoundedFrameTitle{side}' for side in ('Left', 'Middle', 'Right')}
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    bar = cut(decode(files()[skin.PIECES_TEXTURE]), anims['TUI_TitleBar'])
+    # 10px at the user's request (8 first, then 3 and 6, back to 8 for the font 2 name, then 2px taller;
+    # the stock bar is 14).
+    assert bar.size == (skin.TITLE_PIECE_WIDTH, skin.TITLE_HEIGHT) and skin.TITLE_HEIGHT == 10
+    rows = [set(bar.getpixel((x, y)) for x in range(bar.width)) for y in range(bar.height)]
+    assert rows[:-1] == [{skin.PANEL_RGBA}] * (skin.TITLE_HEIGHT - 1)
+    assert rows[-1] == {skin.TITLE_DIVIDER_RGBA} == {skin.snapped(skin.over(skin.ROW_DIVIDER_RGBA, 1, skin.PANEL_RGBA))}
+    assert skin.TITLE_DIVIDER_RGBA[3] == 255 and skin.TITLE_DIVIDER_RGBA != skin.PANEL_RGBA
 
 def test_input_field_is_a_plain_strip_darker_than_the_panel_with_a_faint_outline():
     # The user wanted it simple, darker than the window rather than lighter, tall enough for letters, and
@@ -1037,14 +1110,298 @@ def test_selector_icons_are_distinct_centered_and_light_up_when_hovered_or_open(
     assert len(normals) == len(skin.SELECTOR_BUTTONS)
 
 
+# The Actions window
+
+# Every control the stock Actions window has, by page: the client looks each up by ScreenID.
+STOCK_ACTIONS = {
+    'ActionsMainPage': ['AMP_WhoButton', 'AMP_InviteButton', 'AMP_FollowButton', 'AMP_DisbandButton', 'AMP_CampButton',
+                        'AMP_SitButton', 'AMP_StandButton', 'AMP_RunButton', 'AMP_WalkButton'],
+    'ActionsAbilitiesPage': [f'AAP_{n}AbilityButton' for n in ('First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth')],
+    'ActionsCombatPage': ['ACP_MeleeAttackButton', 'ACP_RangeAttackButton'] + [
+        f'ACP_{n}AbilityButton' for n in ('First', 'Second', 'Third', 'Fourth')],
+    'ActionsSocialsPage': ['ASP_SocialPageLeftButton', 'ASP_CurrentSocialPageLabel', 'ASP_SocialPageRightButton'] + [
+        f'ASP_SocialButton{n}' for n in range(1, 13)],
+}
+
+
+def actions_pages():
+    """The Actions window file, and each page's ScreenID → its parts by ScreenID, in order."""
+    root, window = screen(skin.ACTIONS_FILE)
+    defined, pages = parts(root), items(root, 'Page')
+    tabs = direct_pieces(root, window)[0]
+    return root, window, tabs, {pages[p.text].findtext('ScreenID'): {
+        defined[piece.text].findtext('ScreenID'): defined[piece.text] for piece in pages[p.text].findall('Pieces')}
+        for p in tabs.findall('Pages')}
+
+
+def test_actions_window_keeps_every_control_the_client_looks_for_on_its_stock_page():
+    root, window, tabs, pages = actions_pages()
+    assert window.get('item') == 'ActionsWindow' and window.findtext('Style_Titlebar') == 'false'
+    assert tabs.tag == 'TabBox' and tabs.findtext('ScreenID') == 'ACTW_ActionsSubwindows'
+    # The stock pages, in the stock order, each holding its stock controls.
+    assert list(pages) == list(STOCK_ACTIONS)
+    for page, controls in STOCK_ACTIONS.items():
+        assert sorted(pages[page]) == sorted(controls), page
+    # Who and Disband, and the socials' bottom two rows (5, 6, 11 and 12), are gone at the user's request, but
+    # the client looks them up: no size, clear art.
+    hidden = [b for b in root.iter('Button') if box(b)[2:] == (0, 0)]
+    assert [b.findtext('ScreenID') for b in hidden] == ['AMP_WhoButton', 'AMP_DisbandButton'] + [
+        f'ASP_SocialButton{n}' for n in (5, 6, 11, 12)]
+    assert {s.text for b in hidden for s in b.find('ButtonDrawTemplate')} == {'TUI_Clear'}
+
+
+# The border pieces the stock templates have: the tab border has no bottom row, the page border all twelve.
+STOCK_TAB_BORDER = ['TopLeft', 'Top', 'TopRight', 'RightTop', 'Right', 'RightBottom', 'LeftTop', 'Left', 'LeftBottom']
+STOCK_PAGE_BORDER = ['TopLeft', 'Top', 'TopRight', 'RightTop', 'Right', 'RightBottom', 'BottomRight', 'Bottom',
+                     'BottomLeft', 'LeftTop', 'Left', 'LeftBottom']
+
+
+def tab_box_layout(tabs, pages):
+    """Where the game puts a tab box's tabs and pages, worked out from its border templates' pieces the way
+    eqgame.exe's tab box code does it (read after the first build crashed the game; see skin.TAB_BORDER).
+
+    Returns each tab's icon spot (x, y) while its page is open (a closed page's is TAB_SHIFT lower), the
+    height a closed tab is cut off at, and the pages' content rect (left, top, right, bottom), all in the
+    tab box."""
+    root = everything()
+    frames, anims = items(root, 'FrameTemplate'), items(root, 'Ui2DAnimation')
+
+    def piece(template, side):
+        return rect_of(anims[frames[tabs.findtext(template)].findtext(side)])[2:]
+
+    def tab(side):
+        return piece('TabBorderTemplate', side)
+
+    def page(side):
+        return piece('PageBorderTemplate', side)
+
+    width, height = box(tabs)[2:]
+    # The row starts at the box's font height + 8 (font 3's line is 14) and grows to a taller icon plus the
+    # tab border's Top.
+    icon_height = max(rect_of(anims[p.findtext(t)])[3] for p in pages for t in ('TabIcon', 'TabIconActive'))
+    font_row = skin.TEXT_HEIGHT + 8
+    assert number(tabs, 'Font') == skin.TEXT_FONT
+    row = icon_height + tab('Top')[1] if icon_height > font_row else font_row
+    shares = width - tab('TopLeft')[0] - tab('TopRight')[0]
+    edges = [shares * i // len(pages) for i in range(len(pages) + 1)]
+    spots = [(page('TopLeft')[0] + edges[i] + tab('Left')[0], tab('Top')[1]) for i in range(len(pages))]
+    # Each tab's icon fits its share less the tab border's Left and Right.
+    for i, p in enumerate(pages):
+        assert edges[i + 1] - edges[i] - tab('Left')[0] - tab('Right')[0] >= rect_of(anims[p.findtext('TabIcon')])[2]
+    area_top = row - tab('LeftBottom')[1]
+    content = (page('LeftTop')[0], area_top + page('Top')[1], width - page('RightTop')[0], height - page('Bottom')[1])
+    return spots, row - page('Bottom')[1], content
+
+
+def test_actions_tab_and_page_borders_have_every_piece_the_client_reads():
+    # The first build left most pieces out and crashed the game on load (it reads the tab border's Top without
+    # checking). Every piece the stock templates have is there, clear, at least a pixel each way.
+    root = everything()
+    frames, anims = items(root, 'FrameTemplate'), items(root, 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    for name, stock in ((skin.TAB_BORDER, STOCK_TAB_BORDER), (skin.PAGE_BORDER, STOCK_PAGE_BORDER)):
+        sides = [e for e in frames[name] if not e.tag.startswith('Overlap')]
+        assert [e.tag for e in sides] == stock, name
+        for e in sides:
+            image = cut(atlas, anims[e.text])
+            assert min(image.size) >= 1 and {p[3] for p in pixels(image)} == {0}, (name, e.tag)
+
+
+def test_actions_tabs_are_the_pages_icons_as_toggles_lit_while_open():
+    root, window, tabs, pages = actions_pages()
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    icons = []
+    for page, width in zip((items(root, 'Page')[p.text] for p in tabs.findall('Pages')), skin.TAB_WIDTHS):
+        normal, active = page.findtext('TabIcon'), page.findtext('TabIconActive')
+        icon = normal.removeprefix('TUI_Tab').removesuffix('Normal')
+        assert active == f'TUI_Tab{icon}Pressed' and icon in skin.ICONS
+        # The tab, a toggle as wide as its share of the row, closed at the top of its art and open TAB_SHIFT
+        # lower (the client draws a closed page's tab that much lower), clear around it.
+        coverage = skin.icon_coverage(skin.ICONS[icon])
+        for name, state, top in ((normal, 'Normal', 0), (active, 'Pressed', skin.TAB_SHIFT)):
+            art = cut(atlas, anims[name])
+            assert art.size == (width, skin.TAB_ART_HEIGHT)
+            toggle = as_image(skin.toggle_art(coverage, state, width, skin.TOGGLE_SIZE))
+            assert art.crop((0, top, width, top + skin.TOGGLE_SIZE)).tobytes() == toggle.tobytes()
+            art.paste((0, 0, 0, 0), (0, top, width, top + skin.TOGGLE_SIZE))
+            assert {p[3] for p in pixels(art)} == {0}
+        # See-through and borderless, so the window's own panel shows behind every page.
+        assert page.findtext('Style_Transparent') == 'true' and page.findtext('Style_Border') == 'false'
+        icons.append(icon)
+    assert icons == ['Main', 'Abilities', 'Combat', 'Socials']
+
+
+def test_each_actions_tab_has_its_pages_name_as_a_tooltip():
+    # The user asked for a tooltip on each tab. The tab box has none of its own, so an empty label lies over
+    # each tab with the page's name, without Style_Transparent like duxaUI's click-through effect names.
+    root, window, tabs, _ = actions_pages()
+    pages = [items(root, 'Page')[p.text] for p in tabs.findall('Pages')]
+    spots, _, _ = tab_box_layout(tabs, pages)
+    labels = direct_pieces(root, window)[1:-1]  # after the tab box, before the divider under the tabs
+    assert [label.tag for label in labels] == ['Label'] * len(pages)
+    names = ['Main', 'General Skills', 'Combat Skills', 'Socials']
+    for label, page, (x, y), width, name in zip(labels, pages, spots, skin.TAB_WIDTHS, names):
+        # The tab box is at the window's inside top left, so its tabs' spots are the labels'.
+        assert box(label) == (x, y + skin.TAB_SHIFT, width, skin.TOGGLE_SIZE)
+        assert label.findtext('TooltipReference') == page.findtext('TooltipReference') == name
+        assert label.findtext('Text') == '' and label.find('Style_Transparent') is None
+
+
+def test_actions_window_follows_the_spacing_standard():
+    root, window, tabs, pages = actions_pages()
+    width, height = box(window)[2:]
+    # As wide as the group and player windows (the user's call).
+    assert width == skin.GROUP_WIDTH == skin.PLAYER_WIDTH and window.findtext('Style_Titlebar') == 'false'
+    # The tab box starts at the window's inside and places the tabs and pages itself. It runs TAB_OVERHANG
+    # past the inside on the right, where only the last tab's padding and the page border's side are.
+    inside = width - 2 * skin.BORDER
+    assert box(tabs) == (0, 0, inside + skin.TAB_OVERHANG, height - 2 * skin.BORDER)
+    spots, cut_at, (left, top, right, bottom) = tab_box_layout(tabs, list(items(root, 'Page').values()))
+    # Every tab lands level: the open tab's art has it TAB_SHIFT down, a closed one is drawn TAB_SHIFT lower.
+    toggles = [(x, y + skin.TAB_SHIFT) for x, y in spots]
+    # The tabs fill the row, a padding apart and a padding from the window's sides.
+    edges = [(skin.BORDER + x, skin.BORDER + x + w) for (x, _), w in zip(toggles, skin.TAB_WIDTHS)]
+    assert edges[0][0] == skin.PADDING and width - edges[-1][1] == skin.PADDING
+    assert [b[0] - a[1] for a, b in zip(edges, edges[1:])] == [skin.PADDING] * (len(edges) - 1)
+    assert max(skin.TAB_WIDTHS) - min(skin.TAB_WIDTHS) <= 1
+    # A pixel further down than the padding, since no piece can be 0 tall (see TAB_TOP).
+    assert {skin.BORDER + y for _, y in toggles} == {skin.PADDING + 1}
+    toggles_bottom = toggles[0][1] + skin.TOGGLE_SIZE
+    assert toggles_bottom <= cut_at  # a closed tab is never cut off
+    # Under the tabs, the Effects window's divider across the content row, separating the tabs from the page
+    # (the user's request), a padding under the tabs, and the pages a padding under it and in from the
+    # window's sides and bottom.
+    divider = direct_pieces(root, window)[-1]
+    dx, dy, dw, dh = box(divider)
+    assert divider.tag == 'StaticAnimation' and (skin.BORDER + dx, dw, dh) == (skin.PADDING, right - left, 1)
+    line = cut(decode(files()[skin.PIECES_TEXTURE]), items(everything(), 'Ui2DAnimation')[divider.findtext('Animation')])
+    assert line.size == (dw, dh) and set(pixels(line)) == {skin.ROW_DIVIDER_RGBA}
+    assert dy - toggles_bottom == skin.PADDING and top - (dy + dh) == skin.PADDING
+    assert skin.BORDER + left == skin.PADDING == width - (skin.BORDER + right) == height - (skin.BORDER + bottom)
+    assert (right - left, bottom - top) == (skin.ACTIONS_CONTENT_WIDTH, skin.ACTIONS_PAGE_HEIGHT)
+    for page, controls in pages.items():
+        shown = [box(c) for c in controls.values() if box(c)[2:] != (0, 0)]
+        # Everything inside the page, and at least a padding apart across or down (the pairs the client
+        # swaps share one spot).
+        for cx, cy, cw, ch in shown:
+            assert 0 <= cx and cx + cw <= right - left and 0 <= cy and cy + ch <= bottom - top, page
+        for i, a in enumerate(shown):
+            for b in shown[i + 1:]:
+                across = max(b[0] - (a[0] + a[2]), a[0] - (b[0] + b[2]))
+                down = max(b[1] - (a[1] + a[3]), a[1] - (b[1] + b[3]))
+                assert a == b or max(across, down) >= skin.PADDING, (page, a, b)
+    # The socials, the tallest page, fill the page to its bottom and right edges.
+    socials = [box(c) for c in pages['ActionsSocialsPage'].values()]
+    assert max(cy + ch for _, cy, _, ch in socials) == bottom - top
+    assert max(cx + cw for cx, _, cw, _ in socials) == right - left
+
+
+def test_actions_pages_are_two_columns_of_buttons():
+    # The user's design: every page's actions in two columns of buttons filling the row, like the socials, all
+    # in font 2 (font 3's "Sense Heading" wouldn't fit a column). The game writes the ability and social names
+    # (their text is empty); the Main and Combat pages' own names are the buttons' text.
+    _, _, _, pages = actions_pages()
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    ordinals = ('First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth')
+    height = skin.TEXT_BUTTON_HEIGHT
+    step = height + skin.PADDING
+    columns = ((0, 79), (79 + skin.PADDING, 80))  # the second a pixel wider, as in the group window
+    assert columns[1][0] + columns[1][1] == skin.ACTIONS_CONTENT_WIDTH
+
+    def across(names, top=0):
+        # (ScreenID, text) in spots left to right then down, as the stock skin lays out its abilities.
+        return [(s, text, (columns[n % 2][0], top + n // 2 * step, columns[n % 2][1], height))
+                for n, spot in enumerate(names) for s, text in spot]
+
+    expected = {  # page: [(ScreenID, text, (x, y, width, height))]; the client shows one of a pair in one spot
+        'ActionsMainPage': across([[('AMP_CampButton', 'Camp')],
+                                   [('AMP_SitButton', 'Sit'), ('AMP_StandButton', 'Stand')],
+                                   [('AMP_RunButton', 'Run'), ('AMP_WalkButton', 'Walk')],
+                                   [('AMP_InviteButton', 'Invite'), ('AMP_FollowButton', 'Follow')]]),
+        'ActionsAbilitiesPage': across([[(f'AAP_{n}AbilityButton', '')] for n in ordinals]),
+        'ActionsCombatPage': across([[('ACP_MeleeAttackButton', 'Melee Attack')],
+                                     [('ACP_RangeAttackButton', 'Range Attack')]]
+                                    + [[(f'ACP_{n}AbilityButton', '')] for n in ordinals[:4]]),
+        # Under the page arrows, the game's columns of six, 1 to 6 then 7 to 12, with the bottom two rows (5, 6,
+        # 11 and 12) hidden.
+        'ActionsSocialsPage': [(f'ASP_SocialButton{n + 1}', '',
+                                (columns[n // 6][0], skin.ARROW_SIZE + skin.PADDING + n % 6 * step, columns[n // 6][1],
+                                 height)) for n in range(12) if n % 6 < 4],
+    }
+    for page, spots in expected.items():
+        buttons = [b for b in pages[page].values() if b.tag == 'Button' and b.find('Font') is not None]
+        assert [(b.findtext('ScreenID'), b.findtext('Text'), box(b)) for b in buttons] == spots, page
+        for b in buttons:
+            assert number(b, 'Font') == 2 and rgb(b, 'TextColor') == skin.TEXT_RGB
+            assert b.findtext('Style_Checkbox') == 'false' and b.find('TooltipReference') is None
+            # The wash with no label of ours, as big as the button.
+            for state in b.find('ButtonDrawTemplate'):
+                look = skin.button_look(skin.BUTTON_STYLE, skin.BUTTON_ART[state.tag])
+                plain = skin.snapped_art(skin.panel_texture(*box(b)[2:], *look))
+                assert cut(atlas, anims[state.text]).tobytes() == as_image(plain).tobytes(), (b.get('item'), state.tag)
+    # The socials, the tallest page, have five rows with the arrows: the window is no taller (the user's call).
+    assert skin.ACTIONS_PAGE_HEIGHT == 5 * step - skin.PADDING
+
+
+def test_social_page_arrows_are_small_icon_buttons_around_the_page_number():
+    _, _, _, pages = actions_pages()
+    socials = pages['ActionsSocialsPage']
+    left, right = socials['ASP_SocialPageLeftButton'], socials['ASP_SocialPageRightButton']
+    size = (skin.ARROW_SIZE, skin.ARROW_SIZE)
+    assert box(left) == (0, 0, *size) and box(right) == (skin.ACTIONS_CONTENT_WIDTH - skin.ARROW_SIZE, 0, *size)
+    assert left.findtext('ButtonDrawTemplate/Normal') == 'TUI_ToggleLeftNormal'
+    assert right.findtext('ButtonDrawTemplate/Normal') == 'TUI_ToggleRightNormal'
+    number_label = socials['ASP_CurrentSocialPageLabel']
+    x, y, w, h = box(number_label)
+    # Centered between the arrows, a padding from each, its digits' ink centered on them.
+    assert x == skin.ARROW_SIZE + skin.PADDING and x + w == box(right)[0] - skin.PADDING
+    assert number_label.findtext('AlignCenter') == 'true' and number(number_label, 'Font') == skin.TEXT_FONT
+    assert y + skin.DIGITS_INK_MIDDLE == skin.ARROW_SIZE / 2 and h == skin.TEXT_HEIGHT
+
+
+def test_every_icon_is_distinct_stays_in_its_square_and_dims_when_disabled():
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    normals = set()
+    # (icon, button width, button height): the spell bar's book button runs across the window.
+    buttons = ([(n, skin.TOGGLE_SIZE, skin.TOGGLE_SIZE) for n in skin.ICONS]
+               + [(n, skin.ARROW_SIZE, skin.ARROW_SIZE) for n in skin.ARROW_ICONS]
+               + [('Book', skin.BOOK_WIDTH, skin.TOGGLE_SIZE)])
+    for name, width, height in buttons:
+        left, top = (width - skin.ICON_SIZE) // 2, (height - skin.ICON_SIZE) // 2
+        icon_box = (left, top, left + skin.ICON_SIZE, top + skin.ICON_SIZE)
+        for state, (fill, edge, _) in skin.ICON_LOOKS.items():
+            art = cut(atlas, anims[f'TUI_Toggle{name}{state}'])
+            assert art.size == (width, height), name
+            # Outside the centered 16px square, the art is the plain button.
+            plain = as_image(skin.snapped_art(skin.panel_texture(width, height, fill, edge)))
+            art.paste((0, 0, 0, 0), icon_box)
+            plain.paste((0, 0, 0, 0), icon_box)
+            assert art.tobytes() == plain.tobytes(), (name, state)
+        art = {state: cut(atlas, anims[f'TUI_Toggle{name}{state}']).crop(icon_box) for state in skin.ICON_LOOKS}
+        ink = {state: max(sum(p[:3]) * p[3] for p in pixels(image)) for state, image in art.items()}
+        assert ink['Disabled'] < ink['Normal'] < ink['Flyby'], name
+        normals.add(art['Normal'].tobytes())
+    assert len(normals) == len(buttons)
+
+
 @pytest.mark.parametrize('name, item, slots, first_type', [
     (skin.BUFF_FILE, 'BuffWindow', 15, 45), (skin.SONG_FILE, 'ShortDurationBuffWindow', 6, 135)])
 def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_type):
     # EQ Triage's table look, as the user asked: a row per slot, compact, with a divider between.
     root, window = check_inside_frame(name)
     assert window.get('item') == item
-    buttons = [b for b in root.iter('Button')]
-    assert [b.findtext('ScreenID') for b in buttons] == [f'Buff{n}' for n in range(slots)]
+    every_button = list(root.iter('Button'))
+    assert [b.findtext('ScreenID') for b in every_button] == [f'Buff{n}' for n in range(skin.CLIENT_SLOTS)]
+    # The client looks up Buff0 to Buff14 in both windows (UIErrors.txt reported the songs window's missing
+    # ones), so the slots a window doesn't show are hidden: no size, clear art.
+    buttons, hidden = every_button[:slots], every_button[slots:]
+    assert skin.CLIENT_SLOTS == 15
+    for b in hidden:
+        assert box(b)[2:] == (0, 0)
+        assert {b.findtext(f'ButtonDrawTemplate/{state}') for state in skin.BUTTON_STATES} == {'TUI_Clear'}
     names = {e.findtext('ScreenID'): e for e in root.iter('Label')}
     for n, b in enumerate(buttons):
         x, y, w, h = box(b)
@@ -1075,17 +1432,259 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
     line = cut(decode(files()[skin.PIECES_TEXTURE]), items(everything(), 'Ui2DAnimation')['TUI_RowDivider'])
     assert set(pixels(line)) == {skin.ROW_DIVIDER_RGBA} and skin.ROW_DIVIDER_RGBA[3] < skin.EDGE_FADED[3]
     assert box(window)[3] == 2 * skin.BORDER + slots * skin.ROW_PITCH - 1
-    # The slot buttons are the window's last pieces, over the names, so a click anywhere on a row
-    # reaches the slot and clicks the effect off (the user couldn't with the names on top).
+    # The rows are solid, so the names are drawn after the buttons, over them, as in duxaUI (where a click
+    # on a name clicks the effect off); the hidden slots come last.
     order = [p.text for p in window.findall('Pieces')]
-    first_button = min(order.index(b.get('item')) for b in buttons)
-    assert all(order.index(e.get('item')) < first_button for e in root.iter('Label'))
-    assert order[-slots:] == [b.get('item') for b in buttons]
+    first_name = min(order.index(e.get('item')) for e in root.iter('Label'))
+    assert all(order.index(b.get('item')) < first_name for b in buttons)
+    shown = len(order) - len(hidden)
+    assert order[shown - slots:shown] == [names[f'Buff{n}Label'].get('item') for n in range(slots)]
+    assert order[shown:] == [b.get('item') for b in hidden]
+
+
+def test_spell_bar_is_a_table_of_gems_with_names_recast_bars_and_the_book():
+    # duxaUI's gems (the user's pick) in the Effects window's table look: a row per gem, its icon and then the
+    # spell's name, Zeal's recast countdown under the name, the global recovery on top and the book under.
+    # 190 wide (the user's call), with the usual padding each side.
+    assert skin.SPELL_BAR_WIDTH == 190
+    root, window = check_inside_frame(skin.CASTSPELL_FILE, skin.SPELL_BAR_WIDTH)
+    assert window.get('item') == 'CastSpellWnd'
+    inner_width, height = box(window)[2] - 2 * skin.BORDER, box(window)[3]
+    right = inner_width - skin.LEFT  # a padding from the window's right edge
+    assert right == skin.SPELL_BAR_RIGHT
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    # The client looks up the eight gems and the book's button.
+    gems = list(root.iter('SpellGem'))
+    assert [g.findtext('ScreenID') for g in gems] == [f'CSPW_Spell{n}' for n in range(8)]
+    assert [b.findtext('ScreenID') for b in root.iter('Button')] == ['CSPW_SpellBook']
+    names = {e.findtext('ScreenID'): e for e in root.iter('Label')}
+    gauges = {e.findtext('ScreenID'): e for e in root.iter('Gauge')}
+    for n, gem in enumerate(gems):
+        x, y, w, h = box(gem)
+        # As wide as the window's inside, so a click anywhere on the row casts; a pixel between rows.
+        assert (x, y, w, h) == (0, skin.GEMS_TOP + n * skin.GEM_ROW_PITCH, inner_width, skin.GEM_ROW_HEIGHT)
+        assert skin.GEM_ROW_PITCH == skin.GEM_ROW_HEIGHT + 1
+        # The client's 24px icon a padding from the window's left edge, centered in a 32px row, roomier than the
+        # Effects table's so the rows are big targets (the user's calls: 36 was a bit too large).
+        assert (number(gem, 'SpellIconOffsetX'), number(gem, 'SpellIconOffsetY')) == (skin.LEFT, skin.GEM_ICON_MARGIN)
+        assert skin.BORDER + skin.LEFT == skin.PADDING and h == skin.GEM_ICON + 2 * skin.GEM_ICON_MARGIN == 32
+        # Under the icon, a solid row in the panel's color exactly the gem's size, empty or not.
+        template = gem.find('SpellGemDrawTemplate')
+        for part in ('Holder', 'Background'):
+            art = cut(atlas, anims[template.findtext(part)])
+            assert art.size == (w, h) and set(pixels(art)) == {skin.PANEL_RGBA}, part
+        assert template.findtext('Highlight') == 'TUI_Clear'
+        # The name a padding after the icon, centered in the row, ending a padding from the edge.
+        name = names[f'CSPW_Spell{n}_Name']
+        nx, ny, nw, nh = box(name)
+        assert name.findtext('EQType') == str(60 + n) and not name.findtext('Text')
+        assert nx == skin.LEFT + skin.GEM_ICON + skin.PADDING and nx + nw == right
+        assert ny - y == (h - nh) // 2
+        # Zeal's recast countdown for the gem, its text hidden: a thin bar a pixel under the name's line and as
+        # long, inside the row.
+        recast = gauges[f'CSPW_Spell{n}_Recast']
+        assert recast.findtext('EQType') == str(26 + n) and number(recast, 'TextOffsetY') == 8000
+        assert box(recast) == (nx, ny + nh + skin.PET_BAR_GAP, nw, skin.TICK_HEIGHT)
+        assert ny + nh + skin.PET_BAR_GAP + skin.TICK_HEIGHT <= y + h
+    # Zeal's global recovery along the top, the first icon a padding under it.
+    recovery = gauges['CSPW_Global_Recast']
+    assert recovery.findtext('EQType') == '25' and number(recovery, 'TextOffsetY') == 8000
+    assert box(recovery) == (skin.LEFT, 0, right - skin.LEFT, skin.TICK_HEIGHT)
+    assert box(gems[0])[1] + skin.GEM_ICON_MARGIN - skin.TICK_HEIGHT == skin.PADDING
+    # Regular bars with no tracks (see the bar test for their fills): the gems' plain white like the other
+    # windows' bars, not subdued (the user's request), and the global recovery, the master timer, in the casting
+    # window's soft red (the user's idea).
+    for bar in [recovery] + [gauges[f'CSPW_Spell{n}_Recast'] for n in range(8)]:
+        assert bar.find('GaugeDrawTemplate/Background') is None
+    assert rgb(recovery, 'FillTint') == skin.SPELL_RGB
+    assert {rgb(gauges[f'CSPW_Spell{n}_Recast'], 'FillTint') for n in range(8)} == {skin.TEXT_RGB}
+    # A divider in the pixel under each row, as in the Effects window, the last gem's too (the user's request).
+    assert [box(e) for e in root.iter('StaticAnimation')] == [
+        (skin.LEFT, skin.GEMS_TOP + n * skin.GEM_ROW_PITCH - 1, right - skin.LEFT, 1) for n in range(1, 9)]
+    assert {e.findtext('Animation') for e in root.iter('StaticAnimation')} == {'TUI_SpellBarDivider'}
+    line = cut(atlas, anims['TUI_SpellBarDivider'])
+    assert line.size == (right - skin.LEFT, 1) and set(pixels(line)) == {skin.ROW_DIVIDER_RGBA}
+    # The book: an icon toggle like the selector's but across the window, a big target for a hurried click (the
+    # user's request), pressed while the book is open, with the default tooltip. In a row of its own under the
+    # last gem's divider, for balance: a padding under it and from the window's edges.
+    book = next(root.iter('Button'))
+    bx, by, bw, bh = box(book)
+    assert (bx, bw, bh) == (skin.LEFT, right - skin.LEFT, skin.TOGGLE_SIZE)
+    assert skin.BORDER + bx == skin.PADDING == box(window)[2] - (skin.BORDER + bx + bw)
+    last_divider = box(list(root.iter('StaticAnimation'))[-1])
+    assert last_divider[1] == box(gems[-1])[1] + skin.GEM_ROW_HEIGHT
+    assert by - (last_divider[1] + 1) == skin.PADDING
+    assert height - (skin.BORDER + by + bh) == skin.PADDING
+    assert book.findtext('Style_Checkbox') == 'true'
+    assert book.findtext('TooltipReference') == 'Opens and closes Your Spellbook'
+    assert {s.text for s in book.find('ButtonDrawTemplate')} == {
+        f'TUI_ToggleBook{skin.TOGGLE_ART[state]}' for state in skin.BUTTON_STATES}
+    # The names and bars are drawn over the gems.
+    order = [p.text for p in window.findall('Pieces')]
+    assert max(order.index(g.get('item')) for g in gems) < min(order.index(e.get('item')) for e in names.values())
+
+
+def hot_bar():
+    """The hot button window's file, the window, and its controls by ScreenID."""
+    root, window = check_inside_frame(skin.HOTBUTTON_FILE, skin.HOT_WIDTH)
+    return root, window, {e.findtext('ScreenID'): e for e in root if e.findtext('ScreenID')}
+
+
+def test_hot_button_window_keeps_every_control_the_client_looks_for():
+    # The stock window's controls, which every skin keeps: the page arrows and number, and on each of the ten
+    # macros' spots a button, an item slot (EQType -1) and a spell gem, the three the same size.
+    root, window, controls = hot_bar()
+    assert window.get('item') == 'HotButtonWnd'
+    assert {'HB_PageLeftButton', 'HB_PageRightButton', 'HB_CurrentPageLabel'} <= set(controls)
+    for n in range(1, 11):
+        button, item, gem = (controls[f'HB_{kind}{n}'] for kind in ('Button', 'InvSlot', 'SpellGem'))
+        assert (button.tag, item.tag, gem.tag) == ('Button', 'InvSlot', 'SpellGem')
+        assert item.findtext('EQType') == '-1'
+        assert box(button) == box(item) == box(gem)
+    # Nothing is hidden, and in duxaUI's order: the page row, the buttons, the item slots and gems over them, then
+    # the weapon and bag slots.
+    order = [p.text for p in window.findall('Pieces')]
+    kinds = [items(root, tag) for tag in ('Button', 'Label', 'InvSlot', 'SpellGem')]
+    assert all(box(e)[2:] != (0, 0) for e in direct_pieces(root, window))
+    assert order[:3] == [controls[i].get('item') for i in ('HB_PageLeftButton', 'HB_PageRightButton',
+                                                            'HB_CurrentPageLabel')]
+    assert order[3:] == ([controls[f'HB_{kind}{n}'].get('item') for kind in ('Button', 'InvSlot', 'SpellGem')
+                          for n in range(1, 11)]
+                         + [e.get('item') for e in root.iter('InvSlot') if e.findtext('EQType') != '-1'])
+    assert len(order) == sum(len(k) for k in kinds) == 3 + 30 + 12
+
+
+def test_hot_button_window_is_duxaUIs_shape_on_a_grid_of_36px_spots():
+    # The user's picks: duxaUI's shape, everything 36px and a padding apart (4px was tried in game; the user went
+    # back to the standard), so the rows line up across the window. Four columns of six rows: the page row and the
+    # ten macros on the left, the weapon slots and the bags on the right.
+    root, window, controls = hot_bar()
+    assert box(window)[2:] == (skin.HOT_WIDTH, skin.HOT_HEIGHT) == (174, 258)
+    step = skin.HOT_SIZE + skin.PADDING
+
+    def spot(column, row):
+        return skin.LEFT + column * step, skin.LEFT + row * step
+
+    # A padding from the window's edges on every side.
+    width, height = box(window)[2:]
+    assert skin.BORDER + spot(0, 0)[0] == skin.PADDING
+    assert width - (skin.BORDER + spot(3, 5)[0] + skin.HOT_SIZE) == skin.PADDING
+    assert height - (skin.BORDER + spot(3, 5)[1] + skin.HOT_SIZE) == skin.PADDING
+    # The macros under the page row, left to right then down, as in duxaUI.
+    for n in range(1, 11):
+        assert box(controls[f'HB_Button{n}']) == (*spot((n - 1) % 2, 1 + (n - 1) // 2), 36, 36)
+    # Beside them, Primary and Secondary, Range and Ammo, then the bags down each column, 1 to 4 and 5 to 8.
+    slots = [e for e in root.iter('InvSlot') if e.findtext('EQType') != '-1']
+    assert {box(e)[2:] for e in slots} == {(36, 36)}
+    placed = {box(e)[:2]: int(e.findtext('EQType')) for e in slots}
+    assert [[placed[spot(c, r)] for r in range(6)] for c in (2, 3)] == [[13, 11, 22, 23, 24, 25],
+                                                                        [14, 21, 26, 27, 28, 29]]
+
+
+def test_hot_button_page_arrows_are_a_row_tall_around_the_page_number():
+    # The page row is as tall as the others so the rows line up: the Actions window's chevrons, as wide as its
+    # arrows, at the two ends of the macro columns, and the page number between them, its digits centered.
+    root, window, controls = hot_bar()
+    left, right, page = (controls[i] for i in ('HB_PageLeftButton', 'HB_PageRightButton', 'HB_CurrentPageLabel'))
+    macros = box(controls['HB_Button1']), box(controls['HB_Button2'])
+    assert box(left) == (macros[0][0], skin.LEFT, skin.ARROW_SIZE, skin.HOT_SIZE)
+    assert box(right) == (macros[1][0] + skin.HOT_SIZE - skin.ARROW_SIZE, skin.LEFT, skin.ARROW_SIZE, skin.HOT_SIZE)
+    x, y, w, h = box(page)
+    assert x == box(left)[0] + skin.ARROW_SIZE + skin.PADDING and x + w == box(right)[0] - skin.PADDING
+    assert page.findtext('AlignCenter') == 'true' and number(page, 'Font') == skin.TEXT_FONT
+    assert y + skin.DIGITS_INK_MIDDLE == skin.LEFT + skin.HOT_SIZE / 2 and h == skin.TEXT_HEIGHT
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    tip_row = skin.HOT_SIZE // 2 - 1
+    art = {}
+    for arrow, way, tooltip in ((left, 'Left', 'Previous Page'), (right, 'Right', 'Next Page')):
+        assert arrow.findtext('TooltipReference') == tooltip and arrow.findtext('Style_Checkbox') == 'false'
+        assert {s.tag: s.text for s in arrow.find('ButtonDrawTemplate')} == {
+            state: f'TUI_ToggleHot{way}{skin.ICON_ART[state]}' for state in skin.BUTTON_STATES}
+        art[way] = {state: cut(atlas, anims[f'TUI_ToggleHot{way}{state}']) for state in skin.ICON_LOOKS}
+        assert {a.size for a in art[way].values()} == {(skin.ARROW_SIZE, skin.HOT_SIZE)}
+        # Lit when hovered, dimmed when disabled, like the other icon buttons.
+        ink = {state: max(sum(p[:3]) for p in pixels(a)) for state, a in art[way].items()}
+        assert ink['Disabled'] < ink['Normal'] < ink['Flyby'], way
+    # Each points its way: its tip, halfway down, is on its own side.
+    def light(way, x):
+        return sum(art[way]['Normal'].getpixel((x, tip_row))[:3])
+    assert light('Left', 8) > light('Right', 8) and light('Right', 11) > light('Left', 11)
+
+
+def test_macro_names_are_the_games_text_in_font_1():
+    # The game writes each macro's name, in font 1, the small font duxaUI uses (the user's pick).
+    root, window, controls = hot_bar()
+    for n in range(1, 11):
+        button = controls[f'HB_Button{n}']
+        assert number(button, 'Font') == skin.MACRO_FONT == 1
+        assert not button.findtext('Text') and rgb(button, 'TextColor') == skin.TEXT_RGB
+        assert button.findtext('Style_Checkbox') == 'false'
+        assert {s.tag: s.text for s in button.find('ButtonDrawTemplate')} == {
+            state: f'TUI_HotButton{skin.BUTTON_ART[state]}' for state in skin.BUTTON_STATES}
+        assert (number(button, 'DecalSize/CX'), number(button, 'DecalSize/CY')) == (skin.HOT_SIZE, skin.HOT_SIZE)
+
+
+def test_hot_button_window_art_is_solid_and_empty_slots_show_dimmed_icons():
+    root, window, controls = hot_bar()
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    # Solid everywhere, rounded corners too, so every click lands (see HELPFUL_RGBA): the buttons' look over the
+    # panel, which shows in the corners.
+    used = {e.text for tag in ('ButtonDrawTemplate', 'SpellGemDrawTemplate') for t in root.iter(tag) for e in t}
+    used |= {e.findtext('Background') for e in root.iter('InvSlot')}
+    for name in used - {'TUI_Clear'}:
+        art = cut(atlas, anims[name])
+        assert {p[3] for p in pixels(art)} == {255}, name
+        assert art.getpixel((0, 0)) == skin.PANEL_RGBA, name
+    fill_spot = (skin.HOT_SIZE // 2, 2)  # clear of the edge and of an icon
+    for state in skin.BUTTON_LOOKS:
+        fill = skin.button_look('Wash', state)[0]
+        assert cut(atlas, anims[f'TUI_HotButton{state}']).getpixel(fill_spot) == skin.snapped(
+            skin.over(fill, 1, skin.PANEL_RGBA))
+    # Each empty weapon slot shows its own icon, in the middle 16px of the macros' plain button, dimmed like a
+    # closed selector toggle's. An empty bag slot is the plain button: anything goes there, and a sack icon read
+    # as a ring in game (the user).
+    slots = [e for e in root.iter('InvSlot') if e.findtext('EQType') != '-1']
+    icons = {int(e.findtext('EQType')): e.findtext('Background') for e in slots}
+    assert [icons[t] for t in (13, 14, 11, 21)] == [f'TUI_HotSlot{n}' for n in ('Primary', 'Secondary', 'Range', 'Ammo')]
+    assert {icons[t] for t in range(22, 30)} == {'TUI_HotButtonNormal'}
+    inset = (skin.HOT_SIZE - skin.ICON_SIZE) // 2
+    icon_box = (inset, inset, inset + skin.ICON_SIZE, inset + skin.ICON_SIZE)
+    plain = cut(atlas, anims['TUI_HotButtonNormal'])
+    plain.paste((0, 0, 0, 0), icon_box)
+    drawn = set()
+    for name in skin.SLOT_ICONS:
+        art = cut(atlas, anims[f'TUI_HotSlot{name}'])
+        assert art.size == (skin.HOT_SIZE, skin.HOT_SIZE)
+        drawn.add(art.crop(icon_box).tobytes())
+        brightest = max(sum(p[:3]) for p in pixels(art.crop(icon_box)))
+        assert sum(skin.ICON_RGB) > brightest > sum(plain.getpixel(fill_spot)[:3])
+        art.paste((0, 0, 0, 0), icon_box)
+        assert art.tobytes() == plain.tobytes(), name
+    assert len(drawn) == len(skin.SLOT_ICONS) == 4
+
+
+def test_hot_button_spell_gems_center_the_spells_icon_on_the_button():
+    # The client draws a gem's Holder and Background under the spell's 24px icon (see the spell bar), so both
+    # are the macros' plain button and the icon sits in its middle.
+    root, window, controls = hot_bar()
+    for n in range(1, 11):
+        gem = controls[f'HB_SpellGem{n}']
+        offsets = number(gem, 'SpellIconOffsetX'), number(gem, 'SpellIconOffsetY')
+        assert offsets == (skin.HOT_GEM_OFFSET,) * 2 and 2 * skin.HOT_GEM_OFFSET + skin.GEM_ICON == skin.HOT_SIZE
+        template = gem.find('SpellGemDrawTemplate')
+        assert [template.findtext(p) for p in ('Holder', 'Background', 'Highlight')] == [
+            'TUI_HotButtonNormal', 'TUI_HotButtonNormal', 'TUI_Clear']
 
 
 def test_player_window_shows_hp_mana_and_resists_only():
     # The user wanted only the HP and mana bars and values and the resists, abbreviated.
-    root, window = check_inside_frame(skin.PLAYER_FILE)
+    # 10% narrower than the others, then 10% more (the user's requests), with the usual padding each side.
+    assert skin.PLAYER_WIDTH == skin.PET_WIDTH == 177  # as wide as the pet window (the user's request)
+    assert skin.PLAYER_CONTENT_WIDTH == skin.PLAYER_WIDTH - 2 * skin.PADDING
+    root, window = check_inside_frame(skin.PLAYER_FILE, skin.PLAYER_WIDTH)
     assert window.get('item') == 'PlayerWindow'
     by_id = {e.findtext('ScreenID'): e for e in parts(root).values() if e.findtext('ScreenID')}
     labels = {e.get('item'): e for e in root.iter('Label')}
@@ -1100,35 +1699,39 @@ def test_player_window_shows_hp_mana_and_resists_only():
         top = skin.PLAYER_SECTIONS_TOP + n * skin.PLAYER_SECTION_PITCH
         head = labels[f'TUI_PW_{screen_id}Caption']
         assert head.findtext('Text') == caption and head.findtext('AlignLeft') == 'true'
-        assert box(head)[:2] == (skin.LEFT, top) and rgb(head, 'TextColor') == skin.PET_RGB
-        # Every part of the value in the game's green: it colors the max HP itself, so the user had all
-        # the values match it. The max ends at the window's padding.
+        # In the name's color: the user didn't like the subdued grey the captions had.
+        name_color = rgb(labels['TUI_PW_Name'], 'TextColor')
+        assert box(head)[:2] == (skin.LEFT, top) and rgb(head, 'TextColor') == skin.CAPTION_RGB == name_color
+        # Both numbers in the game's green: it colors the max HP itself, so the user had all the values
+        # match it. The slash between them in the text color (the user's request). The max ends at the
+        # window's padding.
         current, slash, most = (labels[f'TUI_PW_{screen_id}{part}'] for part in ('Current', 'Slash', 'Max'))
         assert current.findtext('EQType') == current_type and rgb(current, 'TextColor') == skin.VALUE_RGB == (0, 255, 0)
         assert current.findtext('AlignRight') == 'true'
-        assert slash.findtext('Text') == '/' and rgb(slash, 'TextColor') == skin.VALUE_RGB
+        assert slash.findtext('Text') == '/' and rgb(slash, 'TextColor') == skin.TEXT_RGB
         assert most.findtext('EQType') == max_type and rgb(most, 'TextColor') == skin.VALUE_RGB
         assert most.findtext('AlignLeft') == 'true'
         cx, cy, cw, ch = box(current)
         sx, sy, sw, sh = box(slash)
         mx, my, mw, mh = box(most)
-        assert cy == sy == my == top and cx + cw == sx and sx + sw == mx and mx + mw == skin.RIGHT
+        assert cy == sy == my == top and cx + cw == sx and sx + sw == mx and mx + mw == skin.PLAYER_RIGHT
         assert cw == mw == skin.PLAYER_NUMBER_WIDTH and box(head)[0] + box(head)[2] <= cx
         # A space either side of the slash, so the numbers read apart (the user's request).
         assert sw == 4 + 2 * skin.SPACE_WIDTH and slash.findtext('AlignCenter') == 'true'
         bar = box(by_id[screen_id])
-        assert bar == (skin.LEFT, top + skin.BAR_TOP, skin.BAR_WIDTH, skin.BAR_HEIGHT)
+        assert bar == (skin.LEFT, top + skin.BAR_TOP, skin.PLAYER_CONTENT_WIDTH, skin.BAR_HEIGHT)
         if n:
             above = box(by_id['PlayerHP'])
             assert top + skin.TEXT_INK_TOP - (above[1] + above[3]) >= skin.PADDING
             assert top + skin.TEXT_INK_TOP - (above[1] + above[3]) < skin.PADDING + 1
-    # Mana's bar a soft blue (the user's pick); HP's in the usual color.
-    assert rgb(by_id['PlayerMana'], 'FillTint') == skin.MANA_RGB and rgb(by_id['PlayerHP'], 'FillTint') == skin.TEXT_RGB
-    # The resists: a grey caption over each number, in five columns across the window.
+    # Mana's bar a soft blue and HP's the soft green the current HP number had at first (the user's picks).
+    assert rgb(by_id['PlayerMana'], 'FillTint') == skin.MANA_RGB
+    assert rgb(by_id['PlayerHP'], 'FillTint') == skin.HP_RGB == (143, 209, 158)
+    # The resists: a caption in the name's color over each number, in five columns across the window.
     columns = []
     for caption, eq_type in skin.RESISTS:
         head, number_label = labels[f'TUI_PW_{caption}Caption'], labels[f'TUI_PW_{caption}']
-        assert head.findtext('Text') == caption and rgb(head, 'TextColor') == skin.PET_RGB
+        assert head.findtext('Text') == caption and rgb(head, 'TextColor') == rgb(labels['TUI_PW_Name'], 'TextColor')
         assert head.findtext('Font') == '2' and head.findtext('AlignCenter') == 'true'
         assert number_label.findtext('EQType') == str(eq_type) and number_label.findtext('AlignCenter') == 'true'
         assert rgb(number_label, 'TextColor') == skin.VALUE_RGB  # the values' green (the user's call)
@@ -1136,7 +1739,7 @@ def test_player_window_shows_hp_mana_and_resists_only():
         assert box(number_label) == (hx, hy + hh, hw, skin.TEXT_HEIGHT)
         columns.append((hx, hw))
     assert [c for c, _ in skin.RESISTS] == ['DR', 'PR', 'MR', 'FR', 'CR']
-    assert columns[0][0] == skin.LEFT and columns[-1][0] + columns[-1][1] == skin.RIGHT
+    assert columns[0][0] == skin.LEFT and columns[-1][0] + columns[-1][1] == skin.PLAYER_RIGHT
     assert all(a[0] + a[1] == b[0] for a, b in zip(columns, columns[1:]))
     # The resist captions' ink two paddings under the mana bar (the user asked for 6px more).
     mana_bar = box(by_id['PlayerMana'])
@@ -1147,39 +1750,40 @@ def test_player_window_shows_hp_mana_and_resists_only():
     assert box(window)[3] - ink_bottom == skin.PADDING
     # Your name on the first line (the user's request), the rest straight under it.
     name = labels['TUI_PW_Name']
-    assert name.findtext('EQType') == '1' and box(name)[0::2] == (skin.LEFT, skin.BAR_WIDTH)
+    assert name.findtext('EQType') == '1' and box(name)[0::2] == (skin.LEFT, skin.PLAYER_CONTENT_WIDTH)
     assert rgb(name, 'TextColor') == skin.TEXT_RGB and name.findtext('AlignLeft') == 'true'
     # 6px more under the name (the user's request).
     assert box(labels['TUI_PW_PlayerHPCaption'])[1] == box(name)[1] + skin.TEXT_HEIGHT + skin.PADDING
-    # Zeal's server tick along the top of the inside (in the frame it didn't show), as long as the
-    # content, and the name's ink a padding under it.
-    tick = by_id['ZealTick']
-    assert tick.findtext('EQType') == '24'
-    assert box(tick) == (skin.LEFT, 0, skin.BAR_WIDTH, skin.TICK_HEIGHT)
-    gap = box(name)[1] + skin.TEXT_INK_TOP - skin.TICK_HEIGHT
-    assert skin.PADDING <= gap < skin.PADDING + 1
+    # The name at the top like the other windows' first lines: the server tick moved to the target window
+    # (the user's request).
+    assert box(name)[1] == 0 and 'ZealTick' not in by_id
     # Nothing else: no stamina, experience or other stats.
     assert len(labels) == 1 + 2 * 4 + 2 * len(skin.RESISTS)
 
 
-def test_slot_backgrounds_are_redefined_clear_and_a_faint_red():
+def test_slot_backgrounds_are_redefined_solid_panel_and_a_faint_red():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground:
-    # the skin's are clear and a faint red row, inset like the dividers, replacing the base's own.
+    # the skin's are solid rows in the panel's color, plain and with a faint red over it inset like the
+    # dividers, replacing the base's own.
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
     atlas = decode(files()[skin.PIECES_TEXTURE])
-    # A whole row that looks like the panel but isn't clear: a button seems to let clicks through its
-    # art's clear pixels, and effects couldn't be clicked off with a clear one in game.
+    # Solid: clicks never reached the slots in game while the row was clear or at the lowest alpha step
+    # (three builds), so the client seems to ignore a click where a button's art is see-through. Over the
+    # opaque panel, a row in its color can't be seen.
     blue = cut(atlas, anims['BlueIconBackground'])
     assert blue.size == (skin.ROW_WIDTH, skin.ROW_HEIGHT)
-    assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {(*skin.PANEL_RGBA[:3], skin.STEP)}
+    assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.PANEL_RGBA} and skin.PANEL_RGBA[3] == 255
     red = cut(atlas, anims['RedIconBackground'])
     assert red.size == (skin.ROW_WIDTH, skin.ROW_HEIGHT)
+    assert {p[3] for p in pixels(red)} == {255}
+    inner = skin.HARMFUL_ROW_RGBA
+    assert inner == skin.snapped(skin.over(skin.HARMFUL_RGBA, 1, skin.PANEL_RGBA)) and inner != skin.PANEL_RGBA
     middle = skin.ROW_HEIGHT // 2
-    assert red.getpixel((skin.LEFT, middle)) == skin.HARMFUL_RGBA and red.getpixel((skin.LEFT - 1, middle))[3] == 0
-    assert red.getpixel((skin.ROW_WIDTH - skin.LEFT - 1, middle)) == skin.HARMFUL_RGBA
-    assert red.getpixel((skin.ROW_WIDTH - skin.LEFT, middle))[3] == 0
+    assert red.getpixel((skin.LEFT, middle)) == inner and red.getpixel((skin.LEFT - 1, middle)) == skin.PANEL_RGBA
+    assert red.getpixel((skin.ROW_WIDTH - skin.LEFT - 1, middle)) == inner
+    assert red.getpixel((skin.ROW_WIDTH - skin.LEFT, middle)) == skin.PANEL_RGBA
     # Only those two: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1
@@ -1200,9 +1804,10 @@ def eq(tmp_path):
 
 
 def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq):
-    # duxaUI's player window defines the animation Blackbox, which its hot button window uses: after our
+    # duxaUI's player window defines the animation Blackbox, which its hot button window used: after our
     # player window replaced theirs, the client reported it missing. Such definitions move into our
-    # animations file; ones nothing else uses don't, nor the replaced window itself.
+    # animations file; ones nothing else uses don't, nor the replaced window itself. Our hot button window
+    # has since replaced duxaUI's too, so a window we keep stands in for it here.
     base = eq / 'uifiles' / 'duxaUI'
     blackbox = ('<Ui2DAnimation item="Blackbox">\r\n    <Cycle>true</Cycle>\r\n'
                 '    <Frames><Texture>window_pieces22.tga</Texture></Frames>\r\n  </Ui2DAnimation>')
@@ -1211,8 +1816,8 @@ def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq):
         '  <Ui2DAnimation item="OnlyHere"><Cycle>true</Cycle></Ui2DAnimation>\r\n'
         '  <StaticAnimation item="PW_Box"><Animation>Blackbox</Animation></StaticAnimation>\r\n'
         '  <Screen item="PlayerWindow"><Pieces>PW_Box</Pieces></Screen>\r\n</XML>\r\n').encode())
-    (base / 'EQUI_HotButtonWnd.xml').write_text('<XML><StaticAnimation item="HB"><Animation>Blackbox</Animation>'
-                                               '</StaticAnimation></XML>')
+    (base / 'EQUI_Inventory.xml').write_text('<XML><StaticAnimation item="IW"><Animation>Blackbox</Animation>'
+                                            '</StaticAnimation></XML>')
     out = skin.build(eq)
     animations = (out / skin.ANIMATIONS_FILE).read_bytes().decode('latin-1')
     assert animations.count('item="Blackbox"') == 1 and 'OnlyHere' not in animations and 'PW_Box' not in animations
@@ -1221,6 +1826,21 @@ def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq):
     assert items(root, 'Ui2DAnimation')['Blackbox'].findtext('Frames/Texture') == 'window_pieces22.tga'
     # Before our own definitions, inside the file.
     assert animations.index('item="Blackbox"') < animations.index(f'item="{skin.FRAME_TEMPLATE}"')
+
+
+def test_the_spell_bar_keeps_the_base_skins_gem_icons(eq):
+    # The client draws a gem's icon from A_SpellGems, by name. The user asked for duxaUI's gems, whose icons
+    # differ from the default skin's, so the base's definition and textures stay as they are.
+    base = eq / 'uifiles' / 'duxaUI'
+    gems = '<Ui2DAnimation item="A_SpellGems"><Frames><Texture>gemicons01.tga</Texture></Frames></Ui2DAnimation>'
+    (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.replace('</XML>', f'  {gems}\r\n</XML>').encode())
+    (base / 'gemicons01.tga').write_bytes(b'their gem icons')
+    (base / skin.CASTSPELL_FILE).write_text('<XML><Screen item="CastSpellWnd" /></XML>')
+    out = skin.build(eq)
+    animations = (out / skin.ANIMATIONS_FILE).read_bytes().decode('latin-1')
+    assert animations.count('item="A_SpellGems"') == 1 and gems in animations
+    assert (out / 'gemicons01.tga').read_bytes() == b'their gem icons'
+    assert b'CSPW_Spell0' in (out / skin.CASTSPELL_FILE).read_bytes()
 
 
 def snapshot(folder):
