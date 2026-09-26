@@ -495,14 +495,22 @@ SLOT_WIDTH = ROW_WIDTH - 2 * LEFT
 TIMER_WIDTH = 23
 ROW_ICON_X = LEFT + TIMER_WIDTH  # from the inside's left edge; the slot button starts LEFT in
 ROW_NAME_X = ROW_ICON_X + ROW_ICON + PADDING
-HARMFUL_RGBA = (255, 68, 68, 34)  # the faint red over a harmful row, on the 16-bit steps
-# A helpful effect's row: the panel's color, solid. Clicks never reached the slots in game while the row was
-# clear or nearly so (alpha 0 in two builds, then the lowest step), nor once it was solid: the slots weren't
-# hit-tested at all, being as wide as the inside (see SLOT_WIDTH). Whether a button ignores a click where its
-# art is see-through is unknown; the rows stay solid, which costs nothing: over the opaque panel, a solid row
-# in its color can't be seen at full window alpha (below it the row blends over the panel a second time).
-# HARMFUL_ROW_RGBA, the red over the panel, is set once over() exists.
-HELPFUL_RGBA = PANEL_RGBA
+# A harmful effect's mark: a red square behind its icon, the row's full height, so the opaque 16px icon the
+# client draws on top leaves a 2px red ring. The user's pick (2026-09-26) over a faint red across the row:
+# the client's art swap (Blue/RedIconBackground) is the only sign of an effect's type a skin gets, and a
+# label's color can't follow it. The art is drawn from the slot's top left at its own size, so clear pixels
+# put the square at the icon (the row's left edge sits under Zeal's timer box). Alpha 85, on the 16-bit
+# steps: a 2px ring needs more than the old wash's 34.
+HARMFUL_RGBA = (255, 68, 68, 85)
+HARMFUL_MARK = ROW_ICON + 2 * ROW_ICON_MARGIN
+HARMFUL_MARK_X = ROW_ICON_X - LEFT - ROW_ICON_MARGIN  # within the slot
+# A helpful effect's row: clear, so the row is the panel at whatever alpha the window has. It was solid in
+# the panel's color while clicks never reached the slots (the theory: a button ignores a click where its art
+# is see-through), but the slots weren't hit-tested at all, being as wide as the inside (see SLOT_WIDTH),
+# and once they were, the solid rows showed as darker stripes on rows with a buff at window Alpha 205 (the
+# opaque row blends over the panel a second time). The theory stays unproven; if clicks stop with clear
+# art, that's its one remaining case.
+HELPFUL_RGBA = CLEAR
 # The client looks up this many slot buttons (Buff0 to Buff14) in the Songs window as well as the Effects
 # window (UIErrors.txt: could not find child Buff6 in window ShortDurationBuffWindow), so the slots a window
 # doesn't show are hidden buttons.
@@ -734,8 +742,6 @@ def over(color, coverage, under=CLEAR):
     return (*rgb, round(total * 255))
 
 
-# A harmful effect's row: the faint red over the panel, solid (see HELPFUL_RGBA), snapped like every texture.
-HARMFUL_ROW_RGBA = snapped(over(HARMFUL_RGBA, 1, PANEL_RGBA))
 # The line along the bottom of a chat window's title bar: the row divider over the panel, solid.
 TITLE_DIVIDER_RGBA = snapped(over(ROW_DIVIDER_RGBA, 1, PANEL_RGBA))
 
@@ -1218,9 +1224,12 @@ def labeled_button_art(width, height, label, state, style=BUTTON_STYLE):
 
 
 def harmful_row():
-    """A harmful effect's row: a faint red over the panel's color across the whole slot, so the row is solid.
-    The slot itself is inset like the dividers (see SLOT_WIDTH), so the red is too."""
-    return Texture(SLOT_WIDTH, ROW_HEIGHT, HARMFUL_ROW_RGBA)
+    """A harmful effect's row: clear like a helpful one, with the red square behind the icon (see
+    HARMFUL_RGBA)."""
+    row = Texture(SLOT_WIDTH, ROW_HEIGHT, CLEAR)
+    row.rows = [[HARMFUL_RGBA if HARMFUL_MARK_X <= x < HARMFUL_MARK_X + HARMFUL_MARK else pixel
+                 for x, pixel in enumerate(line)] for line in row.rows]
+    return row
 
 
 def title_piece():

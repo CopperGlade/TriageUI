@@ -8,7 +8,7 @@ It is built one window at a time. **So far it has the target, group, casting, ai
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows. Drag a window by its background to move it, and a chat window by the thin strip along its top.
 
-The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it. The rows of the effects and songs windows are solid, so below 255 they come out a little more solid than the frame around them; use 255 on those two windows if it shows.
+The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
 
 Buttons are a faint wash over the panel with a thin outline, and turn solid slate while you point at them. Their labels are TriageUI's own crisp pixel lettering with room between the letters, since EverQuest's small font looks squished. Buttons side by side are as far apart as the window's edge is from its text.
 
@@ -77,11 +77,11 @@ Just what you need at a glance, as wide as the pet window. Your name, **Health**
 
 ## The effects and songs windows
 
-Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. Harmful effects get a faint red row. The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
+Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect's icon gets a thin red ring. The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
 
 Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
 
-Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with rows in the panel's own color, plain for helpful effects and with a faint red over it for harmful ones, so the spellbook, item display and combat ability windows lose their bright blue and red behind icons too.
+Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, nothing behind a helpful effect's icon and the red ring behind a harmful one's, so the spellbook, item display and combat ability windows lose their bright blue and red behind icons too.
 
 ## Install
 

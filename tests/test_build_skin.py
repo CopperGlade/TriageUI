@@ -1852,26 +1852,31 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     assert len(labels) == 1 + 2 * 4 + 2 + 2 * len(skin.RESISTS)
 
 
-def test_slot_backgrounds_are_redefined_solid_panel_and_a_faint_red():
-    # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground:
-    # the skin's are solid rows in the panel's color, plain and with a faint red over it, the slot's size
-    # (art is drawn at its own size), replacing the base's own. The slot is inset like the dividers, so
-    # the red is too.
+def test_slot_backgrounds_are_clear_with_a_red_mark_behind_a_harmful_icon():
+    # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
+    # the only sign of an effect's type a skin gets: the skin's are the slot's size (art is drawn at its
+    # own size), replacing the base's own. Clear, so the row is the panel at the window's own alpha (solid
+    # rows in the panel's color showed as darker stripes at Alpha 205 in game), and a harmful effect's
+    # has a red square behind its icon, the row's full height, leaving a 2px ring around the 16px icon
+    # (the user's pick over a faint red across the row).
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
     atlas = decode(files()[skin.PIECES_TEXTURE])
-    # Solid: clear rows and solid rows both went unclicked in game while the slots were too wide to be
-    # hit-tested (see SLOT_WIDTH), so whether see-through art matters is unknown; solid costs nothing, as
-    # a row in the panel's color can't be seen over it.
     blue = cut(atlas, anims['BlueIconBackground'])
     assert blue.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
-    assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.PANEL_RGBA} and skin.PANEL_RGBA[3] == 255
+    assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.CLEAR} and skin.CLEAR[3] == 0
     red = cut(atlas, anims['RedIconBackground'])
     assert red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
-    inner = skin.HARMFUL_ROW_RGBA
-    assert inner == skin.snapped(skin.over(skin.HARMFUL_RGBA, 1, skin.PANEL_RGBA)) and inner != skin.PANEL_RGBA
-    assert set(pixels(red)) == {inner} and inner[3] == 255
+    assert skin.snapped(skin.HARMFUL_RGBA) == skin.HARMFUL_RGBA and 0 < skin.HARMFUL_RGBA[3] < 255
+    mark = (skin.HARMFUL_MARK_X, 0, skin.HARMFUL_MARK, skin.ROW_HEIGHT)
+    assert skin.HARMFUL_MARK == skin.ROW_HEIGHT == skin.ROW_ICON + 2 * skin.ROW_ICON_MARGIN
+    for x in range(skin.SLOT_WIDTH):
+        for y in range(skin.ROW_HEIGHT):
+            inside = mark[0] <= x < mark[0] + mark[2]
+            assert red.getpixel((x, y)) == (skin.HARMFUL_RGBA if inside else skin.CLEAR), (x, y)
+    # In the window, the square starts a margin before the icon: the icon sits centered in it.
+    assert skin.LEFT + skin.HARMFUL_MARK_X == skin.ROW_ICON_X - skin.ROW_ICON_MARGIN
     # Only those two: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1
