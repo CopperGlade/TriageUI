@@ -604,10 +604,12 @@ def test_target_second_line_gaps_all_match_the_window_padding_at_100_percent():
 def test_bars_are_the_text_color_softened_to_70_percent():
     # The user found a solid bar in the text's color harsh next to the name.
     assert skin.BAR_FILL == (255, 255, 255, 170)  # about 70%, on a 16-bit step
+    # (The group window's drawn % is its soft blue: see the group window's test.)
+    group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Target_ZealTick',
-                                                  'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast'))
+                                                  'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast', *group_percents))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
 
@@ -677,6 +679,15 @@ def test_group_window_has_every_member_pet_and_health_the_client_looks_for():
         assert number_label.find('AlignRight').text == 'true'
         hidden = parts(root)[clip.find('Pieces').text]
         assert hidden.find('EQType').text == str(10 + n)
+        # The name, the number and the drawn % in the mana bar's soft blue (the user's try: the members didn't
+        # read well in white). Pets stay grey.
+        assert rgb(by_id[f'Gauge{n}'], 'TextColor') == rgb(number_label, 'TextColor') == skin.GROUP_RGB
+        assert rgb(hidden, 'FillTint') == skin.GROUP_RGB == skin.MANA_RGB
+        assert rgb(by_id[f'PetGauge{n}'], 'TextColor') == skin.PET_RGB
+    # The target's and pet's health readouts keep the text's color.
+    for name, item in ((skin.TARGET_FILE, 'TUI_Target'), (skin.PET_WINDOW_FILE, 'TUI_PIW')):
+        other = parts(screen(name)[0])
+        assert rgb(other[f'{item}_HPLabel'], 'TextColor') == rgb(other[f'{item}_HPPercent'], 'FillTint') == skin.TEXT_RGB
     buttons = [e.findtext('ScreenID') for e in root.iter('Button') if e.findtext('ScreenID')]
     # No LFG button: the user didn't want it.
     assert sorted(buttons) == ['DeclineButton', 'DisbandButton', 'FollowButton', 'InviteButton']
@@ -1403,18 +1414,22 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         assert box(b)[2:] == (0, 0)
         assert {b.findtext(f'ButtonDrawTemplate/{state}') for state in skin.BUTTON_STATES} == {'TUI_Clear'}
     names = {e.findtext('ScreenID'): e for e in root.iter('Label')}
+    inside = box(window)[2] - 2 * skin.BORDER
     for n, b in enumerate(buttons):
         x, y, w, h = box(b)
-        # As wide as the window's inside, so the client, which lays the slots out itself left to right a
-        # pixel apart, puts one per row.
-        assert (x, y, w, h) == (0, n * skin.ROW_PITCH, box(window)[2] - 2 * skin.BORDER, skin.ROW_HEIGHT)
+        # Across the row but inset like the dividers, so it's narrower than the window's inside: the client
+        # lays the slots out itself, a pixel apart, and never hit-tested slots as wide as the inside (no
+        # tooltip, no click, no red for harmful effects in game). Two don't fit across, so one per row.
+        assert (x, y, w, h) == (skin.LEFT, n * skin.ROW_PITCH, skin.SLOT_WIDTH, skin.ROW_HEIGHT)
+        assert skin.SLOT_WIDTH == skin.BAR_WIDTH == inside - 2 * skin.LEFT == 188 and 2 * (w + 1) > inside
         assert skin.ROW_PITCH == skin.ROW_HEIGHT + 1
         # The client paints the background and the spell's icon. Zeal's time left sits at the button's
         # top left (it covered the names' first letters in game), so the icon comes a padding after a
         # column for it, a padding from the window's top and bottom.
         assert b.findtext('ButtonDrawTemplate/Normal') == 'BlueIconBackground'
         assert b.findtext('ButtonDrawTemplate/NormalDecal') == skin.BUFF_ICONS
-        assert (number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
+        # The decal offset is within the slot; the icon's place in the window stays ROW_ICON_X.
+        assert (x + number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
         # The icon 18px further in than the window's padding (the user's call), 24px from its edge.
         assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + skin.TIMER_WIDTH == 24
         assert (number(b, 'DecalSize/CX'), number(b, 'DecalSize/CY')) == (skin.ROW_ICON, skin.ROW_ICON)
@@ -1580,6 +1595,13 @@ def test_hot_button_window_is_duxaUIs_shape_on_a_grid_of_36px_spots():
     placed = {box(e)[:2]: int(e.findtext('EQType')) for e in slots}
     assert [[placed[spot(c, r)] for r in range(6)] for c in (2, 3)] == [[13, 11, 22, 23, 24, 25],
                                                                         [14, 21, 26, 27, 28, 29]]
+    # With duxaUI's ScreenIDs for the same slots, and its style flags: right-clicks on items there stopped
+    # working in game with ScreenIDs of our own.
+    duxa = {'NewSlot1': 13, 'Newslot2': 11, 'Newslot3': 22, 'Newslot4': 23, 'Newslot5': 24, 'Newslot6': 25,
+            'Newslot7': 14, 'Newslot8': 21, 'Newslot9': 26, 'Newslot10': 27, 'Newslot11': 28, 'Newslot12': 29}
+    assert {e.findtext('ScreenID'): int(e.findtext('EQType')) for e in slots} == duxa
+    for e in root.iter('InvSlot'):
+        assert [e.findtext(f) for f in ('Style_VScroll', 'Style_HScroll', 'Style_Transparent')] == ['false'] * 3
 
 
 def test_hot_button_page_arrows_are_a_row_tall_around_the_page_number():
@@ -1763,27 +1785,24 @@ def test_player_window_shows_hp_mana_and_resists_only():
 
 def test_slot_backgrounds_are_redefined_solid_panel_and_a_faint_red():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground:
-    # the skin's are solid rows in the panel's color, plain and with a faint red over it inset like the
-    # dividers, replacing the base's own.
+    # the skin's are solid rows in the panel's color, plain and with a faint red over it, the slot's size
+    # (art is drawn at its own size), replacing the base's own. The slot is inset like the dividers, so
+    # the red is too.
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
     atlas = decode(files()[skin.PIECES_TEXTURE])
-    # Solid: clicks never reached the slots in game while the row was clear or at the lowest alpha step
-    # (three builds), so the client seems to ignore a click where a button's art is see-through. Over the
-    # opaque panel, a row in its color can't be seen.
+    # Solid: clear rows and solid rows both went unclicked in game while the slots were too wide to be
+    # hit-tested (see SLOT_WIDTH), so whether see-through art matters is unknown; solid costs nothing, as
+    # a row in the panel's color can't be seen over it.
     blue = cut(atlas, anims['BlueIconBackground'])
-    assert blue.size == (skin.ROW_WIDTH, skin.ROW_HEIGHT)
+    assert blue.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
     assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.PANEL_RGBA} and skin.PANEL_RGBA[3] == 255
     red = cut(atlas, anims['RedIconBackground'])
-    assert red.size == (skin.ROW_WIDTH, skin.ROW_HEIGHT)
-    assert {p[3] for p in pixels(red)} == {255}
+    assert red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
     inner = skin.HARMFUL_ROW_RGBA
     assert inner == skin.snapped(skin.over(skin.HARMFUL_RGBA, 1, skin.PANEL_RGBA)) and inner != skin.PANEL_RGBA
-    middle = skin.ROW_HEIGHT // 2
-    assert red.getpixel((skin.LEFT, middle)) == inner and red.getpixel((skin.LEFT - 1, middle)) == skin.PANEL_RGBA
-    assert red.getpixel((skin.ROW_WIDTH - skin.LEFT - 1, middle)) == inner
-    assert red.getpixel((skin.ROW_WIDTH - skin.LEFT, middle)) == skin.PANEL_RGBA
+    assert set(pixels(red)) == {inner} and inner[3] == 255
     # Only those two: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1

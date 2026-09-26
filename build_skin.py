@@ -48,6 +48,9 @@ PET_RGB = (138, 138, 138)  # the overlay's grey, '#8a8a8a'
 # white, and came back to this.
 SPELL_RGB = (232, 128, 128)
 MANA_RGB = (120, 165, 235)  # the mana bar: a soft blue, so mana reads apart from HP (the user's pick)
+# The group window's member names and health %: the mana bar's soft blue, which the user asked to try, as the
+# members didn't read well in the text's white.
+GROUP_RGB = MANA_RGB
 # A solid bar in the text's color looks much brighter than thin letters, so bars are drawn at about
 # 70% (170, the nearest step), which the user found less harsh.
 BAR_FILL = snapped((255, 255, 255, round(255 * 0.7)))  # colored by FillTint
@@ -473,19 +476,27 @@ ROW_ICON_MARGIN = PADDING - BORDER
 ROW_HEIGHT = ROW_ICON + 2 * ROW_ICON_MARGIN
 ROW_PITCH = ROW_HEIGHT + 1
 ROW_WIDTH = WINDOW_WIDTH - 2 * BORDER
+# The slot buttons are inset like the dividers, LEFT each side, so they're narrower than the window's inside.
+# The client lays the slots out itself (skins with every slot at 0,0 or with no Location work), a pixel
+# apart, and every working skin leaves room for that: duxaUI, poweroftwo and vert 4px (their slots at 3,3),
+# WizModRyo 2px. Slots as wide as the inside (192 in 192) drew their art and Zeal's timers, but the client
+# never hit-tested them: no tooltip on hover, no click, and no red for harmful effects, since the same slot
+# refresh sets those (seen in game 2026-09-26, after four builds that changed the art and the draw order).
+SLOT_WIDTH = ROW_WIDTH - 2 * LEFT
 # Zeal's Buff Timers draws each effect's time left as a tooltip box pinned to its slot button's top left
 # (ui_buff.cpp, BuffWindow_PostDraw), in its largest unit only ("2h", "18m", "45s"). It sat over the
 # start of the names in game, so the icon starts TIMER_WIDTH further in than the window's padding: 18px,
 # the user's call in game (36, then 24 left too much room before the names), then the name.
 TIMER_WIDTH = 18
-ROW_ICON_X = LEFT + TIMER_WIDTH  # in the slot button, which starts at the inside's left edge
+ROW_ICON_X = LEFT + TIMER_WIDTH  # from the inside's left edge; the slot button starts LEFT in
 ROW_NAME_X = ROW_ICON_X + ROW_ICON + PADDING
 HARMFUL_RGBA = (255, 68, 68, 34)  # the faint red over a harmful row, on the 16-bit steps
 # A helpful effect's row: the panel's color, solid. Clicks never reached the slots in game while the row was
-# clear or nearly so (alpha 0 in two builds, then the lowest step): the client seems to ignore a click where
-# a button's art is see-through. Over the opaque panel, a solid row in its color can't be seen at full window
-# alpha (below it the row blends over the panel a second time). HARMFUL_ROW_RGBA, the red over the panel, is
-# set once over() exists.
+# clear or nearly so (alpha 0 in two builds, then the lowest step), nor once it was solid: the slots weren't
+# hit-tested at all, being as wide as the inside (see SLOT_WIDTH). Whether a button ignores a click where its
+# art is see-through is unknown; the rows stay solid, which costs nothing: over the opaque panel, a solid row
+# in its color can't be seen at full window alpha (below it the row blends over the panel a second time).
+# HARMFUL_ROW_RGBA, the red over the panel, is set once over() exists.
 HELPFUL_RGBA = PANEL_RGBA
 # The client looks up this many slot buttons (Buff0 to Buff14) in the Songs window as well as the Effects
 # window (UIErrors.txt: could not find child Buff6 in window ShortDurationBuffWindow), so the slots a window
@@ -560,6 +571,10 @@ HOT_SLOTS = (
     ((13, 'Primary'), (11, 'Range'), *((22 + n, None) for n in range(4))),
     ((14, 'Secondary'), (21, 'Ammo'), *((26 + n, None) for n in range(4))),
 )
+# Their ScreenIDs are duxaUI's, down each column, its first capitalized as in duxaUI: right-clicks on items
+# in these slots (opening a bag, using a clicky) stopped working in game with ScreenIDs of our own, where
+# duxaUI's slots take them, so the slots copy duxaUI's XML in everything but place, size and art.
+HOT_SLOT_IDS = ['NewSlot1'] + [f'Newslot{n}' for n in range(2, 13)]
 HOT_ARROWS = (('HB_PageLeftButton', 'Previous Page', 'Left'), ('HB_PageRightButton', 'Next Page', 'Right'))
 HOT_PAGE_LABEL = 'HB_CurrentPageLabel'
 HOT_PAGE_WIDTH = 2 * HOT_SIZE + BUTTON_GAP  # the page row, over the two macro columns
@@ -1153,12 +1168,9 @@ def labeled_button_art(width, height, label, state, style=BUTTON_STYLE):
 
 
 def harmful_row():
-    """A harmful effect's row: a faint red across the row, inset like the dividers, over the panel's color so
-    the row is solid."""
-    row = Texture(ROW_WIDTH, ROW_HEIGHT, PANEL_RGBA)
-    row.rows = [[HARMFUL_ROW_RGBA if LEFT <= x < ROW_WIDTH - LEFT else pixel for x, pixel in enumerate(line)]
-                for line in row.rows]
-    return row
+    """A harmful effect's row: a faint red over the panel's color across the whole slot, so the row is solid.
+    The slot itself is inset like the dividers (see SLOT_WIDTH), so the red is too."""
+    return Texture(SLOT_WIDTH, ROW_HEIGHT, HARMFUL_ROW_RGBA)
 
 
 def title_piece():
@@ -1203,7 +1215,7 @@ def pieces():
            for name, (coverage, width, height) in icons.items() for state in ICON_LOOKS},
         'RowDivider': Texture(BAR_WIDTH, 1, ROW_DIVIDER_RGBA),
         'GroupDivider': Texture(GROUP_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the group window's width
-        'HelpfulRow': Texture(ROW_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
+        'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
         'GemSlot': Texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT, PANEL_RGBA),  # a spell gem's row, solid (see spell_gem())
         'SpellBarDivider': Texture(SPELL_BAR_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the row divider, this window's width
@@ -1386,7 +1398,7 @@ def shared_definitions(rects):
         # inside the clip.
         animation('TUI_PercentSign', PERCENT_TEXTURE, (0, 0, SHOWN_REACH, PERCENT_GLYPH_HEIGHT)),
         # The stock slot backgrounds the client paints by name, redefined (see REPLACED_ANIMATIONS): solid
-        # rows, since a button seems to ignore clicks where its art is see-through (see HELPFUL_RGBA).
+        # rows the slot's size (see HELPFUL_RGBA and SLOT_WIDTH).
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
         frame_template(),
@@ -1471,20 +1483,20 @@ def tooltip_spot(name, rect, tooltip):
     ], name)
 
 
-def health_readout(item, number_type, gauge_type, top, right, number_id):
+def health_readout(item, number_type, gauge_type, top, right, number_id, rgb=TEXT_RGB):
     """Health at the right end of a line: the number (label number_type, right-aligned) with a drawn %
-    after it, ending at right. The % shows only while gauge_type is above 0, so it hides along with
-    whoever the line is about.
+    after it, ending at right, both in rgb. The % shows only while gauge_type is above 0, so it hides along
+    with whoever the line is about.
 
     Returns the %'s gauge, defined but not a piece of the window, and the pieces.
     """
     percent_x = right - PERCENT_WIDTH
     percent, percent_clip = shown_with_target(
         f'{item}_HPPercent', 'TUI_PercentSign',
-        (percent_x, top + PERCENT_INK_TOP, PERCENT_WIDTH, PERCENT_GLYPH_HEIGHT), eq_type=gauge_type)
+        (percent_x, top + PERCENT_INK_TOP, PERCENT_WIDTH, PERCENT_GLYPH_HEIGHT), eq_type=gauge_type, tint=rgb)
     # Blank until the client fills it: a 0 showed in the group window's empty slots.
     number = label(f'{item}_HPLabel', number_type, (percent_x - NUMBER_WIDTH, top, NUMBER_WIDTH, TEXT_HEIGHT), '',
-                   align_right=True, screen_id=number_id)
+                   align_right=True, screen_id=number_id, rgb=rgb)
     return percent, [number, percent_clip]
 
 
@@ -1533,15 +1545,15 @@ def clip(name, rect, parts):
     ] + [node('Pieces', part[2]) for part in parts], name)
 
 
-def shown_with_target(name, art, rect, eq_type=6):
-    """art in rect, shown only while eq_type's gauge is above 0 (see SHOWN_REACH): by default the target's
-    health, so only while something is targeted.
+def shown_with_target(name, art, rect, eq_type=6, tint=TEXT_RGB):
+    """art in rect, tinted, shown only while eq_type's gauge is above 0 (see SHOWN_REACH): by default the
+    target's health, so only while something is targeted.
 
     Returns the gauge, which belongs in the window file but isn't one of the window's pieces, and the
     clip, which is.
     """
     x, y, width, height = rect
-    hidden = gauge(name, None, eq_type, (0, 0, SHOWN_REACH, height), art, TEXT_RGB)
+    hidden = gauge(name, None, eq_type, (0, 0, SHOWN_REACH, height), art, tint)
     return hidden, clip(f'{name}_Clip', rect, [hidden])
 
 
@@ -1735,15 +1747,15 @@ def group_window():
         if n > 1:
             dividers.append(picture(f'TUI_GW_Divider{n}', 'TUI_GroupDivider',
                                     (LEFT, top - DIVIDER_TO_NAME - DIVIDER_HEIGHT, GROUP_CONTENT_WIDTH, DIVIDER_HEIGHT)))
-        # No bar, only the name (the gauge's own text): its fill is a clear pixel.
+        # No bar, only the name (the gauge's own text), in GROUP_RGB: its fill is a clear pixel.
         gauges.append(gauge(f'TUI_GW_Gauge{n}', f'Gauge{n}', 10 + n, (LEFT, top, GROUP_CONTENT_WIDTH, TEXT_HEIGHT), 'TUI_Clear',
-                            TEXT_RGB, text_at=(0, 0)))
+                            TEXT_RGB, text_rgb=GROUP_RGB, text_at=(0, 0)))
         gauges.append(gauge(f'TUI_GW_PetGauge{n}', f'PetGauge{n}', 16 + n, (LEFT, top + PET_TOP, GROUP_CONTENT_WIDTH, PET_HEIGHT),
                             'TUI_PetGaugeFill', PET_RGB, text_rgb=PET_RGB, text_at=(PET_INDENT, 0),
                             bar_at=(PET_INDENT, PET_TEXT_HEIGHT + PET_BAR_GAP), font=PET_FONT))
         # "72%" ending at the row's padding; the % shows only while the slot has a member. The client
         # writes a 0 into an empty slot's number, which a skin can't hide (see CLAUDE.md).
-        percent, readout = health_readout(f'TUI_GW{n}', 34 + n, 10 + n, top, GROUP_RIGHT, f'HPLabel{n}')
+        percent, readout = health_readout(f'TUI_GW{n}', 34 + n, 10 + n, top, GROUP_RIGHT, f'HPLabel{n}', GROUP_RGB)
         inner.append(percent)
         labels += readout
     buttons_top = (GROUP_SIZE - 1) * MEMBER_PITCH + MEMBER_HEIGHT + BUTTON_ROW_GAP
@@ -1902,10 +1914,10 @@ def picture(name, animation_name, rect):
 
 
 def effects_table(item, title, slots, first_name_type, prefix):
-    """A table of effect slots, one row each: the client's slot button (ScreenID BuffN) as wide as the
-    row, Zeal's time left at its start, then the spell's icon and the spell's name (label
-    first_name_type + N), rows ROW_PITCH apart with a divider between. The client looks up CLIENT_SLOTS
-    buttons whatever the window shows, so the slots beyond are hidden."""
+    """A table of effect slots, one row each: the client's slot button (ScreenID BuffN) across the row,
+    inset like the dividers (see SLOT_WIDTH), Zeal's time left at its start, then the spell's icon and the
+    spell's name (label first_name_type + N), rows ROW_PITCH apart with a divider between. The client looks
+    up CLIENT_SLOTS buttons whatever the window shows, so the slots beyond are hidden."""
     dividers, buttons, names = [], [], []
     for n in range(slots):
         top = n * ROW_PITCH
@@ -1914,13 +1926,15 @@ def effects_table(item, title, slots, first_name_type, prefix):
         buttons.append(node('Button', [
             node('ScreenID', f'Buff{n}'),
             node('RelativePosition', True),
-            point('Location', 0, top),
-            size(ROW_WIDTH, ROW_HEIGHT),
+            # The client places the slots itself, one per row here since two don't fit across; the Location
+            # is where we mean them, as the working skins write theirs.
+            point('Location', LEFT, top),
+            size(SLOT_WIDTH, ROW_HEIGHT),
             node('Style_Transparent', False),
             node('Style_Checkbox', False),
             # The client paints Blue- or RedIconBackground and the spell's icon at runtime.
             node('ButtonDrawTemplate', [node('Normal', REPLACED_ANIMATIONS[0]), node('NormalDecal', BUFF_ICONS)]),
-            point('DecalOffset', ROW_ICON_X, ROW_ICON_MARGIN),
+            point('DecalOffset', ROW_ICON_X - LEFT, ROW_ICON_MARGIN),  # within the slot
             node('DecalSize', [node('CX', ROW_ICON), node('CY', ROW_ICON)]),
         ], f'{prefix}_Buff{n}_Button'))
         names.append(label(f'{prefix}_Buff{n}_Name', first_name_type + n,
@@ -1928,8 +1942,8 @@ def effects_table(item, title, slots, first_name_type, prefix):
                            '', screen_id=f'Buff{n}Label'))
     hidden = [hidden_button(f'{prefix}_Buff{n}_Button', f'Buff{n}') for n in range(slots, CLIENT_SLOTS)]
     height = 2 * BORDER + slots * ROW_PITCH - 1
-    # The rows are solid (see HELPFUL_RGBA), so the names go over the buttons, as in duxaUI, where a click
-    # on a name still clicks the effect off.
+    # The names go over the buttons, as in duxaUI (whose names overlap its slots too). Both orders were
+    # tried in game while the slots weren't hit-tested at all (see SLOT_WIDTH); neither was the cause.
     return window(item, title, height, dividers + buttons + names + hidden)
 
 
@@ -2046,6 +2060,8 @@ def inv_slot(name, screen_id, eq_type, spot, background):
         size(HOT_SIZE, HOT_SIZE),
         node('Background', background),
         node('EQType', eq_type),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
         node('Style_Transparent', False),
     ], name)
 
@@ -2091,7 +2107,7 @@ def hot_button_window():
             node('SpellIconOffsetX', HOT_GEM_OFFSET),
             node('SpellIconOffsetY', HOT_GEM_OFFSET),
         ], f'TUI_HB_SpellGem{n}'))
-    slots = [inv_slot(f'TUI_HB_Slot{eq_type}', f'TUI_HB_Slot{eq_type}', eq_type, hot_spot(2 + c, r),
+    slots = [inv_slot(f'TUI_HB_Slot{eq_type}', HOT_SLOT_IDS[c * HOT_ROWS + r], eq_type, hot_spot(2 + c, r),
                       f'TUI_HotSlot{icon}' if icon else 'TUI_HotButtonNormal')
              for c, column in enumerate(HOT_SLOTS) for r, (eq_type, icon) in enumerate(column)]
     # In duxaUI's order: the item slots and gems over the buttons, then the weapon and bag slots.

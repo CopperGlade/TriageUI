@@ -20,7 +20,7 @@ Health bars are the name's color, softened to 70% so they don't glare next to th
 
 ## The group window
 
-Each group member is one line: their name, and their health % on the right (only for group slots with someone in them). No bars, to keep the window short. A faint line separates each member from the one above, as in the effects window. Empty slots show nothing, not even a 0. Under each member, their pet gets a line of its own, indented, with its name smaller and in grey and a thin health bar: the game gives skins no number for a pet's health.
+Each group member is one line: their name, and their health % on the right (only for group slots with someone in them), both in the soft blue of the player window's mana bar. No bars, to keep the window short. A faint line separates each member from the one above, as in the effects window. Empty slots show nothing, not even a 0. Under each member, their pet gets a line of its own, indented, with its name smaller and in grey and a thin health bar: the game gives skins no number for a pet's health.
 
 **Click anywhere on a row to target that member or pet.** Pet rows are as big as member rows, instead of the hairline pet bars of most skins. A member without a pet leaves their pet row empty.
 
@@ -73,7 +73,9 @@ Just what you need at a glance, as wide as the pet window. Your name, **Health**
 
 ## The effects and songs windows
 
-Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. Harmful effects get a faint red row. The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row. Click anywhere on a row to click that effect off.
+Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. Harmful effects get a faint red row. The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
+
+Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
 
 Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with rows in the panel's own color, plain for helpful effects and with a faint red over it for harmful ones, so the spellbook, item display and combat ability windows lose their bright blue and red behind icons too.
 
@@ -119,7 +121,7 @@ Both windows share the game's blue and red effect backgrounds with a few other w
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
 - **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow` or `TUI_` are about TriageUI.
-- **An effect won't click off:** a left click anywhere on its row does it. Make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
+- **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 
 ## Development
