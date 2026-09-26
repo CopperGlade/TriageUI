@@ -99,7 +99,7 @@ BUTTON_ART = {'Normal': 'Normal', 'Pressed': 'Pressed', 'Flyby': 'Flyby', 'Disab
 BORDER = 4
 SUPERSAMPLE = 16
 PIECE_LENGTH = 4  # the length of the frame's straight pieces, which the client repeats along each side
-ATLAS_WIDTH = 256  # room for a bar's full-width track and fill
+ATLAS_WIDTH = 512  # 256 ran out of room with the raid window's buttons; both sides stay powers of two
 ATLAS_HEIGHT = 1024  # room for every button's art with its label drawn in, and every icon's in each state
 BACKGROUND_SIZE = 16
 
@@ -222,9 +222,9 @@ BUTTON_HEIGHT = 16
 # BUTTON_WIDTH, the group window's buttons', is set with the group window's width, below.
 # Button labels are drawn into the buttons' art in our own pixel lettering: the client's font 2 looked
 # squished, font 3 too big, and a skin can't space a font's letters. Each glyph is 7 rows sitting on the
-# last, '#' for ink, 1px strokes; lowercase letters start at row 2. Letters are LETTER_SPACING apart (the
-# user asked for more room than the font gave) and each label is centered in its button, its x-height
-# on the button's middle.
+# last, '#' for ink, 1px strokes; lowercase letters start at row 2, and p has an 8th row, below the line, for
+# its stem. Letters are LETTER_SPACING apart (the user asked for more room than the font gave) and each label
+# is centered in its button, its x-height on the button's middle.
 LETTER_SPACING = 2
 LABEL_HEIGHT = 7
 LABEL_TOP = (BUTTON_HEIGHT - LABEL_HEIGHT) // 2
@@ -235,6 +235,10 @@ LABEL_GLYPHS = {
     'F': ('####', '#...', '#...', '###.', '#...', '#...', '#...'),
     'G': ('.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'),
     'I': ('#', '#', '#', '#', '#', '#', '#'),
+    'L': ('#...', '#...', '#...', '#...', '#...', '#...', '####'),
+    'M': ('#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'),
+    'O': ('.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'),
+    'R': ('####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'),
     'T': ('#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'),
     'a': ('....', '....', '.##.', '...#', '.###', '#..#', '.###'),
     'b': ('#...', '#...', '###.', '#..#', '#..#', '#..#', '###.'),
@@ -247,12 +251,15 @@ LABEL_GLYPHS = {
     'm': ('.....', '.....', '####.', '#.#.#', '#.#.#', '#.#.#', '#.#.#'),
     'n': ('....', '....', '###.', '#..#', '#..#', '#..#', '#..#'),
     'o': ('....', '....', '.##.', '#..#', '#..#', '#..#', '.##.'),
+    # A row below the line for its stem: kept on the line, it read as a small capital P.
+    'p': ('....', '....', '###.', '#..#', '#..#', '#..#', '###.', '#...'),
     'r': ('...', '...', '#.#', '##.', '#..', '#..', '#..'),
     's': ('....', '....', '.###', '#...', '.##.', '...#', '###.'),
     't': ('.#.', '.#.', '###', '.#.', '.#.', '.#.', '..#'),
     'u': ('....', '....', '#..#', '#..#', '#..#', '#..#', '.###'),
     'v': ('.....', '.....', '#...#', '#...#', '.#.#.', '.#.#.', '..#..'),
     'w': ('.....', '.....', '#...#', '#...#', '#.#.#', '#.#.#', '.#.#.'),
+    ' ': ('..', '..', '..', '..', '..', '..', '..'),  # with the spacing either side, words are 6px apart
 }
 LABEL_ALPHA = {'Normal': 255, 'Flyby': 255, 'Pressed': 255, 'Disabled': 119}
 # The group window's buttons: (ScreenID, label, column). The client shows Follow and Decline in place of
@@ -677,6 +684,64 @@ CHAT_TEMPLATE = 'WDT_TriageChat'
 # The input box has no padding setting, so a strip piece draws the field and the see-through input box
 # sits on it, inset FIELD_PADDING each side: the text starts about as far in as it sits from the top.
 FIELD_PADDING = 4
+# The raid window, in the shape the user picked: a fixed size like the other windows, so it drags by its
+# background (a sizable one would need a title bar to drag). The client fills two lists, the raid's players in a
+# group and those in none, straight on the panel with our slim scrollbar, each column's heading on a strip of the
+# overlay's header tint. A caption names the second list. Under them the buttons, two rows of three, the client
+# showing Accept and Decline in Invite's and Disband's spots during an invitation, as in the group window. The
+# user wanted every button, no level column, and no player count or level average. The client looks up every
+# control by ScreenID (eqgame.exe's string table lists them all but the stock skin's two static labels, which
+# stay too, hidden, like every control the stock window has).
+RAID_FILE = 'EQUI_RaidWindow.xml'
+# The client's five columns, in its order: (heading, width). Each is its widest text in font 3 (Arial 12px) and a
+# padding: "Grp" 20px, "Shadow Knight" 83, "Group Leader" 76 (the client's ranks are Raid Leader and Group
+# Leader). Names get the stock skin's 85, about 13 letters. The level column has no width and no heading.
+RAID_COLUMNS = (('Grp', 26), ('Name', 85), ('', 0), ('Class', 89), ('Rank', 82))
+RAID_LIST_WIDTH = sum(width for _, width in RAID_COLUMNS) + SCROLL_WIDTH
+RAID_WIDTH = RAID_LIST_WIDTH + 2 * PADDING
+# A list is its heading row, the stock header pieces' height (the client's own for it is unknown), and its rows,
+# estimated at font 3's line: about 16 in the grouped list and 4 in the other, which puts the window near the
+# height the user had given the old one (392).
+RAID_HEADER_HEIGHT = 16
+RAID_GROUPED_ROWS = 16
+RAID_UNGROUPED_ROWS = 4
+RAID_GROUPED_HEIGHT = RAID_HEADER_HEIGHT + RAID_GROUPED_ROWS * TEXT_HEIGHT
+RAID_UNGROUPED_HEIGHT = RAID_HEADER_HEIGHT + RAID_UNGROUPED_ROWS * TEXT_HEIGHT
+# The caption's ink a padding under the grouped list, and the second list a padding under the caption's ink
+# bottom (level with the digits' bottom, as the pet window's buttons are measured).
+RAID_CAPTION_TOP = LEFT + RAID_GROUPED_HEIGHT + DIVIDER_TO_NAME
+RAID_UNGROUPED_TOP = RAID_CAPTION_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+RAID_BUTTONS_TOP = RAID_UNGROUPED_TOP + RAID_UNGROUPED_HEIGHT + BUTTON_ROW_GAP
+# The buttons: (ScreenID, label, tooltip, column, row), the stock skin's tooltips (Decline's typo fixed). The three
+# columns fill the lists' width, a padding apart.
+RAID_BUTTONS = (
+    ('Raid_InviteButton', 'Invite', 'Select a player and click to invite into the raid', 0, 0),
+    ('Raid_AcceptButton', 'Accept', 'Accept an invitation to raid', 0, 0),
+    ('Raid_DisbandButton', 'Disband', 'Click to disband your target from the raid', 1, 0),
+    ('Raid_DeclineButton', 'Decline', 'Refuse an invitation to raid', 1, 0),
+    ('Raid_MakeLeaderButton', 'Make Leader', 'Assign Raid Leadership', 2, 0),
+    ('Raid_AddLooterButton', 'Add Looter', 'Add a raid member as a looter', 0, 1),
+    ('Raid_RemoveLooterButton', 'Remove Looter', 'Remove a raid looter', 1, 1),
+    ('Raid_OptionsButton', 'Options', 'Bring up options window', 2, 1),
+)
+RAID_BUTTON_COLUMNS = 3
+RAID_BUTTON_ROWS = 2
+_RAID_SPAN = RAID_LIST_WIDTH - (RAID_BUTTON_COLUMNS - 1) * BUTTON_GAP
+RAID_BUTTON_WIDTHS = tuple(_RAID_SPAN * (c + 1) // RAID_BUTTON_COLUMNS - _RAID_SPAN * c // RAID_BUTTON_COLUMNS
+                           for c in range(RAID_BUTTON_COLUMNS))
+for _screen_id, _label, _tooltip, _column, _row in RAID_BUTTONS:
+    _size = (RAID_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
+    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
+RAID_HEIGHT = (2 * BORDER + RAID_BUTTONS_TOP + RAID_BUTTON_ROWS * BUTTON_HEIGHT + (RAID_BUTTON_ROWS - 1) * BUTTON_ROW_GAP
+               + BOTTOM_GAP)
+# The first list's caption and the player count and level average, with their static texts, hidden.
+RAID_HIDDEN_LABELS = ('RAID_PlayerListLabel', 'RAID_PlayerCountLabel', 'RAID_PlayerCountStringLabel',
+                      'RAID_LevelAverageLabel', 'RAID_LevelAverageStringLabel')
+# A list column's heading strip: the overlay's header tint (EQ Triage's HEADER_COLOR, white at 20), on the steps
+# as the buttons' wash. One flat piece serves as the header's left, middle and right, which the client repeats
+# like the stock Header_Listbox's.
+LIST_HEADER = 'TUI_ListHeader'
+HEADER_RGBA = BUTTON_STYLES['Wash'][0]
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -697,7 +762,8 @@ FRAME_TEMPLATE = 'WDT_Triage'
 FIELD_TEMPLATE = 'WDT_TriageField'
 # The chat input box's template: a clear background and a clear border, so the box itself draws nothing and
 # only the strip under it shows. With the field's template, the user saw a second box under the input box
-# in game: an Editbox seems to draw its template's background even when marked see-through.
+# in game: an Editbox seems to draw its template's background even when marked see-through. The raid window's
+# lists use it too: they sit on the window's panel with only our slim scrollbar drawn.
 EDIT_TEMPLATE = 'WDT_TriageClear'
 
 
@@ -1288,6 +1354,7 @@ def pieces():
         **{f'ToggleHot{name}{state}': solid(toggle_art(icons[name][0], state, ARROW_SIZE, HOT_SIZE))
            for name in ARROW_ICONS for state in ICON_LOOKS},
         'TitleBar': title_piece(),
+        'ListHeaderWash': Texture(PIECE_LENGTH, RAID_HEADER_HEIGHT, HEADER_RGBA),  # see LIST_HEADER
         'FieldEdge': Texture(1, 1, EDGE_FADED),
         'Clear': clear_texture(1, 1),
         # The Actions window's tabs, and its tab and page border templates' clear pieces (see TAB_BORDER).
@@ -1473,6 +1540,9 @@ def shared_definitions(rects):
              TAB_BORDER),
         node('FrameTemplate', [node(side, f'TUI_PageBorder{side}') for side in PAGE_BORDER_PIECES] + overlaps(),
              PAGE_BORDER),
+        # A list column's heading strip (see LIST_HEADER).
+        node('FrameTemplate', [node(side, 'TUI_ListHeaderWash') for side in ('Left', 'Middle', 'Right')] + overlaps(),
+             LIST_HEADER),
     ]
 
 
@@ -2036,6 +2106,33 @@ def hidden_gauge(name, screen_id, eq_type):
     ], name)
 
 
+def hidden_label(name, screen_id):
+    """A label the client looks up (and may write in) but the user doesn't want: no size and no text, in the
+    panel's color in case the client draws its text anyway."""
+    return label(name, None, (0, 0, 0, 0), '', screen_id=screen_id, rgb=PANEL_RGBA[:3])
+
+
+def listbox(name, screen_id, rect, tooltip, columns):
+    """A list the client fills, on the window's own panel: only our slim scrollbar is drawn (see EDIT_TEMPLATE).
+    columns are (heading, width), in the client's order; each column with a width has the header strip (see
+    LIST_HEADER), and one with none is hidden."""
+    x, y, width, height = rect
+    return node('Listbox', [
+        node('ScreenID', screen_id),
+        node('Font', TEXT_FONT),
+        node('RelativePosition', True),
+        point('Location', x, y),
+        size(width, height),
+        color('TextColor', TEXT_RGB),
+        node('Style_VScroll', True),
+        node('Style_Border', False),
+        node('TooltipReference', tooltip),
+        node('DrawTemplate', EDIT_TEMPLATE),
+    ] + [node('Columns', ([node('Header', LIST_HEADER)] if column_width else [])
+              + [node('Width', column_width), node('Heading', heading)])
+         for heading, column_width in columns], name)
+
+
 def player_window():
     """Your name, then Health and Mana, each a line with its "current/max" and a bar under it, a line with
     your XP/hour, and the resists under them as a small table."""
@@ -2198,11 +2295,31 @@ def hot_button_window():
                   tooltip='Hot Buttons', width=HOT_WIDTH)
 
 
+def raid_window():
+    """The raid's players in a group, then those in none under a caption, each list's columns group, name, class
+    and rank, and the raid's buttons under them in two rows of three (see RAID_FILE)."""
+    grouped = listbox('TUI_RW_PlayerList', 'RAID_PlayerList', (LEFT, LEFT, RAID_LIST_WIDTH, RAID_GROUPED_HEIGHT),
+                      'List of all players currently in your raid', RAID_COLUMNS)
+    caption = label('TUI_RW_NotInGroupPlayerListLabel', None, (LEFT, RAID_CAPTION_TOP, RAID_LIST_WIDTH, TEXT_HEIGHT),
+                    'Not in a group', screen_id='RAID_NotInGroupPlayerListLabel', rgb=CAPTION_RGB)
+    ungrouped = listbox('TUI_RW_NotInGroupPlayerList', 'RAID_NotInGroupPlayerList',
+                        (LEFT, RAID_UNGROUPED_TOP, RAID_LIST_WIDTH, RAID_UNGROUPED_HEIGHT),
+                        'List of all players currently in your raid not in a group', RAID_COLUMNS)
+    buttons = [button(f'TUI_RW_{screen_id}', screen_id, label_text,
+                      LEFT + sum(RAID_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP,
+                      RAID_BUTTONS_TOP + row * (BUTTON_HEIGHT + BUTTON_ROW_GAP), RAID_BUTTON_WIDTHS[column],
+                      tooltip=tooltip)
+               for screen_id, label_text, tooltip, column, row in RAID_BUTTONS]
+    hidden = [hidden_label(f'TUI_RW_{screen_id}', screen_id) for screen_id in RAID_HIDDEN_LABELS]
+    return window('RaidWindow', 'Raid', RAID_HEIGHT, [grouped, caption, ungrouped, *buttons, *hidden],
+                  width=RAID_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
-                BREATH_FILE: breath_window}
+                BREATH_FILE: breath_window, RAID_FILE: raid_window}
 
 
 def stranded_definitions(skin_xml):

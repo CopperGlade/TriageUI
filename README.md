@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · by 
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, casting, air, chat, pet, window selector, actions, hot button, effects, songs and player windows, and the spell bar.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, effects, songs and player windows, and the spell bar.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows. Drag a window by its background to move it, and a chat window by the thin strip along its top.
 
@@ -25,6 +25,14 @@ Each group member is one line: their name, and their health % on the right (only
 **Click anywhere on a row to target that member or pet.** Pet rows are as big as member rows, instead of the hairline pet bars of most skins. A member without a pet leaves their pet row empty.
 
 The buttons along the bottom are **Invite** and **Disband**. While you have an invitation, **Follow** (accept) and **Decline** take their place.
+
+## The raid window
+
+Everyone in your raid in two lists straight on the panel: the players in a group, then, under **Not in a group**, the players in none. Each list shows the group number, name, class and rank (Raid Leader or Group Leader), with each heading on a faint strip like the overlays' header. There's no level column, and the player count and average level are left out. The lists scroll with the same slim scrollbar as the chat windows.
+
+Under the lists are two rows of buttons: **Invite**, **Disband** and **Make Leader**, then **Add Looter**, **Remove Looter** and **Options** (the raid options, where the class colors are set). While you have a raid invitation, **Accept** and **Decline** take the place of Invite and Disband. Point at a button to see what it does.
+
+Unlike EverQuest's own raid window, it has a fixed size, like the other TriageUI windows, so you drag it by its background.
 
 ## The casting window
 
@@ -124,7 +132,7 @@ Both windows share the game's blue and red effect backgrounds with a few other w
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
-- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow` or `TUI_` are about TriageUI.
+- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 

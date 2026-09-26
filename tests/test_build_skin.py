@@ -26,7 +26,7 @@ BASE_ANIMATIONS = (
 # The order the client loads them in (default's EQUI.xml).
 LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CASTSPELL_FILE,
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE, skin.HOTBUTTON_FILE,
-              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE]
+              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE]
 
 
 @functools.cache
@@ -323,10 +323,14 @@ def test_button_labels_are_our_own_lettering_centered_in_the_art():
                 inked = {(x, y) for x in range(width) for y in range(height)
                          if image.getpixel((x, y))[:3] == skin.snapped((*skin.TEXT_RGB, 255))[:3]}
                 assert {(left + x, skin.LABEL_TOP + y) for x, y in ink} <= inked, (label, state)
-    # Every glyph is 7 rows of one width, sitting on the last row.
+    # Every glyph is 7 rows of one width, sitting on the 7th, but the space, which has no ink, and p, whose stem
+    # goes a row below (on the line, it read as a small capital P).
     for letter, rows in skin.LABEL_GLYPHS.items():
-        assert len(rows) == skin.LABEL_HEIGHT and len({len(r) for r in rows}) == 1, letter
-        assert '#' in rows[-1], letter
+        assert len(rows) == skin.LABEL_HEIGHT + (letter == 'p') and len({len(r) for r in rows}) == 1, letter
+        assert ('#' in rows[skin.LABEL_HEIGHT - 1]) != (letter == ' '), letter
+    assert skin.LABEL_TOP + skin.LABEL_HEIGHT + 1 < skin.BUTTON_HEIGHT - 1  # the stem clears the button's edge
+    # Words are a padding apart: the space and the spacing either side of it.
+    assert len(skin.LABEL_GLYPHS[' '][0]) + 2 * skin.LETTER_SPACING == skin.PADDING
 
 
 def test_every_button_color_is_one_a_16_bit_texture_holds_exactly():
@@ -415,6 +419,9 @@ def test_every_reference_resolves():
     references += [e.findtext('Background') for e in root.iter('InvSlot')]
     for tabs in root.iter('TabBox'):
         assert {tabs.findtext(tag) for tag in ('TabBorderTemplate', 'PageBorderTemplate')} <= set(frames)
+    # The raid window's list column headings.
+    headers = {e.text for e in root.iter('Header')}
+    assert headers and headers <= set(frames)
     # The spell icons are the stock ones (see the stock names test).
     for name in set(references) - {skin.BUFF_ICONS}:
         assert name in anims, name
@@ -453,7 +460,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     ours = [e.get('item') for e in root if e.get('item') and e.get('item') != 'A_Base']
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
-                     'HotButtonWnd', 'BreathWindow'}
+                     'HotButtonWnd', 'BreathWindow', 'RaidWindow'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -1850,6 +1857,130 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
     assert box(name)[1] == 0 and 'ZealTick' not in by_id
     # Nothing else: no stamina, experience bar or other stats.
     assert len(labels) == 1 + 2 * 4 + 2 + 2 * len(skin.RESISTS)
+
+
+# Every control of the stock raid window, which the client looks up by ScreenID (eqgame.exe's string table lists
+# all but the two static labels, kept like every stock control).
+RAID_IDS = {'RAID_PlayerList', 'RAID_PlayerListLabel', 'RAID_NotInGroupPlayerList', 'RAID_NotInGroupPlayerListLabel',
+            'RAID_PlayerCountLabel', 'RAID_PlayerCountStringLabel', 'RAID_LevelAverageLabel',
+            'RAID_LevelAverageStringLabel', 'Raid_InviteButton', 'Raid_AcceptButton', 'Raid_DisbandButton',
+            'Raid_DeclineButton', 'Raid_MakeLeaderButton', 'Raid_AddLooterButton', 'Raid_RemoveLooterButton',
+            'Raid_OptionsButton'}
+
+
+def test_raid_window_keeps_every_control_the_client_looks_for():
+    root, window = check_inside_frame(skin.RAID_FILE, skin.RAID_WIDTH)
+    assert window.get('item') == 'RaidWindow'
+    # A fixed size like the other windows, so it drags by its background (the user's pick): a sizable window
+    # can only be dragged by a title bar in this client.
+    assert window.findtext('Style_Sizable') == 'false' and window.findtext('Style_Titlebar') == 'false'
+    assert box(window)[2:] == (skin.RAID_WIDTH, skin.RAID_HEIGHT)
+    ids = [e.findtext('ScreenID') for e in direct_pieces(root, window)]
+    assert len(ids) == len(set(ids)) and set(ids) == RAID_IDS
+
+
+def test_raid_lists_show_group_name_class_and_rank_with_level_hidden():
+    root, window = screen(skin.RAID_FILE)
+    lists = {e.findtext('ScreenID'): e for e in root.iter('Listbox')}
+    assert set(lists) == {'RAID_PlayerList', 'RAID_NotInGroupPlayerList'}
+    for listbox in lists.values():
+        columns = listbox.findall('Columns')
+        # The client's five columns in its order; the level column has no width and no heading (the user's pick).
+        assert [c.findtext('Heading') for c in columns] == ['Grp', 'Name', '', 'Class', 'Rank']
+        widths = [number(c, 'Width') for c in columns]
+        assert widths[2] == 0 and columns[2].find('Header') is None
+        # Each as wide as its widest text in font 3 (Arial 12px) and a padding: "Grp", "Shadow Knight" and "Group
+        # Leader" (the client's longest rank). Names keep the stock skin's width.
+        assert (widths[0], widths[3], widths[4]) == (20 + skin.PADDING, 83 + skin.PADDING, 76 + skin.PADDING)
+        assert widths[1] == 85
+        # The columns and the scrollbar fill the list, which spans the window between its paddings.
+        x, y, width, height = box(listbox)
+        assert x == skin.LEFT and sum(widths) + skin.SCROLL_WIDTH == width == skin.RAID_WIDTH - 2 * skin.PADDING
+        # Straight on the window's panel, only the slim scrollbar drawn, in the windows' font.
+        assert listbox.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+        assert listbox.findtext('Style_VScroll') == 'true' and listbox.findtext('Style_Border') == 'false'
+        assert listbox.findtext('Font') == str(skin.TEXT_FONT) and rgb(listbox, 'TextColor') == skin.TEXT_RGB
+        assert all(c.findtext('Header') == skin.LIST_HEADER for c in columns if number(c, 'Width'))
+    root = everything()
+    template = items(root, 'WindowDrawTemplate')[skin.EDIT_TEMPLATE]
+    assert template.findtext('VSBTemplate/Thumb/Middle') == 'TUI_ThumbMiddle'
+    assert {p[3] for p in pixels(decode(files()[template.findtext('Background')]))} == {0}
+    # Each heading on a strip of the overlay's header tint (its white at 20, on the steps as the buttons' wash): one
+    # flat piece for the header's left, middle and right, which the client repeats across the column.
+    header = items(root, 'FrameTemplate')[skin.LIST_HEADER]
+    assert {e.tag: e.text for e in header if not e.tag.startswith('Overlap')} == dict.fromkeys(
+        ('Left', 'Middle', 'Right'), 'TUI_ListHeaderWash')
+    wash = items(root, 'Ui2DAnimation')['TUI_ListHeaderWash']
+    assert colors(wash) == {skin.HEADER_RGBA} == {(255, 255, 255, 17)}
+    assert rect_of(wash)[3] == skin.RAID_HEADER_HEIGHT == 16  # the stock header pieces' height
+
+
+def test_raid_window_follows_the_spacing_standard():
+    root, window = screen(skin.RAID_FILE)
+    found = {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+    grouped, caption, ungrouped = (box(found[i]) for i in (
+        'RAID_PlayerList', 'RAID_NotInGroupPlayerListLabel', 'RAID_NotInGroupPlayerList'))
+    # The first list's heading strip a padding from the window's edge, across and down.
+    assert grouped[:2] == (skin.LEFT, skin.LEFT) and skin.BORDER + skin.LEFT == skin.PADDING
+    # The caption's ink a padding under the first list (to the half pixel), and the second list a padding under the
+    # caption's ink bottom, which is level with the digits' bottom.
+    assert caption[0] == skin.LEFT
+    assert skin.PADDING <= caption[1] + skin.TEXT_INK_TOP - (grouped[1] + grouped[3]) < skin.PADDING + 1
+    assert ungrouped[1] - (caption[1] + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT) == skin.PADDING
+    # The buttons: two rows of three filling the lists' width, a padding apart and a padding under the second
+    # list, and the window's edge a padding under them.
+    boxes = {screen_id: box(found[screen_id]) for screen_id, *_ in skin.RAID_BUTTONS}
+    rows = sorted({b[1] for b in boxes.values()})
+    assert len(rows) == 2
+    assert rows[0] - (ungrouped[1] + ungrouped[3]) == skin.BUTTON_ROW_GAP == skin.PADDING
+    assert rows[1] - (rows[0] + skin.BUTTON_HEIGHT) == skin.BUTTON_ROW_GAP
+    for top in rows:
+        row = sorted({b for b in boxes.values() if b[1] == top})
+        assert len(row) == 3 and {b[3] for b in row} == {skin.BUTTON_HEIGHT}
+        assert row[0][0] == skin.LEFT and row[-1][0] + row[-1][2] == skin.LEFT + skin.RAID_LIST_WIDTH
+        assert all(a[0] + a[2] + skin.BUTTON_GAP == b[0] for a, b in zip(row, row[1:]))
+        assert max(b[2] for b in row) - min(b[2] for b in row) <= 1
+    assert box(window)[3] == 2 * skin.BORDER + rows[1] + skin.BUTTON_HEIGHT + skin.BOTTOM_GAP
+    assert skin.BORDER + skin.BOTTOM_GAP == skin.PADDING
+
+
+def test_raid_buttons_share_spots_like_the_group_windows():
+    # Every stock button (the user's pick). The client shows Accept and Decline in place of Invite and Disband
+    # during an invitation, like the group window's Follow and Decline, so they share those spots.
+    root, window = screen(skin.RAID_FILE)
+    buttons = {b.findtext('ScreenID'): b for b in root.iter('Button')}
+    assert set(buttons) == {i for i in RAID_IDS if i.startswith('Raid_')}
+    assert box(buttons['Raid_AcceptButton']) == box(buttons['Raid_InviteButton'])
+    assert box(buttons['Raid_DeclineButton']) == box(buttons['Raid_DisbandButton'])
+    assert len({box(b) for b in buttons.values()}) == 6
+    # Full words drawn in the art (the buttons' own text is empty), with the stock tooltips.
+    labels = {screen_id: text for screen_id, text, *_ in skin.RAID_BUTTONS}
+    assert [labels[f'Raid_{n}Button'] for n in ('Invite', 'Disband', 'MakeLeader', 'AddLooter', 'RemoveLooter',
+                                                'Options')] == ['Invite', 'Disband', 'Make Leader', 'Add Looter',
+                                                                'Remove Looter', 'Options']
+    for screen_id, b in buttons.items():
+        assert b.findtext('Text') == '' and b.findtext('TooltipReference')
+        art = skin.button_art(*box(b)[2:], labels[screen_id], 'Normal')
+        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{art}'
+    assert buttons['Raid_DeclineButton'].findtext('TooltipReference') == 'Refuse an invitation to raid'
+
+
+def test_raid_count_level_average_and_first_caption_are_hidden_but_still_there():
+    # The user didn't want the player count or the level average, and the first list needs no caption. The
+    # client looks them up (and writes the numbers), so they stay with no size and no text, in the panel's color
+    # in case the client draws their text anyway.
+    root, window = screen(skin.RAID_FILE)
+    labels = {e.findtext('ScreenID'): e for e in root.iter('Label')}
+    hidden = set(skin.RAID_HIDDEN_LABELS)
+    assert hidden == {'RAID_PlayerListLabel', 'RAID_PlayerCountLabel', 'RAID_PlayerCountStringLabel',
+                      'RAID_LevelAverageLabel', 'RAID_LevelAverageStringLabel'}
+    assert set(labels) == hidden | {'RAID_NotInGroupPlayerListLabel'}
+    for screen_id in hidden:
+        assert box(labels[screen_id])[2:] == (0, 0) and not labels[screen_id].findtext('Text')
+        assert rgb(labels[screen_id], 'TextColor') == skin.PANEL_RGBA[:3]
+    # The second list's caption, in the captions' color.
+    caption = labels['RAID_NotInGroupPlayerListLabel']
+    assert caption.findtext('Text') == 'Not in a group' and rgb(caption, 'TextColor') == skin.CAPTION_RGB
 
 
 def test_slot_backgrounds_are_clear_with_a_red_mark_behind_a_harmful_icon():
