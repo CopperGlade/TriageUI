@@ -66,7 +66,7 @@ The row of buttons that opens and closes your other windows, each with a simple 
 
 ## The actions window
 
-As wide as the group and player windows, with the game's four pages behind a row of icon tabs in the window selector's style: **Main** (a house), **General Skills** (a compass), **Combat Skills** (a sword) and **Socials** (a speech bubble). The open page's tab is lit, and a faint line, like the effects window's, separates the tabs from the page. Point at a tab for its page's name. On every page the actions are two columns of buttons, their names in a small font.
+As wide as the hot button window, with the game's four pages behind a row of icon tabs in the window selector's style: **Main** (a house), **General Skills** (a compass), **Combat Skills** (a sword) and **Socials** (a speech bubble). The open page's tab is lit, and a faint line, like the effects window's, separates the tabs from the page. Point at a tab for its page's name. On every page the actions are two columns of buttons, their names in a small font.
 
 - **Main:** **Camp**, **Sit** or **Stand**, **Run** or **Walk** (the game shows whichever you can switch to), and **Invite**, which becomes **Follow** while you have a group invitation: Follow joins the group. It doesn't follow your target; for that, make a hot button with `/follow`. There's no Who or Disband: use `/who`, or the group window's Disband button.
 - **General Skills** (the game's Abilities page): your six skill buttons, such as Sense Heading, Forage or Hide. The game writes each skill's name on its button.

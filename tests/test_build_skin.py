@@ -1293,8 +1293,8 @@ def test_each_actions_tab_has_its_pages_name_as_a_tooltip():
 def test_actions_window_follows_the_spacing_standard():
     root, window, tabs, pages = actions_pages()
     width, height = box(window)[2:]
-    # As wide as the group and player windows (the user's call).
-    assert width == skin.GROUP_WIDTH == skin.PLAYER_WIDTH and window.findtext('Style_Titlebar') == 'false'
+    # As wide as the hot button window (the user's call).
+    assert width == skin.HOT_WIDTH == 174 and window.findtext('Style_Titlebar') == 'false'
     # The tab box starts at the window's inside and places the tabs and pages itself. It runs TAB_OVERHANG
     # past the inside on the right, where only the last tab's padding and the page border's side are.
     inside = width - 2 * skin.BORDER
@@ -1339,6 +1339,14 @@ def test_actions_window_follows_the_spacing_standard():
     assert max(cx + cw for cx, _, cw, _ in socials) == right - left
 
 
+def test_actions_window_lines_up_with_the_hot_button_window():
+    # As wide as the hot button window (the user's call), so stacked, each tab sits over one of its columns and
+    # each column of buttons over a pair of them.
+    columns = [skin.PADDING + c * skin.HOT_PITCH for c in range(skin.HOT_COLUMNS)]
+    assert [skin.BORDER + x for x in skin.TAB_LEFTS] == columns and skin.TAB_WIDTHS == [skin.HOT_SIZE] * 4
+    assert list(skin.ACTION_WIDTHS) == [2 * skin.HOT_SIZE + skin.BUTTON_GAP] * 2
+
+
 def test_actions_pages_are_two_columns_of_buttons():
     # The user's design: every page's actions in two columns of buttons filling the row, like the socials, all
     # in font 2 (font 3's "Sense Heading" wouldn't fit a column). The game writes the ability and social names
@@ -1349,7 +1357,7 @@ def test_actions_pages_are_two_columns_of_buttons():
     ordinals = ('First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth')
     height = skin.TEXT_BUTTON_HEIGHT
     step = height + skin.PADDING
-    columns = ((0, 79), (79 + skin.PADDING, 80))  # the second a pixel wider, as in the group window
+    columns = ((0, 78), (78 + skin.PADDING, 78))  # the row splits evenly
     assert columns[1][0] + columns[1][1] == skin.ACTIONS_CONTENT_WIDTH
 
     def across(names, top=0):

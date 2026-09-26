@@ -373,12 +373,15 @@ SOCIALS = tuple(f'ASP_SocialButton{n}' for n in range(1, 13))
 SOCIAL_ARROWS = (('ASP_SocialPageLeftButton', 'Previous Page', 'Left'),
                  ('ASP_SocialPageRightButton', 'Next Page', 'Right'))
 SOCIAL_PAGE_LABEL = 'ASP_CurrentSocialPageLabel'
-# As wide as the group and player windows (the user's call, for consistency). The buttons are in two columns
-# across the row, the tabs filling the same row. The row doesn't split evenly, so the second column is a pixel
-# wider, as in the group window. The buttons are tall enough for font 3's line with room around it, but the
-# names are in font 2, like the socials (the user asked for those first): at 79px, font 3's "Sense Heading"
-# (about 85px) wouldn't fit.
-ACTIONS_WIDTH = PET_WIDTH
+# The hot button window's grid (see HOTBUTTON_FILE), set here since the Actions window takes its width.
+HOT_SIZE = 36
+HOT_COLUMNS = 4
+HOT_WIDTH = 2 * PADDING + HOT_COLUMNS * HOT_SIZE + (HOT_COLUMNS - 1) * BUTTON_GAP
+# As wide as the hot button window (the user's call; it was as wide as the group and player windows before).
+# The buttons are in two columns across the row, the tabs filling the same row; both split evenly. The buttons
+# are tall enough for font 3's line with room around it, but the names are in font 2, like the socials (the
+# user asked for those first): at 78px, font 3's "Sense Heading" (about 85px) wouldn't fit.
+ACTIONS_WIDTH = HOT_WIDTH
 ACTIONS_CONTENT_WIDTH = ACTIONS_WIDTH - 2 * PADDING
 TEXT_BUTTON_HEIGHT = 20
 ACTION_FONT = 2
@@ -422,8 +425,8 @@ ACTIONS_PAGE_HEIGHT = max(*(math.ceil(len(spots) / ACTION_COLUMNS) * ACTION_ROW_
 # page's tab art has its tab TAB_SHIFT lower than a closed one's, so every tab lands level. No piece can be 0
 # tall, so the tabs sit a pixel further down than the padding (TAB_TOP).
 # The tabs fill the row the buttons do, a padding apart (the user asked for wider tabs or more room between
-# them). The shares split the row plus one padding as evenly as whole pixels allow (TAB_WIDTHS: 36, 37, 37,
-# 37), and the last share ends a padding after its tab, a TAB_CORNER in (no piece can be 0 wide), so the tab
+# them). The shares split the row plus one padding as evenly as whole pixels allow (at this width exactly:
+# TAB_WIDTHS 36 each), and the last share ends a padding after its tab, a TAB_CORNER in (no piece can be 0 wide), so the tab
 # box runs TAB_OVERHANG past the window's inside on the right. Only clear space is there: the last tab's
 # padding and the page border's right side.
 TAB_BORDER = 'TUI_TabBorder'
@@ -580,11 +583,9 @@ SPELL_BAR_HEIGHT = 2 * BORDER + BOOK_TOP + TOGGLE_SIZE + LEFT + EDGE_LINE
 # ring in game). Everything is solid, the button look over the panel's color, since it's the window clicked
 # most and the client seems to ignore clicks where a button's art is see-through (see HELPFUL_RGBA).
 HOTBUTTON_FILE = 'EQUI_HotButtonWnd.xml'
-HOT_SIZE = 36
+# HOT_SIZE, HOT_COLUMNS and HOT_WIDTH are set before the Actions window, which takes its width.
 HOT_PITCH = HOT_SIZE + BUTTON_GAP  # BUTTON_ROW_GAP down, the same
-HOT_COLUMNS = 4
 HOT_ROWS = 6
-HOT_WIDTH = 2 * PADDING + HOT_COLUMNS * HOT_SIZE + (HOT_COLUMNS - 1) * BUTTON_GAP
 HOT_HEIGHT = 2 * PADDING + HOT_ROWS * HOT_SIZE + (HOT_ROWS - 1) * BUTTON_ROW_GAP
 HOT_MACROS = 10  # two columns under the page row
 MACRO_FONT = 1
@@ -1340,6 +1341,7 @@ def pieces():
            for name, (coverage, width, height) in icons.items() for state in ICON_LOOKS},
         'RowDivider': Texture(BAR_WIDTH, 1, ROW_DIVIDER_RGBA),
         'GroupDivider': Texture(GROUP_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the group window's width
+        'ActionsDivider': Texture(ACTIONS_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the Actions window's width
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
         'GemSlot': clear_texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT),  # a spell gem's row, clear (see spell_gem())
@@ -2040,8 +2042,8 @@ def actions_window():
     # Over each tab, its page's name as a tooltip (see TAB_LEFTS).
     names = [tooltip_spot(f'TUI_AW_{icon}Tab', (x, TOGGLES_TOP, width, TOGGLE_SIZE), page_name)
              for (_, _, page_name, icon), x, width in zip(ACTIONS_PAGES, TAB_LEFTS, TAB_WIDTHS)]
-    # The divider under the tabs: the group window's, which is the content row's width here too.
-    divider = picture('TUI_AW_TabDivider', 'TUI_GroupDivider',
+    # The divider under the tabs: the Effects window's, at the content row's width.
+    divider = picture('TUI_AW_TabDivider', 'TUI_ActionsDivider',
                       (LEFT, TAB_DIVIDER_TOP, ACTIONS_CONTENT_WIDTH, DIVIDER_HEIGHT))
     return window('ActionsWindow', 'Actions', ACTIONS_HEIGHT, [tabs, *names, divider], width=ACTIONS_WIDTH,
                   inner=inner)
