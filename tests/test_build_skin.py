@@ -1825,8 +1825,9 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
         # A space either side of the slash, so the numbers read apart (the user's request).
         assert sw == 4 + 2 * skin.SPACE_WIDTH and slash.findtext('AlignCenter') == 'true'
         # Your % in the middle of the line (the user's pick, so the layout stays): the game's label 19 or 20,
-        # right-aligned with the drawn % after it, a padding before the current number, in the values'
-        # green. The % shows while your own health is above 0, so always. The caption ends before it.
+        # right-aligned with the drawn % after it, two paddings before the current number (at one they ran
+        # together, and the user asked for the % nearer the caption), in the values' green. The % shows while
+        # your own health is above 0, so always. The caption ends before it.
         percent_number = labels[f'TUI_PW_{screen_id}Percent']
         assert percent_number.findtext('EQType') == percent_type and percent_number.findtext('AlignRight') == 'true'
         assert rgb(percent_number, 'TextColor') == skin.VALUE_RGB and not percent_number.findtext('Text')
@@ -1835,7 +1836,9 @@ def test_player_window_shows_hp_mana_xp_per_hour_and_resists_only():
         percent_clip = items(root, 'Screen')[f'TUI_PW_{screen_id}PercentSign_Clip']
         assert box(percent_clip) == (px + pw, top + skin.PERCENT_INK_TOP, skin.PERCENT_WIDTH,
                                      skin.PERCENT_GLYPH_HEIGHT)
-        assert box(percent_clip)[0] + box(percent_clip)[2] + skin.PADDING == cx
+        assert box(percent_clip)[0] + box(percent_clip)[2] + 2 * skin.PADDING == cx
+        # Even "100" (the number box's whole width) stays more than a padding after "Health" (36px in Arial 12).
+        assert px - skin.LEFT - 36 > skin.PADDING
         percent_sign = items(root, 'Gauge')[percent_clip.find('Pieces').text]
         assert percent_sign.findtext('EQType') == '1' and rgb(percent_sign, 'FillTint') == skin.VALUE_RGB
         bar = box(by_id[screen_id])

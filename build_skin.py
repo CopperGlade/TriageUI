@@ -2151,8 +2151,9 @@ def player_window():
     max_x = PLAYER_RIGHT - PLAYER_NUMBER_WIDTH
     slash_x = max_x - PLAYER_SLASH_WIDTH
     current_x = slash_x - PLAYER_NUMBER_WIDTH
-    # The % a padding before the current number, in the values' green, shown by your own health, so always.
-    percent_right = current_x - PADDING
+    # The % two paddings before the current number, closer to the caption (at a padding they ran together,
+    # the user's call), in the values' green, shown by your own health, so always.
+    percent_right = current_x - 2 * PADDING
     percent_number_x = percent_right - PERCENT_WIDTH - NUMBER_WIDTH
     percents = []
     # (gauge ScreenID, gauge EQType, caption, % label EQType, current and max label EQTypes, bar tint): Zeal
