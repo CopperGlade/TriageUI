@@ -225,8 +225,8 @@ BUTTON_HEIGHT = 16
 # BUTTON_WIDTH, the group window's buttons', is set with the group window's width, below.
 # Button labels are drawn into the buttons' art in our own pixel lettering: the client's font 2 looked
 # squished, font 3 too big, and a skin can't space a font's letters. Each glyph is 7 rows sitting on the
-# last, '#' for ink, 1px strokes; lowercase letters start at row 2, and p has an 8th row, below the line, for
-# its stem. Letters are LETTER_SPACING apart (the user asked for more room than the font gave) and each label
+# last, '#' for ink, 1px strokes; lowercase letters start at row 2, and p, g and y have an 8th row, below the
+# line, for their tails. Letters are LETTER_SPACING apart (the user asked for more room than the font gave) and each label
 # is centered in its button, its x-height on the button's middle.
 LETTER_SPACING = 2
 LABEL_HEIGHT = 7
@@ -243,12 +243,16 @@ LABEL_GLYPHS = {
     'M': ('#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'),
     'O': ('.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'),
     'R': ('####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'),
+    'S': ('.###.', '#...#', '#....', '.###.', '....#', '#...#', '.###.'),
     'T': ('#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'),
     'a': ('....', '....', '.##.', '...#', '.###', '#..#', '.###'),
     'b': ('#...', '#...', '###.', '#..#', '#..#', '#..#', '###.'),
     'c': ('...', '...', '.##', '#..', '#..', '#..', '.##'),
     'd': ('...#', '...#', '.###', '#..#', '#..#', '#..#', '.###'),
     'e': ('....', '....', '.##.', '#..#', '####', '#...', '.###'),
+    # Their bowls a row up, so the tail can hook under the line: a straight stem would make g read as q.
+    'g': ('....', '....', '.###', '#..#', '#..#', '.###', '...#', '.##.'),
+    'h': ('#...', '#...', '###.', '#..#', '#..#', '#..#', '#..#'),
     'i': ('#', '.', '#', '#', '#', '#', '#'),
     'k': ('#...', '#...', '#..#', '#.#.', '##..', '#.#.', '#..#'),
     'l': ('#', '#', '#', '#', '#', '#', '#'),
@@ -263,6 +267,7 @@ LABEL_GLYPHS = {
     'u': ('....', '....', '#..#', '#..#', '#..#', '#..#', '.###'),
     'v': ('.....', '.....', '#...#', '#...#', '.#.#.', '.#.#.', '..#..'),
     'w': ('.....', '.....', '#...#', '#...#', '#.#.#', '#.#.#', '.#.#.'),
+    'y': ('....', '....', '#..#', '#..#', '#..#', '.###', '...#', '.##.'),
     ' ': ('..', '..', '..', '..', '..', '..', '..'),  # with the spacing either side, words are 6px apart
 }
 LABEL_ALPHA = {'Normal': 255, 'Flyby': 255, 'Pressed': 255, 'Disabled': 119}
@@ -830,6 +835,56 @@ RAID_HIDDEN_LABELS = ('RAID_PlayerListLabel', 'RAID_PlayerCountLabel', 'RAID_Pla
 # like the stock Header_Listbox's.
 LIST_HEADER = 'TUI_ListHeader'
 HEADER_RGBA = BUTTON_STYLES['Wash'][0]
+# The merchant window, in the shape the user picked (2026-09-27): all 80 of a merchant's slots at once, eight
+# across on the hot button window's 36px squares (duxaUI's shape, so nothing scrolls), empty ones the plain square;
+# under them the item you're considering, with Project Quarm's recharge group beside it, then Buy or Sell and Done.
+# No merchant name (the user). The client looks up the name (hidden here), the slots' panel and its 80 slots, the
+# item's square, Buy, Sell and Done (the ScreenID DoneButton), and shows Buy for the merchant's items and Sell for
+# yours in one spot; the price of what you consider comes in chat. Quarm's eqgame.dll (its 2026 recharge) looks up
+# four more (see MERCHANT_RECHARGE).
+MERCHANT_FILE = 'EQUI_MerchantWnd.xml'
+MERCHANT_SLOTS = 80  # MW_MerchantSlot0 to 79, EQTypes 6000 to 6079
+MERCHANT_SLOT_TYPE = 6000
+MERCHANT_COLUMNS = 8
+MERCHANT_ROWS = -(-MERCHANT_SLOTS // MERCHANT_COLUMNS)
+MERCHANT_CONTENT_WIDTH = MERCHANT_COLUMNS * HOT_SIZE + (MERCHANT_COLUMNS - 1) * BUTTON_GAP
+MERCHANT_WIDTH = MERCHANT_CONTENT_WIDTH + 2 * PADDING
+MERCHANT_RIGHT = MERCHANT_WIDTH - 2 * BORDER - LEFT
+MERCHANT_GRID_HEIGHT = MERCHANT_ROWS * HOT_SIZE + (MERCHANT_ROWS - 1) * BUTTON_ROW_GAP
+# The stock item icons, which the client puts on the considered item's square (like BUFF_ICONS on the effects').
+ITEM_ICONS = 'A_DragItem'
+# Under the grid, a band a square tall: the considered item's square, then a column of text a padding after it, then
+# the Recharge button over Done's column, a padding from the text. Quarm's eqgame.dll swaps what shows there: while
+# one of your own items with charges is selected, its charges and the next charge's price (one line each, which it
+# writes) and the Recharge button, whose tooltip it overwrites with the price per charge; otherwise
+# MW_SelectedItemLabel, which it never writes and which says nothing here (the user). It moves nothing: its one layout
+# change, the slots' panel's bottom anchor, has no effect on a panel placed by Location and Size.
+MERCHANT_BAND_TOP = LEFT + MERCHANT_GRID_HEIGHT + PADDING
+MERCHANT_BUTTON_WIDTHS = ((MERCHANT_CONTENT_WIDTH - BUTTON_GAP) // 2,
+                          MERCHANT_CONTENT_WIDTH - BUTTON_GAP - (MERCHANT_CONTENT_WIDTH - BUTTON_GAP) // 2)
+MERCHANT_RECHARGE_X = MERCHANT_RIGHT - MERCHANT_BUTTON_WIDTHS[1]  # over Done
+MERCHANT_TEXT_X = LEFT + HOT_SIZE + PADDING
+MERCHANT_TEXT_WIDTH = MERCHANT_RECHARGE_X - PADDING - MERCHANT_TEXT_X
+# The two lines stacked on their line height, the ink of both (the first's top to the second's digits' bottom)
+# centered on the square, as the page numbers' digits are on their arrows.
+MERCHANT_TEXT_TOP = round(HOT_SIZE / 2 - (TEXT_HEIGHT / 2 + DIGITS_INK_MIDDLE))
+MERCHANT_RECHARGE_TOP = (HOT_SIZE - BUTTON_HEIGHT) // 2  # the button centered on the square
+# The recharge group, as (ScreenID, line): the item label covers both lines.
+MERCHANT_RECHARGE = (('MW_Recharge_Charges', 0), ('MW_Recharge_Price', 1))
+MERCHANT_ITEM_LABEL = 'MW_SelectedItemLabel'
+MERCHANT_RECHARGE_BUTTON = 'MW_Recharge_Button'
+# Buy and Sell share a spot, a padding under the band, and Done has the other half of the row: (ScreenID, label,
+# tooltip, column), the client's own tooltips. Done has none.
+MERCHANT_BUTTONS_TOP = MERCHANT_BAND_TOP + HOT_SIZE + BUTTON_ROW_GAP
+MERCHANT_BUTTONS = (('MW_Buy_Button', 'Buy', 'Purchase considered item', 0),
+                    ('MW_Sell_Button', 'Sell', 'Sell considered item', 0),
+                    ('DoneButton', 'Done', None, 1))
+for _screen_id, _label, _tooltip, _column in MERCHANT_BUTTONS:
+    _size = (MERCHANT_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
+    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
+_size = (MERCHANT_BUTTON_WIDTHS[1], BUTTON_HEIGHT)
+BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('Recharge',)
+MERCHANT_HEIGHT = 2 * BORDER + MERCHANT_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -2482,11 +2537,65 @@ def raid_window():
                   width=RAID_WIDTH)
 
 
+def merchant_window():
+    """All 80 of a merchant's slots, eight across; under them the considered item's square with Quarm's recharge
+    group beside it, then Buy or Sell and Done (see MERCHANT_FILE). The merchant's name is there, hidden."""
+    # The slots, in the client's panel for them: see-through on the window's panel, placed by Location and Size, so
+    # Quarm's anchor change can't move its bottom.
+    slots = [inv_slot(f'TUI_MW_Slot{n}', f'MW_MerchantSlot{n}', MERCHANT_SLOT_TYPE + n,
+                      (n % MERCHANT_COLUMNS * HOT_PITCH, n // MERCHANT_COLUMNS * HOT_PITCH), 'TUI_HotButtonNormal')
+             for n in range(MERCHANT_SLOTS)]
+    panel = node('Screen', [
+        node('ScreenID', 'MerchantSlotsWnd'),
+        node('RelativePosition', True),
+        point('Location', LEFT, LEFT),
+        size(MERCHANT_CONTENT_WIDTH, MERCHANT_GRID_HEIGHT),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
+        node('Style_Transparent', True),
+        node('DrawTemplate', FRAME_TEMPLATE),
+        node('Style_Border', False),
+    ] + [node('Pieces', slot[2]) for slot in slots], 'TUI_MW_SlotsWnd')
+    # The considered item's square, the plain square with the item's icon on it, which the client sets.
+    top = MERCHANT_BAND_TOP
+    item = node('Button', [
+        node('ScreenID', 'MW_SelectedItem'),
+        node('RelativePosition', True),
+        point('Location', LEFT, top),
+        size(HOT_SIZE, HOT_SIZE),
+        node('Style_Transparent', False),
+        node('TooltipReference', 'Item being considered'),
+        node('Style_Checkbox', False),
+        node('ButtonDrawTemplate', [node('Normal', 'TUI_HotButtonNormal'), node('NormalDecal', ITEM_ICONS)]),
+        point('DecalOffset', 0, 0),
+        node('DecalSize', [node('CX', HOT_SIZE), node('CY', HOT_SIZE)]),
+    ], 'TUI_MW_SelectedItem')
+    text_top = top + MERCHANT_TEXT_TOP
+    item_label = label(f'TUI_{MERCHANT_ITEM_LABEL}', None,
+                       (MERCHANT_TEXT_X, text_top, MERCHANT_TEXT_WIDTH, len(MERCHANT_RECHARGE) * TEXT_HEIGHT), '',
+                       screen_id=MERCHANT_ITEM_LABEL)
+    recharge = [label(f'TUI_{screen_id}', None,
+                      (MERCHANT_TEXT_X, text_top + line * TEXT_HEIGHT, MERCHANT_TEXT_WIDTH, TEXT_HEIGHT), '',
+                      screen_id=screen_id)
+                for screen_id, line in MERCHANT_RECHARGE]
+    # No tooltip of ours: Quarm writes the price per charge there.
+    recharge.append(button(f'TUI_{MERCHANT_RECHARGE_BUTTON}', MERCHANT_RECHARGE_BUTTON, 'Recharge', MERCHANT_RECHARGE_X,
+                           top + MERCHANT_RECHARGE_TOP, MERCHANT_BUTTON_WIDTHS[1]))
+    buttons = [button(f'TUI_MW_{screen_id}', screen_id, label_text,
+                      LEFT + sum(MERCHANT_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP, MERCHANT_BUTTONS_TOP,
+                      MERCHANT_BUTTON_WIDTHS[column], tooltip=tooltip)
+               for screen_id, label_text, tooltip, column in MERCHANT_BUTTONS]
+    name = hidden_label('TUI_MW_MerchantName', 'MW_MerchantName')
+    return window('MerchantWnd', 'Merchant', MERCHANT_HEIGHT, [panel, item, item_label, *recharge, *buttons, name],
+                  width=MERCHANT_WIDTH, inner=slots)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
-                BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window}
+                BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
+                MERCHANT_FILE: merchant_window}
 
 
 def stranded_definitions(skin_xml):

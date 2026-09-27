@@ -23,6 +23,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Songs | `EQUI_ShortDurationBuffWindow.xml` |
 | Player | `EQUI_PlayerWindow.xml` |
 | Spell bar | `EQUI_CastSpellWnd.xml` |
+| Merchant | `EQUI_MerchantWnd.xml` |
 
 ## To do: everyday
 
@@ -34,7 +35,6 @@ Roughly in order of how much a player sees them.
 | Item Display | `EQUI_ItemDisplay.xml` | duxaUI, without the bright slot bar (TriageUI restyles the slot backgrounds) |
 | Spell Book | `EQUI_SpellBookWnd.xml` | duxaUI, without the bright slot bars |
 | Loot | `EQUI_LootWnd.xml` | duxaUI |
-| Merchant | `EQUI_MerchantWnd.xml` | duxaUI |
 | Bank | `EQUI_BankWnd.xml` | duxaUI |
 | Trade | `EQUI_TradeWnd.xml` | duxaUI |
 | Give | `EQUI_GiveWnd.xml` | duxaUI |

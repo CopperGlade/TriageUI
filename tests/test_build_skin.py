@@ -27,7 +27,7 @@ BASE_ANIMATIONS = (
 LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CASTSPELL_FILE,
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
               skin.HOTBUTTON_FILE,
-              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE]
+              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE]
 
 
 @functools.cache
@@ -353,12 +353,14 @@ def test_button_labels_are_our_own_lettering_centered_in_the_art():
                 inked = {(x, y) for x in range(width) for y in range(height)
                          if image.getpixel((x, y))[:3] == skin.snapped((*skin.TEXT_RGB, 255))[:3]}
                 assert {(left + x, skin.LABEL_TOP + y) for x, y in ink} <= inked, (label, state)
-    # Every glyph is 7 rows of one width, sitting on the 7th, but the space, which has no ink, and p, whose stem
-    # goes a row below (on the line, it read as a small capital P).
+    # Every glyph is 7 rows of one width, sitting on the 7th, but the space, which has no ink, and p, g and y, whose
+    # tails go a row below (on the line, p read as a small capital P; a straight stem would make g read as q).
     for letter, rows in skin.LABEL_GLYPHS.items():
-        assert len(rows) == skin.LABEL_HEIGHT + (letter == 'p') and len({len(r) for r in rows}) == 1, letter
+        assert len(rows) == skin.LABEL_HEIGHT + (letter in 'pgy') and len({len(r) for r in rows}) == 1, letter
         assert ('#' in rows[skin.LABEL_HEIGHT - 1]) != (letter == ' '), letter
-    assert skin.LABEL_TOP + skin.LABEL_HEIGHT + 1 < skin.BUTTON_HEIGHT - 1  # the stem clears the button's edge
+        if letter in 'gy':
+            assert rows[-1].count('#') > 1, letter  # a hook, not a straight stem
+    assert skin.LABEL_TOP + skin.LABEL_HEIGHT + 1 < skin.BUTTON_HEIGHT - 1  # the tails clear the button's edge
     # Words are a padding apart: the space and the spacing either side of it.
     assert len(skin.LABEL_GLYPHS[' '][0]) + 2 * skin.LETTER_SPACING == skin.PADDING
 
@@ -379,8 +381,8 @@ def test_every_button_color_is_one_a_16_bit_texture_holds_exactly():
     root = everything()
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
-    art = {state.text for b in root.iter('Button') for state in b.find('ButtonDrawTemplate')} - {'TUI_Clear',
-                                                                                                  skin.BUFF_ICONS}
+    art = {state.text for b in root.iter('Button') for state in b.find('ButtonDrawTemplate')} - {
+        'TUI_Clear', skin.BUFF_ICONS, skin.ITEM_ICONS}
     assert len(art) > 20
     for name in art:
         off = [p for p in pixels(cut(atlas, anims[name])) if not on_steps(p)]
@@ -452,11 +454,12 @@ def test_every_reference_resolves():
     # The raid window's list column headings.
     headers = {e.text for e in root.iter('Header')}
     assert headers and headers <= set(frames)
-    # The spell icons are the stock ones (see the stock names test).
-    for name in set(references) - {skin.BUFF_ICONS}:
+    # The spell and item icons are the stock ones (see the stock names test).
+    stock = {skin.BUFF_ICONS, skin.ITEM_ICONS}
+    for name in set(references) - stock:
         assert name in anims, name
     references += [e.text for e in root.iter('Animation')]
-    for name in set(references) - {skin.BUFF_ICONS}:
+    for name in set(references) - stock:
         assert name in anims, name
     for anim in anims.values():
         if anim.get('item').startswith('TUI_'):
@@ -490,7 +493,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     ours = [e.get('item') for e in root if e.get('item') and e.get('item') != 'A_Base']
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
-                     'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow'}
+                     'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -2238,6 +2241,128 @@ def test_raid_count_level_average_and_first_caption_are_hidden_but_still_there()
     # The second list's caption, in the captions' color.
     caption = labels['RAID_NotInGroupPlayerListLabel']
     assert caption.findtext('Text') == 'Not in a group' and rgb(caption, 'TextColor') == skin.CAPTION_RGB
+
+
+# The merchant window
+
+# Every control the client looks up in the merchant window besides its 80 slots (eqgame.exe's string table), and the
+# four Project Quarm's eqgame.dll looks up for its recharge.
+MERCHANT_IDS = {'MW_MerchantName', 'MerchantSlotsWnd', 'MW_SelectedItem', 'MW_Buy_Button', 'MW_Sell_Button',
+                'DoneButton', 'MW_Recharge_Button', 'MW_Recharge_Charges', 'MW_Recharge_Price', 'MW_SelectedItemLabel'}
+
+
+def merchant_pieces():
+    """The merchant window's file, its window, and its own pieces by ScreenID."""
+    root, window = screen(skin.MERCHANT_FILE)
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+
+
+def test_merchant_window_keeps_every_control_the_client_and_quarm_look_for():
+    root, window = check_inside_frame(skin.MERCHANT_FILE, skin.MERCHANT_WIDTH)
+    assert window.get('item') == 'MerchantWnd'
+    # A fixed size like the other windows, so it drags by its background.
+    assert window.findtext('Style_Sizable') == 'false'
+    assert box(window)[2:] == (skin.MERCHANT_WIDTH, skin.MERCHANT_HEIGHT)
+    ids = [e.findtext('ScreenID') for e in direct_pieces(root, window)]
+    assert len(ids) == len(set(ids)) and set(ids) == MERCHANT_IDS
+    # The 80 slots are the pieces of the client's panel for them, not the window's, each its own EQType.
+    panel = merchant_pieces()[2]['MerchantSlotsWnd']
+    slots = direct_pieces(root, panel)
+    assert panel.tag == 'Screen' and {s.tag for s in slots} == {'InvSlot'}
+    assert [s.findtext('ScreenID') for s in slots] == [f'MW_MerchantSlot{n}' for n in range(80)]
+    assert [number(s, 'EQType') for s in slots] == list(range(6000, 6080))
+
+
+def test_merchant_slots_are_all_80_eight_across_on_the_hot_bars_squares():
+    root, window, found = merchant_pieces()
+    panel = found['MerchantSlotsWnd']
+    # All at once, nothing to scroll (the user's pick): the panel is exactly the grid, a padding from the window's
+    # top and sides, see-through on the window's panel.
+    assert (skin.MERCHANT_COLUMNS, skin.MERCHANT_ROWS) == (8, 10)
+    assert box(panel) == (skin.LEFT, skin.LEFT, skin.MERCHANT_CONTENT_WIDTH, skin.MERCHANT_GRID_HEIGHT)
+    assert skin.LEFT + skin.MERCHANT_CONTENT_WIDTH == skin.MERCHANT_RIGHT
+    assert skin.MERCHANT_WIDTH - 2 * skin.BORDER - skin.MERCHANT_RIGHT == skin.LEFT
+    assert panel.findtext('Style_VScroll') == 'false' and panel.findtext('Style_Transparent') == 'true'
+    assert panel.findtext('Style_Border') == 'false' and panel.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    # Placed by Location and Size: while recharging, Quarm's eqgame.dll moves the panel's bottom anchor, which only an
+    # anchored panel follows.
+    assert panel.find('AutoStretch') is None
+    # The hot bar's 36px squares, a padding apart, left to right then down; empty ones the plain square.
+    slots = direct_pieces(root, panel)
+    for n, slot in enumerate(slots):
+        assert box(slot) == (n % 8 * skin.HOT_PITCH, n // 8 * skin.HOT_PITCH, skin.HOT_SIZE, skin.HOT_SIZE)
+        assert slot.findtext('Background') == 'TUI_HotButtonNormal'
+    x, y, width, height = box(slots[-1])
+    assert (x + width, y + height) == box(panel)[2:]
+
+
+def test_merchant_window_follows_the_spacing_standard():
+    root, window, found = merchant_pieces()
+    boxes = {screen_id: box(e) for screen_id, e in found.items()}
+    panel, item = boxes['MerchantSlotsWnd'], boxes['MW_SelectedItem']
+    # The considered item's square a padding under the grid, at the window's padding.
+    assert item == (skin.LEFT, panel[1] + panel[3] + skin.PADDING, skin.HOT_SIZE, skin.HOT_SIZE)
+    # The recharge text a padding after the square and a padding before Recharge, which ends at the window's padding
+    # over Done, as wide.
+    charges, price, recharge = (boxes[i] for i in ('MW_Recharge_Charges', 'MW_Recharge_Price', 'MW_Recharge_Button'))
+    buy, sell, done = boxes['MW_Buy_Button'], boxes['MW_Sell_Button'], boxes['DoneButton']
+    assert charges[0] == price[0] == item[0] + item[2] + skin.PADDING and charges[2] == price[2]
+    assert charges[0] + charges[2] + skin.PADDING == recharge[0]
+    assert (recharge[0], recharge[2]) == (done[0], done[2]) and done[0] + done[2] == skin.MERCHANT_RIGHT
+    # The two lines stacked on their line height, the ink of both (the first's top to the second's digits' bottom)
+    # centered on the square; Recharge centered on it too.
+    assert price[1] == charges[1] + skin.TEXT_HEIGHT
+    assert abs((charges[1] + price[1]) / 2 + skin.DIGITS_INK_MIDDLE - (item[1] + skin.HOT_SIZE / 2)) <= 0.5
+    assert recharge[1] - item[1] == item[1] + item[3] - (recharge[1] + recharge[3])
+    # The item label, which Quarm shows instead of the recharge text, covers both lines.
+    assert boxes['MW_SelectedItemLabel'] == (charges[0], charges[1], charges[2], 2 * skin.TEXT_HEIGHT)
+    # Buy (or Sell, in the same spot) and Done fill the row a padding under the band, a padding apart, and the
+    # window's edge is a padding under them.
+    assert buy == sell and buy[0] == skin.LEFT and buy[0] + buy[2] + skin.BUTTON_GAP == done[0]
+    assert buy[1] == done[1] == item[1] + item[3] + skin.BUTTON_ROW_GAP and skin.BUTTON_ROW_GAP == skin.PADDING
+    assert {buy[3], done[3], recharge[3]} == {skin.BUTTON_HEIGHT}
+    assert box(window)[3] == 2 * skin.BORDER + done[1] + skin.BUTTON_HEIGHT + skin.BOTTOM_GAP
+    assert skin.BORDER + skin.BOTTOM_GAP == skin.PADDING
+
+
+def test_merchant_recharge_group_shares_the_item_labels_spot_and_leaves_quarm_its_tooltip():
+    root, window, found = merchant_pieces()
+    # Quarm shows the charges, the next charge's price and Recharge while one of your items with charges is
+    # selected, and the item label otherwise. It writes the two lines and never the label, which says nothing (the
+    # user's pick).
+    for screen_id in ('MW_SelectedItemLabel', 'MW_Recharge_Charges', 'MW_Recharge_Price'):
+        text = found[screen_id]
+        assert text.tag == 'Label' and text.findtext('Text') == '' and text.find('EQType') is None
+        assert number(text, 'Font') == skin.TEXT_FONT and rgb(text, 'TextColor') == skin.TEXT_RGB
+    # Recharge in our lettering, with no tooltip of ours: Quarm writes the price per charge there.
+    recharge = found['MW_Recharge_Button']
+    assert recharge.find('TooltipReference') is None and recharge.findtext('Text') == ''
+    art = skin.button_art(*box(recharge)[2:], 'Recharge', 'Normal')
+    assert recharge.findtext('ButtonDrawTemplate/Normal') == f'TUI_{art}'
+    # Buy and Sell share a spot (the client shows one), each with the client's own tooltip; Done has none.
+    buttons = {screen_id: (text, tooltip) for screen_id, text, tooltip, _ in skin.MERCHANT_BUTTONS}
+    assert buttons == {'MW_Buy_Button': ('Buy', 'Purchase considered item'),
+                       'MW_Sell_Button': ('Sell', 'Sell considered item'), 'DoneButton': ('Done', None)}
+    for screen_id, (text, tooltip) in buttons.items():
+        b = found[screen_id]
+        assert b.findtext('TooltipReference') == tooltip and b.findtext('Text') == ''
+        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], text, "Normal")}'
+    # The considered item's square: the plain square, with the item's icon over all of it (the stock item icons,
+    # which the client sets).
+    item = found['MW_SelectedItem']
+    assert item.tag == 'Button' and item.findtext('TooltipReference') == 'Item being considered'
+    assert item.findtext('ButtonDrawTemplate/Normal') == 'TUI_HotButtonNormal'
+    assert item.findtext('ButtonDrawTemplate/NormalDecal') == skin.ITEM_ICONS == 'A_DragItem'
+    assert (number(item, 'DecalOffset/X'), number(item, 'DecalOffset/Y')) == (0, 0)
+    assert (number(item, 'DecalSize/CX'), number(item, 'DecalSize/CY')) == (skin.HOT_SIZE, skin.HOT_SIZE)
+
+
+def test_merchant_name_is_hidden_but_still_there():
+    # The user didn't want the merchant's name. The client looks it up and writes it, so it stays with no size and
+    # no text, in the panel's color in case the client draws its text anyway.
+    name = merchant_pieces()[2]['MW_MerchantName']
+    assert name.tag == 'Label' and box(name)[2:] == (0, 0) and not name.findtext('Text')
+    assert rgb(name, 'TextColor') == skin.PANEL_RGBA[:3]
 
 
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
