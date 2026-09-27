@@ -71,7 +71,7 @@ As wide as the hot button window, with the game's four pages behind a row of ico
 - **Main:** **Camp**, **Sit** or **Stand**, **Run** or **Walk** (the game shows whichever you can switch to), and **Invite**, which becomes **Follow** while you have a group invitation: Follow joins the group. It doesn't follow your target; for that, make a hot button with `/follow`. There's no Who or Disband: use `/who`, or the group window's Disband button.
 - **General Skills** (the game's Abilities page): your six skill buttons, such as Sense Heading, Forage or Hide. The game writes each skill's name on its button.
 - **Combat Skills** (the game's Combat page): **Melee Attack** and **Range Attack**, then your four combat skills, such as Kick or Taunt.
-- **Socials:** eight of the twelve socials on each social page, 1 to 4 and 7 to 10, under the page arrows and the page number. Socials 5, 6, 11 and 12 are hidden to keep the window short: put what you need in the slots shown, or on a hot bar.
+- **Socials:** six of the twelve socials on each social page, 1 to 3 and 7 to 9, under the page arrows and the page number. Socials 4, 5, 6, 10, 11 and 12 are hidden to keep the window short: put what you need in the slots shown, or on a hot bar.
 
 The window is only as tall as the socials page, the tallest. The game needs all four pages: it sends a button's click to the page that's open, so a button moved to another page would stop working.
 

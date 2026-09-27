@@ -1231,11 +1231,11 @@ def test_actions_window_keeps_every_control_the_client_looks_for_on_its_stock_pa
     assert list(pages) == list(STOCK_ACTIONS)
     for page, controls in STOCK_ACTIONS.items():
         assert sorted(pages[page]) == sorted(controls), page
-    # Who and Disband, and the socials' bottom two rows (5, 6, 11 and 12), are gone at the user's request, but
-    # the client looks them up: no size, clear art.
+    # Who and Disband, and the socials' bottom three rows (4, 5, 6, 10, 11 and 12), are gone at the user's
+    # request, but the client looks them up: no size, clear art.
     hidden = [b for b in root.iter('Button') if box(b)[2:] == (0, 0)]
     assert [b.findtext('ScreenID') for b in hidden] == ['AMP_WhoButton', 'AMP_DisbandButton'] + [
-        f'ASP_SocialButton{n}' for n in (5, 6, 11, 12)]
+        f'ASP_SocialButton{n}' for n in (4, 5, 6, 10, 11, 12)]
     assert {s.text for b in hidden for s in b.find('ButtonDrawTemplate')} == {'TUI_Clear'}
 
 
@@ -1421,11 +1421,11 @@ def test_actions_pages_are_two_columns_of_buttons():
         'ActionsCombatPage': across([[('ACP_MeleeAttackButton', 'Melee Attack')],
                                      [('ACP_RangeAttackButton', 'Range Attack')]]
                                     + [[(f'ACP_{n}AbilityButton', '')] for n in ordinals[:4]]),
-        # Under the page arrows, the game's columns of six, 1 to 6 then 7 to 12, with the bottom two rows (5, 6,
-        # 11 and 12) hidden.
+        # Under the page arrows, the game's columns of six, 1 to 6 then 7 to 12, with the bottom three rows (4,
+        # 5, 6, 10, 11 and 12) hidden.
         'ActionsSocialsPage': [(f'ASP_SocialButton{n + 1}', '',
                                 (columns[n // 6][0], skin.ARROW_SIZE + skin.PADDING + n % 6 * step, columns[n // 6][1],
-                                 height)) for n in range(12) if n % 6 < 4],
+                                 height)) for n in range(12) if n % 6 < 3],
     }
     for page, spots in expected.items():
         buttons = [b for b in pages[page].values() if b.tag == 'Button' and b.find('Font') is not None]
@@ -1438,8 +1438,10 @@ def test_actions_pages_are_two_columns_of_buttons():
                 look = skin.button_look(skin.BUTTON_STYLE, skin.BUTTON_ART[state.tag])
                 plain = skin.snapped_art(skin.panel_texture(*box(b)[2:], *look))
                 assert cut(atlas, anims[state.text]).tobytes() == as_image(plain).tobytes(), (b.get('item'), state.tag)
-    # The socials, the tallest page, have five rows with the arrows: the window is no taller (the user's call).
-    assert skin.ACTIONS_PAGE_HEIGHT == 5 * step - skin.PADDING
+    # The socials, the tallest page, have four rows with the arrows (a row fewer than before, the user's call),
+    # and the window is no taller: its outer edge a padding under the page.
+    assert skin.ACTIONS_PAGE_HEIGHT == 4 * step - skin.PADDING
+    assert skin.ACTIONS_HEIGHT == skin.BORDER + skin.PAGE_TOP + skin.ACTIONS_PAGE_HEIGHT + skin.PADDING == 150
 
 
 def test_social_page_arrows_are_small_icon_buttons_around_the_page_number():

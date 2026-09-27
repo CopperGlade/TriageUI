@@ -399,12 +399,12 @@ ARROW_SIZE = TEXT_BUTTON_HEIGHT
 DIGITS_INK_MIDDLE = PERCENT_INK_TOP + PERCENT_SUBPIXEL + (PERCENT_GLYPH_HEIGHT - math.ceil(PERCENT_SUBPIXEL)) / 2
 SOCIAL_PAGE_LABEL_TOP = round(ARROW_SIZE / 2 - DIGITS_INK_MIDDLE)
 SOCIALS_TOP = ARROW_SIZE + BUTTON_ROW_GAP
-# The socials go down each column first, as in the stock skin (1 to 6, then 7 to 12). The bottom two rows (5,
-# 6, 11 and 12) are hidden, to keep the window short (the user's calls: one row, to match the other pages
-# when they were one button per row, then another once they were two columns); the client still looks those
-# up, and their socials can't be clicked here.
+# The socials go down each column first, as in the stock skin (1 to 6, then 7 to 12). The bottom three rows
+# (4, 5, 6, 10, 11 and 12) are hidden, to keep the window short (the user's calls: one row, to match the other
+# pages when they were one button per row, then another once they were two columns, then a third, taking a
+# row off the window); the client still looks those up, and their socials can't be clicked here.
 SOCIAL_SLOT_ROWS = len(SOCIALS) // ACTION_COLUMNS  # the game's column of six
-SOCIAL_ROWS = SOCIAL_SLOT_ROWS - 2  # the rows shown
+SOCIAL_ROWS = SOCIAL_SLOT_ROWS - 3  # the rows shown
 # Every page is as tall as the tallest, the socials (the user asked for the window to be no taller).
 ACTIONS_PAGE_HEIGHT = max(*(math.ceil(len(spots) / ACTION_COLUMNS) * ACTION_ROW_STEP
                             for spots in (MAIN_SPOTS, ABILITY_SPOTS, COMBAT_SPOTS)),
@@ -2113,7 +2113,7 @@ def actions_window():
     socials = [arrows[0], number, arrows[1]]
     for n, screen_id in enumerate(SOCIALS):
         column, row = divmod(n, SOCIAL_SLOT_ROWS)  # down each column first
-        if row >= SOCIAL_ROWS:  # the hidden bottom row
+        if row >= SOCIAL_ROWS:  # the hidden bottom rows
             socials.append(hidden_button(f'TUI_AW_{screen_id}', screen_id))
             continue
         x, y, width = cell(column, row, SOCIALS_TOP)
