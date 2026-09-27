@@ -239,12 +239,15 @@ LABEL_GLYPHS = {
     'F': ('####', '#...', '#...', '###.', '#...', '#...', '#...'),
     'G': ('.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'),
     'I': ('#', '#', '#', '#', '#', '#', '#'),
+    'K': ('#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'),
     'L': ('#...', '#...', '#...', '#...', '#...', '#...', '####'),
     'M': ('#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'),
+    'N': ('#...#', '##..#', '##..#', '#.#.#', '#..##', '#..##', '#...#'),
     'O': ('.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'),
     'R': ('####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'),
     'S': ('.###.', '#...#', '#....', '.###.', '....#', '#...#', '.###.'),
     'T': ('#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'),
+    'Y': ('#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'),
     'a': ('....', '....', '.##.', '...#', '.###', '#..#', '.###'),
     'b': ('#...', '#...', '###.', '#..#', '#..#', '#..#', '###.'),
     'c': ('...', '...', '.##', '#..', '#..', '#..', '.##'),
@@ -885,6 +888,33 @@ for _screen_id, _label, _tooltip, _column in MERCHANT_BUTTONS:
 _size = (MERCHANT_BUTTON_WIDTHS[1], BUTTON_HEIGHT)
 BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('Recharge',)
 MERCHANT_HEIGHT = 2 * BORDER + MERCHANT_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
+# The confirmation dialog: the box that asks before a resurrection, looting a NODROP item, destroying an item or a
+# translocation (Yes and No), or shows a notice (OK alone; the client never shows all three). The client looks up
+# the text (TextOutput) and the three buttons; default's static Text1 is in no skin's window and not in eqgame.exe,
+# so it's left out. The game never resizes the box, and centers it when it shows it (unless Zeal's DialogPosition
+# option keeps it where it was); Zeal draws a timed question's time left at its top right corner. The user's picks
+# (2026-09-27, from mockups): the window selector's width with room for three lines, where every common message
+# (about 45 to 100 characters, eqstr_en.txt) takes two and the Sacrifice warning three; Yes and No filling the row,
+# OK alone in the middle at their width.
+CONFIRM_FILE = 'EQUI_ConfirmationDialog.xml'
+CONFIRM_WIDTH = SELECTOR_WIDTH
+CONFIRM_RIGHT = CONFIRM_WIDTH - 2 * BORDER - LEFT
+CONFIRM_CONTENT_WIDTH = CONFIRM_RIGHT - LEFT
+CONFIRM_TEXT_LINES = 3
+# The buttons a padding under the last line's digits, as the pet window's are under its health.
+CONFIRM_BUTTONS_TOP = ((CONFIRM_TEXT_LINES - 1) * TEXT_HEIGHT + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT
+                       + BUTTON_ROW_GAP)
+CONFIRM_BUTTON_WIDTHS = ((CONFIRM_CONTENT_WIDTH - BUTTON_GAP) // 2,
+                         CONFIRM_CONTENT_WIDTH - BUTTON_GAP - (CONFIRM_CONTENT_WIDTH - BUTTON_GAP) // 2)
+CONFIRM_OK_X = LEFT + (CONFIRM_CONTENT_WIDTH - CONFIRM_BUTTON_WIDTHS[0]) // 2
+# (ScreenID, label, x, width): the stock skin's buttons have no tooltips.
+CONFIRM_BUTTONS = (('Yes_Button', 'Yes', LEFT, CONFIRM_BUTTON_WIDTHS[0]),
+                   ('No_Button', 'No', LEFT + CONFIRM_BUTTON_WIDTHS[0] + BUTTON_GAP, CONFIRM_BUTTON_WIDTHS[1]),
+                   ('OK_Button', 'OK', CONFIRM_OK_X, CONFIRM_BUTTON_WIDTHS[0]))
+for _screen_id, _label, _x, _width in CONFIRM_BUTTONS:
+    _size = (_width, BUTTON_HEIGHT)
+    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
+CONFIRM_HEIGHT = 2 * BORDER + CONFIRM_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -2590,12 +2620,35 @@ def merchant_window():
                   width=MERCHANT_WIDTH, inner=slots)
 
 
+def confirmation_dialog():
+    """The question or notice in up to three lines, with Yes and No under it, or OK alone in the middle (see
+    CONFIRM_FILE)."""
+    # Straight on the panel, like the raid lists: a clear template and nothing of its own drawn. SIDL gives an
+    # STMLbox no text color, so the text is in the client's.
+    text = node('STMLbox', [
+        node('ScreenID', 'TextOutput'),
+        node('Font', TEXT_FONT),
+        node('RelativePosition', True),
+        point('Location', LEFT, 0),
+        size(CONFIRM_CONTENT_WIDTH, CONFIRM_TEXT_LINES * TEXT_HEIGHT),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
+        node('Style_Transparent', True),
+        node('Style_Border', False),
+        node('DrawTemplate', EDIT_TEMPLATE),
+    ], 'TUI_CD_TextOutput')
+    buttons = [button(f'TUI_CD_{screen_id}', screen_id, label_text, x, CONFIRM_BUTTONS_TOP, width)
+               for screen_id, label_text, x, width in CONFIRM_BUTTONS]
+    # No name of ours: the stock window has none, and no title bar shows one.
+    return window('ConfirmationDialogBox', None, CONFIRM_HEIGHT, [text, *buttons], width=CONFIRM_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
-                MERCHANT_FILE: merchant_window}
+                MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog}
 
 
 def stranded_definitions(skin_xml):

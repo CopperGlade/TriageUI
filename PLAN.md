@@ -24,6 +24,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Player | `EQUI_PlayerWindow.xml` |
 | Spell bar | `EQUI_CastSpellWnd.xml` |
 | Merchant | `EQUI_MerchantWnd.xml` |
+| Confirmation dialog | `EQUI_ConfirmationDialog.xml` |
 
 ## To do: everyday
 
@@ -44,7 +45,6 @@ Roughly in order of how much a player sees them.
 | Tracking | `EQUI_TrackingWnd.xml` | duxaUI |
 | Raid Options | `EQUI_RaidOptionsWindow.xml` | duxaUI |
 | Quantity (splitting a stack) | `EQUI_QuantityWnd.xml` | default |
-| Confirmation dialog | `EQUI_ConfirmationDialog.xml` | default |
 | Friends | `EQUI_FriendsWnd.xml` | default |
 | Alternate Advancement | `EQUI_AAWindow.xml` | default |
 

@@ -27,7 +27,8 @@ BASE_ANIMATIONS = (
 LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CASTING_FILE, skin.CASTSPELL_FILE,
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
               skin.HOTBUTTON_FILE,
-              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE]
+              skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
+              skin.CONFIRM_FILE]
 
 
 @functools.cache
@@ -493,7 +494,8 @@ def test_our_names_never_clash_with_the_stock_skin():
     ours = [e.get('item') for e in root if e.get('item') and e.get('item') != 'A_Base']
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
-                     'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd'}
+                     'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
+                     'ConfirmationDialogBox'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -2363,6 +2365,53 @@ def test_merchant_name_is_hidden_but_still_there():
     name = merchant_pieces()[2]['MW_MerchantName']
     assert name.tag == 'Label' and box(name)[2:] == (0, 0) and not name.findtext('Text')
     assert rgb(name, 'TextColor') == skin.PANEL_RGBA[:3]
+
+
+def test_confirmation_dialog_keeps_every_control_the_client_looks_for():
+    # eqgame.exe looks up the text and the three buttons. default's static Text1 is in no skin's window and not in
+    # eqgame.exe, so it's left out. As wide as the window selector (the user's pick), with no title bar.
+    root, window = check_inside_frame(skin.CONFIRM_FILE, skin.CONFIRM_WIDTH)
+    assert window.get('item') == 'ConfirmationDialogBox' and window.find('Text') is None
+    assert window.findtext('Style_Sizable') == 'false'
+    assert box(window)[2:] == (skin.SELECTOR_WIDTH, skin.CONFIRM_HEIGHT) == (262, 73)
+    ids = [e.findtext('ScreenID') for e in direct_pieces(root, window)]
+    assert ids == ['TextOutput', 'Yes_Button', 'No_Button', 'OK_Button']
+
+
+def test_confirmation_text_has_three_lines_straight_on_the_panel():
+    # Room for three lines across the window between its paddings: every common message takes two there, the
+    # Sacrifice warning three (the user's pick). Nothing of its own drawn, like the raid lists, and no scrollbar,
+    # as in the stock skin.
+    root, window = screen(skin.CONFIRM_FILE)
+    text = direct_pieces(root, window)[0]
+    assert text.tag == 'STMLbox'
+    assert box(text) == (skin.LEFT, 0, skin.CONFIRM_CONTENT_WIDTH, 3 * skin.TEXT_HEIGHT)
+    assert skin.LEFT + skin.CONFIRM_CONTENT_WIDTH == skin.CONFIRM_RIGHT
+    assert text.findtext('Font') == str(skin.TEXT_FONT) and text.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+    assert text.findtext('Style_Transparent') == 'true' and text.findtext('Style_Border') == 'false'
+    assert text.findtext('Style_VScroll') == text.findtext('Style_HScroll') == 'false'
+
+
+def test_confirmation_buttons_follow_the_spacing_standard():
+    # Yes and No fill the row a padding apart; the client shows OK alone, in the middle at their width (the user's
+    # pick). The row a padding under the last line's digits, and the window's edge a padding under it.
+    root, window = screen(skin.CONFIRM_FILE)
+    buttons = {e.findtext('ScreenID'): e for e in root.iter('Button')}
+    yes, no, ok = (box(buttons[i]) for i in ('Yes_Button', 'No_Button', 'OK_Button'))
+    last_line = 2 * skin.TEXT_HEIGHT
+    assert {yes[1], no[1], ok[1]} == {last_line + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT + skin.PADDING}
+    assert {yes[3], no[3], ok[3]} == {skin.BUTTON_HEIGHT}
+    assert yes[0] == skin.LEFT and no[0] + no[2] == skin.CONFIRM_RIGHT
+    assert yes[0] + yes[2] + skin.BUTTON_GAP == no[0] and abs(yes[2] - no[2]) <= 1
+    assert ok[2] == yes[2] and ok[0] - skin.LEFT == skin.CONFIRM_RIGHT - (ok[0] + ok[2]) == 64
+    assert box(window)[3] == 2 * skin.BORDER + yes[1] + skin.BUTTON_HEIGHT + skin.BOTTOM_GAP
+    # The labels drawn in the art, the buttons' own text empty.
+    for screen_id, label_text, *_ in skin.CONFIRM_BUTTONS:
+        b = buttons[screen_id]
+        assert b.findtext('Text') == '' and b.find('TooltipReference') is None
+        art = skin.button_art(*box(b)[2:], label_text, 'Normal')
+        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{art}'
+    assert [label_text for _, label_text, *_ in skin.CONFIRM_BUTTONS] == ['Yes', 'No', 'OK']
 
 
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
