@@ -189,13 +189,12 @@ SHOWN_REACH = 10000
 # "Casting:" and a space in font 3 (Arial at 12 and 13px measured 48 to 52); the spell name follows.
 CASTING_PREFIX_WIDTH = 50
 CAST_BAR_WIDTH = TARGET_RIGHT - LEFT  # the casting bar, across the whole width (the user's request)
-# The group window: each member's line, name and health %, with no bar (the user wanted just the values,
-# and a shorter window), then their pet's line straight under it, indented, with a thin bar: the client
-# gives no number for a pet's health. Each line stays a full-width gauge, so all of it can be clicked.
+# The group window: each member's line, name and health %, with a thin bar under the name, then their pet's
+# line, indented, with a thin bar too: the client gives no number for a pet's health. Each line stays a
+# full-width gauge, so all of it can be clicked.
 GROUP_SIZE = 5
 # GROUP_WIDTH and its RIGHT and CONTENT_WIDTH, and GROUP_BAR_WIDTH, are set with the pet window's constants:
 # the group window is as wide as the pet window (the user's call), and its pets' bars as long as that window's.
-PET_TOP = TEXT_HEIGHT
 PET_INDENT = 12
 PET_BAR_HEIGHT = 2
 # Pets' names in the smaller font 2, on a shorter line, so the window is less tall (the user's call).
@@ -203,6 +202,13 @@ PET_FONT = 2
 PET_TEXT_HEIGHT = 12
 PET_BAR_GAP = 1  # between the pet's name and its bar (the user asked for a pixel more)
 PET_HEIGHT = PET_TEXT_HEIGHT + PET_BAR_GAP + PET_BAR_HEIGHT
+# A member's bar is like their pet's, a pixel under the name and solid in the names' soft blue as a pet's is in
+# its grey (the user loved the contrast and asked for it; members had no bar before, to keep the window short).
+MEMBER_BAR_TOP = TEXT_HEIGHT + PET_BAR_GAP
+MEMBER_LINE_HEIGHT = MEMBER_BAR_TOP + PET_BAR_HEIGHT
+CAPTION_INK_TOP = 2  # font 2's capitals (pets' names, captions) start about this far into their line (Arial 10px)
+# The pet's line a padding under the member's bar, to its name's ink (the user's pick over straight under it).
+PET_TOP = MEMBER_LINE_HEIGHT + PADDING - CAPTION_INK_TOP
 MEMBER_HEIGHT = PET_TOP + PET_HEIGHT  # a member's rows, down to their pet's bar
 # Members are divided by the Effects window's row divider (the user asked for the same), a padding under
 # the pet row above and a padding over the ink of the next member's name, which starts TEXT_INK_TOP into
@@ -709,15 +715,20 @@ CAPTION_HEIGHT = 12
 # The captions (Health, Mana and the resists) in the text's color, like your name: the user didn't like
 # them in the overlay's subdued grey.
 CAPTION_RGB = TEXT_RGB
-CAPTION_INK_TOP = 2  # font 2's capitals start about this far into their line (Arial 10px)
 # XP/hour (the user's request), on its own line under the mana bar like a section with no bar (the user's pick
 # from a mockup), two paddings under it like the sections: Zeal's label 81, the percent of a level you gain an
 # hour, a whole number from 0 to 600, averaged over up to the last two hours (/resetexp and /load start it
 # over), with the drawn % after it. It counts regular XP only, so it stays 0 with AA at 100% (the user's
 # "doesn't seem to be working"), and Zeal's label 86, the percent of an AA point an hour, shares the line
-# (the user's pick): "XP/h" under the Health and Mana %s, "AA/h" under the current and max numbers.
+# (the user's pick).
 XP_PER_HOUR_TYPE = 81
 AA_PER_HOUR_TYPE = 86
+# Each rate is a pair: its caption, a padding, then its number (right-aligned in room for "100") and drawn %,
+# "XP/h" at the line's start and "AA/h" ending at its end. Lined up with the columns above, XP's value sat
+# nearer "AA/h" than its own caption (the user: "spacing is weird"). With fewer digits the gap after the
+# caption grows a digit's width each, since the number hugs its %.
+RATE_CAPTION_WIDTH = 26  # "XP/h" and "AA/h" in font 3 (Arial 12px)
+RATE_PAIR_WIDTH = RATE_CAPTION_WIDTH + PADDING + NUMBER_WIDTH + PERCENT_WIDTH
 PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH
 # The resists a padding further down than the rule's (the user's request), under the XP/hour line's ink.
 RESISTS_TOP = PLAYER_XP_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + 2 * PADDING - CAPTION_INK_TOP
@@ -1391,8 +1402,8 @@ def pieces():
     The client draws a gauge's track and fill at their own size instead of stretching them (Infiniti-Blue
     sizes its A_GaugeFill to each gauge for the same reason), so they are exactly as big as their bar.
     The track is the edge color, like the overlay's border; fills are white for FillTint to color, softened
-    to BAR_FILL's alpha, except the pets' (solid: their grey is soft already) and the server tick's (the
-    track's own color, with no track behind it).
+    to BAR_FILL's alpha, except the group window's and the mana bar's (solid, each exactly its names' color)
+    and the server tick's (the track's own color, with no track behind it).
     """
     # Each icon's (coverage, button width, button height).
     icons = {name: (icon_coverage(shape), TOGGLE_SIZE, TOGGLE_SIZE) for name, shape in ICONS.items()}
@@ -1406,9 +1417,11 @@ def pieces():
         'CastFill': Texture(CAST_BAR_WIDTH, TWIN_BAR_HEIGHT, BAR_FILL),
         'PIWTrack': Texture(PIW_BAR_WIDTH, TWIN_BAR_HEIGHT, EDGE_FADED),
         'PIWFill': Texture(PIW_BAR_WIDTH, TWIN_BAR_HEIGHT, BAR_FILL),
+        'MemberGaugeFill': Texture(GROUP_BAR_WIDTH, PET_BAR_HEIGHT, WHITE),
         'PetGaugeFill': Texture(GROUP_BAR_WIDTH - PET_INDENT, PET_BAR_HEIGHT, WHITE),
         'PlayerTrack': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, EDGE_FADED),
         'PlayerFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, BAR_FILL),
+        'PlayerSolidFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, WHITE),
         'TickFill': Texture(TICK_WIDTH, TICK_HEIGHT, EDGE_FADED),  # the tracks' color (see TICK_RGB)
         **{button_art(width, height, label, state): labeled_button_art(width, height, label, state)
            for (width, height), labels in BUTTON_LABELS.items() for label in labels for state in BUTTON_LOOKS},
@@ -1982,7 +1995,8 @@ def pet_window():
 
 
 def group_window():
-    """Each member as a line, name and health %, with their pet on its own indented line below.
+    """Each member as a line, name and health %, with a thin bar under the name, and their pet on its own
+    indented line below.
 
     Clicking a gauge targets whoever it shows, so each member and pet is one full-row gauge showing the
     name as its own text: pets are as easy to click as players, instead of a 2px bar.
@@ -1993,9 +2007,11 @@ def group_window():
         if n > 1:
             dividers.append(picture(f'TUI_GW_Divider{n}', 'TUI_GroupDivider',
                                     (LEFT, top - DIVIDER_TO_NAME - DIVIDER_HEIGHT, GROUP_CONTENT_WIDTH, DIVIDER_HEIGHT)))
-        # No bar, only the name (the gauge's own text), in GROUP_RGB: its fill is a clear pixel.
-        gauges.append(gauge(f'TUI_GW_Gauge{n}', f'Gauge{n}', 10 + n, (LEFT, top, GROUP_CONTENT_WIDTH, TEXT_HEIGHT), 'TUI_Clear',
-                            TEXT_RGB, text_rgb=GROUP_RGB, text_at=(0, 0)))
+        # The name (the gauge's own text) and the bar under it, both in GROUP_RGB. No track, so an empty slot
+        # shows no bar.
+        gauges.append(gauge(f'TUI_GW_Gauge{n}', f'Gauge{n}', 10 + n, (LEFT, top, GROUP_CONTENT_WIDTH, MEMBER_LINE_HEIGHT),
+                            'TUI_MemberGaugeFill', GROUP_RGB, text_rgb=GROUP_RGB, text_at=(0, 0),
+                            bar_at=(0, MEMBER_BAR_TOP)))
         gauges.append(gauge(f'TUI_GW_PetGauge{n}', f'PetGauge{n}', 16 + n, (LEFT, top + PET_TOP, GROUP_CONTENT_WIDTH, PET_HEIGHT),
                             'TUI_PetGaugeFill', PET_RGB, text_rgb=PET_RGB, text_at=(PET_INDENT, 0),
                             bar_at=(PET_INDENT, PET_TEXT_HEIGHT + PET_BAR_GAP), font=PET_FONT))
@@ -2262,11 +2278,12 @@ def player_window():
     percent_right = current_x - 2 * PADDING - DIGIT_WIDTH
     percent_number_x = percent_right - PERCENT_WIDTH - NUMBER_WIDTH
     percents = []
-    # (gauge ScreenID, gauge EQType, caption, % label EQType, current and max label EQTypes, bar tint): Zeal
-    # gives mana's current and max.
-    for n, (screen_id, eq_type, caption, percent_type, current_type, max_type, tint) in enumerate((
-            ('PlayerHP', 1, 'Health', 19, 17, 18, HP_RGB),
-            ('PlayerMana', 2, 'Mana', 20, 124, 125, MANA_RGB))):
+    # (gauge ScreenID, gauge EQType, caption, % label EQType, current and max label EQTypes, bar tint, bar fill):
+    # Zeal gives mana's current and max. The mana bar is solid, exactly the group window's names' blue (the
+    # user's request).
+    for n, (screen_id, eq_type, caption, percent_type, current_type, max_type, tint, fill) in enumerate((
+            ('PlayerHP', 1, 'Health', 19, 17, 18, HP_RGB, 'TUI_PlayerFill'),
+            ('PlayerMana', 2, 'Mana', 20, 124, 125, MANA_RGB, 'TUI_PlayerSolidFill'))):
         top = PLAYER_SECTIONS_TOP + n * PLAYER_SECTION_PITCH
         percent, readout = percent_readout(f'TUI_PW_{screen_id}Percent', f'TUI_PW_{screen_id}PercentSign',
                                            percent_type, 1, top, percent_right, rgb=VALUE_RGB)
@@ -2281,20 +2298,21 @@ def player_window():
                   align_center=True, rgb=TEXT_RGB),
             label(f'TUI_PW_{screen_id}Max', max_type, (max_x, top, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '', rgb=VALUE_RGB),
             gauge(f'TUI_PW_{screen_id}', screen_id, eq_type, (LEFT, top + BAR_TOP, PLAYER_CONTENT_WIDTH, BAR_HEIGHT),
-                  'TUI_PlayerFill', tint, track='TUI_PlayerTrack'),
+                  fill, tint, track='TUI_PlayerTrack'),
         ]
-    # XP/h with its % under the Health and Mana %s, then AA/h under the current number with its % at the
-    # line's end. The numbers and their %s in the values' green. The drawn % needs a gauge above 0 to show:
-    # your own health, so it always shows, 0% too.
+    # XP/h and its % at the line's start, AA/h and its % ending at its end (see RATE_PAIR_WIDTH). The numbers
+    # and their %s in the values' green. The drawn % needs a gauge above 0 to show: your own health, so it
+    # always shows, 0% too.
     rates = []
-    for item, caption, eq_type, caption_x, right in (
-            ('ExpPerHour', 'XP/h', XP_PER_HOUR_TYPE, LEFT, percent_right),
-            ('AAPerHour', 'AA/h', AA_PER_HOUR_TYPE, current_x, PLAYER_RIGHT)):
+    for item, caption, eq_type, left in (
+            ('ExpPerHour', 'XP/h', XP_PER_HOUR_TYPE, LEFT),
+            ('AAPerHour', 'AA/h', AA_PER_HOUR_TYPE, PLAYER_RIGHT - RATE_PAIR_WIDTH)):
+        right = left + RATE_PAIR_WIDTH
         rate, readout = percent_readout(f'TUI_PW_{item}', f'TUI_PW_{item}Percent', eq_type, 1, PLAYER_XP_TOP, right,
                                         rgb=VALUE_RGB)
         rates.append(rate)
         number_x = right - PERCENT_WIDTH - NUMBER_WIDTH
-        parts += [label(f'TUI_PW_{item}Caption', None, (caption_x, PLAYER_XP_TOP, number_x - caption_x, TEXT_HEIGHT),
+        parts += [label(f'TUI_PW_{item}Caption', None, (left, PLAYER_XP_TOP, number_x - left, TEXT_HEIGHT),
                         caption, rgb=CAPTION_RGB), *readout]
     for c, (caption, eq_type) in enumerate(RESISTS):
         x = LEFT + c * PLAYER_CONTENT_WIDTH // len(RESISTS)

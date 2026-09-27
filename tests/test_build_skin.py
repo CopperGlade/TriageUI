@@ -269,7 +269,7 @@ def test_atlas_pieces_fit_without_overlap_and_repeat_their_edges_outward():
 def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     # The client draws a gauge's track and fill at their own size: an 8px fill showed as an 8px bar in game.
     # So a bar's art is its whole length, and it fills the rest of its gauge, except in the group window,
-    # where the rows stay full width for clicking and the bars are as long as the target window's.
+    # where the rows stay full width for clicking and the bars are as long as the pet window's.
     root = everything()
     anims = items(root, 'Ui2DAnimation')
     # Not the hidden ones, which have no size.
@@ -281,14 +281,16 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
-        if g.get('item').startswith('TUI_GW_Gauge'):
-            continue  # no bar, only the member's name: see the group tests
         x, y, width, height = box(g)
         bar = (width - number(g, 'GaugeOffsetX'), height - number(g, 'GaugeOffsetY', 16))
+        if g.get('item').startswith('TUI_GW_Gauge'):
+            bar = (skin.GROUP_BAR_WIDTH, bar[1])
         if g.get('item').startswith('TUI_GW_PetGauge'):
             bar = (skin.GROUP_BAR_WIDTH - skin.PET_INDENT, bar[1])
         template = g.find('GaugeDrawTemplate')
-        fill = skin.WHITE if g.get('item').startswith('TUI_GW_PetGauge') else skin.BAR_FILL
+        # Solid, each exactly its names' color: see the group and player window tests.
+        solid = g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge')) or g.get('item') == 'TUI_PW_PlayerMana'
+        fill = skin.WHITE if solid else skin.BAR_FILL
         if g.get('item') == 'TUI_Target_ZealTick':
             fill = skin.EDGE_FADED  # see the server tick test
         for part, color in (('Background', skin.EDGE_FADED), ('Fill', fill)):
@@ -646,7 +648,7 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
-                and not g.get('item').startswith(('TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Target_ZealTick',
+                and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Target_ZealTick',
                                                   'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge',
                                                   *group_percents))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
@@ -792,22 +794,30 @@ def test_solid_button_styles_lighten_on_hover_darken_when_pressed_and_fade_when_
     assert looks['Disabled'][0][3] < 255
 
 
-def test_group_members_are_one_line_with_no_bar_and_pets_keep_a_thin_one():
-    # The user wanted just the values, and a shorter window: a member is their name and health % on one
-    # line; their pet's line follows straight under it, with a thin bar (the client gives no number for a
-    # pet's health) ending where the pet window's bar does (the user's pick; the target's before).
+def test_group_members_and_pets_each_have_a_thin_solid_bar_in_their_names_color():
+    # A member is their name and health % on one line with a thin bar under the name, like their pet's (the
+    # user loved the blue and grey lines' contrast and asked for it; members had no bar before). Both bars
+    # are solid in their names' colors, with no track, and end where the pet window's bar does (the user's
+    # pick; the target's before). The pet's line a padding under the member's bar, to its name's ink.
     root = everything()
     anims = items(root, 'Ui2DAnimation')
     pet_window = rect_of(anims[parts(root)['TUI_PIW_PetHPGauge'].find('GaugeDrawTemplate/Fill').text])[2]
     for n in range(1, skin.GROUP_SIZE + 1):
         member, pet = parts(root)[f'TUI_GW_Gauge{n}'], parts(root)[f'TUI_GW_PetGauge{n}']
-        template = member.find('GaugeDrawTemplate')
-        assert [e.tag for e in template] == ['Fill'] and template.findtext('Fill') == 'TUI_Clear'
-        assert box(member)[3] == skin.TEXT_HEIGHT and box(pet)[1] == box(member)[1] + skin.TEXT_HEIGHT
-        pet_bar = rect_of(anims[pet.find('GaugeDrawTemplate/Fill').text])[2]
-        assert box(pet)[0] + number(pet, 'GaugeOffsetX') + pet_bar == skin.LEFT + pet_window
+        for gauge, names_rgb in ((member, skin.GROUP_RGB), (pet, skin.PET_RGB)):
+            template = gauge.find('GaugeDrawTemplate')
+            assert [e.tag for e in template] == ['Fill']
+            fill = anims[template.findtext('Fill')]
+            assert colors(fill) == {skin.WHITE} and rect_of(fill)[3] == skin.PET_BAR_HEIGHT
+            assert rgb(gauge, 'FillTint') == rgb(gauge, 'TextColor') == names_rgb
+            bar = rect_of(fill)[2]
+            assert box(gauge)[0] + number(gauge, 'GaugeOffsetX') + bar == skin.LEFT + pet_window
+        assert number(member, 'GaugeOffsetX') == 0
+        assert number(member, 'GaugeOffsetY') == skin.TEXT_HEIGHT + skin.PET_BAR_GAP == 15
+        assert box(member)[3] == number(member, 'GaugeOffsetY') + skin.PET_BAR_HEIGHT
+        assert box(pet)[1] + skin.CAPTION_INK_TOP - (box(member)[1] + box(member)[3]) == skin.PADDING
     assert skin.GROUP_BAR_WIDTH == skin.PIW_BAR_WIDTH == pet_window
-    assert skin.MEMBER_PITCH == 39
+    assert skin.MEMBER_PITCH == 46
 
 
 def test_group_names_are_the_gauges_own_text_and_pets_are_big_full_rows_to_click():
@@ -2029,6 +2039,14 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     # Mana's bar a soft blue and HP's the soft green the current HP number had at first (the user's picks).
     assert rgb(by_id['PlayerMana'], 'FillTint') == skin.MANA_RGB
     assert rgb(by_id['PlayerHP'], 'FillTint') == skin.HP_RGB == (143, 209, 158)
+    # The mana bar solid, so it's exactly the group window's names' blue (the user's request); HP's softened
+    # like the other bars. Both on the same track.
+    anims = items(everything(), 'Ui2DAnimation')
+    for screen_id, fill in (('PlayerMana', skin.WHITE), ('PlayerHP', skin.BAR_FILL)):
+        template = by_id[screen_id].find('GaugeDrawTemplate')
+        assert colors(anims[template.findtext('Fill')]) == {fill}
+        assert template.findtext('Background') == 'TUI_PlayerTrack'
+    assert skin.MANA_RGB == skin.GROUP_RGB
     # The resists: a caption in the name's color over each number, in five columns across the window.
     columns = []
     for caption, eq_type in skin.RESISTS:
@@ -2046,35 +2064,36 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     # XP/hour on its own line under Mana (the user's pick), like a section with no bar: its caption's ink two
     # paddings under the mana bar (the user asked for it less grouped with Health and Mana). Zeal's label 81
     # (a whole percent of a level an hour) counts regular XP only, so it stayed 0 with AA at 100%, and the
-    # user had the AA rate (label 86) share the line: "XP/h" with its % under the Health and Mana %s, "AA/h"
-    # under the current numbers with its % ending at the window's padding. The numbers and %s in the values'
-    # green; the % shows while your own health is above 0, so always.
+    # user had the AA rate (label 86) share the line. Each rate is a pair, its caption a padding before its
+    # number (for 3 digits) and its %: "XP/h" at the line's start, "AA/h" ending at the window's padding. Lined
+    # up with the columns above, XP's value sat nearer "AA/h" than its own caption ("spacing is weird"). The
+    # numbers and %s in the values' green; the % shows while your own health is above 0, so always.
     mana_bar = box(by_id['PlayerMana'])
-    health_percent = box(items(root, 'Screen')['TUI_PW_PlayerHPPercentSign_Clip'])
-    current_x = box(labels['TUI_PW_PlayerHPCurrent'])[0]
     xp_top = skin.PLAYER_SECTIONS_TOP + 2 * skin.PLAYER_SECTION_PITCH
     assert 2 * skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (mana_bar[1] + mana_bar[3]) < 2 * skin.PADDING + 1
-    ends = []
-    for item, caption, eq_type, caption_x, right in (
-            ('ExpPerHour', 'XP/h', '81', skin.LEFT, health_percent[0] + health_percent[2]),
-            ('AAPerHour', 'AA/h', '86', current_x, skin.PLAYER_RIGHT)):
+    assert skin.RATE_CAPTION_WIDTH == 26  # "XP/h" and "AA/h" in Arial 12
+    pairs = []
+    for item, caption, eq_type, left in (
+            ('ExpPerHour', 'XP/h', '81', skin.LEFT),
+            ('AAPerHour', 'AA/h', '86', skin.PLAYER_RIGHT - skin.RATE_PAIR_WIDTH)):
+        right = left + skin.RATE_PAIR_WIDTH
         head, rate = labels[f'TUI_PW_{item}Caption'], labels[f'TUI_PW_{item}']
         assert head.findtext('Text') == caption and rgb(head, 'TextColor') == skin.CAPTION_RGB
-        assert box(head)[:2] == (caption_x, xp_top)
+        assert box(head)[:2] == (left, xp_top)
         assert rate.findtext('EQType') == eq_type and rate.findtext('AlignRight') == 'true'
         assert rgb(rate, 'TextColor') == skin.VALUE_RGB and not rate.findtext('Text')
         nx, ny, nw, nh = box(rate)
-        assert ny == xp_top and box(head)[0] + box(head)[2] <= nx
-        # The caption (about 26px in Arial 12) fits its box.
-        assert box(head)[2] >= 26
+        assert ny == xp_top and box(head)[0] + box(head)[2] == nx
+        assert nx - left == skin.RATE_CAPTION_WIDTH + skin.PADDING
         clip = items(root, 'Screen')[f'TUI_PW_{item}Percent_Clip']
         assert box(clip) == (nx + nw, xp_top + skin.PERCENT_INK_TOP, skin.PERCENT_WIDTH, skin.PERCENT_GLYPH_HEIGHT)
         assert box(clip)[0] + box(clip)[2] == right
         percent = items(root, 'Gauge')[clip.find('Pieces').text]
         assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.VALUE_RGB
-        ends.append(right)
-    # The pairs read apart: more than a padding from XP's % to "AA/h".
-    assert current_x - ends[0] > skin.PADDING
+        pairs.append((left, right))
+    # The pairs read apart, the line's middle open between them.
+    assert pairs[0][0] == skin.LEFT and pairs[1][1] == skin.PLAYER_RIGHT
+    assert pairs[1][0] - pairs[0][1] >= 2 * skin.PADDING
     # The resist captions' ink two paddings under the XP/hour line's ink (the user asked for 6px more), the
     # same as between the sections above, so the whole window keeps one spacing.
     xp_ink_bottom = xp_top + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
