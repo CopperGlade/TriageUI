@@ -1882,16 +1882,17 @@ def test_bags_show_no_name_or_icon_but_keep_both_at_the_grids_top_corners():
     label, icon = controls['Container_Label'], controls['Container_Icon']
     assert label.tag == 'Label' and not label.findtext('Text') and label.find('EQType') is None
     assert {s.text for s in icon.find('ButtonDrawTemplate')} == {'TUI_Clear'} and not icon.findtext('Text')
-    first, fourth = box(controls['ContainerSlot1']), box(controls['ContainerSlot4'])
+    first, last = box(controls['ContainerSlot1']), box(controls[f'ContainerSlot{skin.BAG_COLUMNS}'])
     assert box(icon) == (*first[:2], 0, 0) == (skin.BAG_LEFT, skin.BAG_TOP, 0, 0)
-    assert box(label) == (fourth[0] + fourth[2], fourth[1], 0, 0)
+    assert box(label) == (last[0] + last[2], last[1], 0, 0)
     assert {bag_layout(slots, False)[0][0] for slots in range(1, 11)} == {skin.BAG_WIDTH}
 
 
 def test_bag_window_follows_the_spacing_standard_for_every_bag():
-    # The user's picks: four across on the hot bar's 36px grid, the window hugging each bag, Done across the bottom
-    # and Combine over it in a tradeskill container. The game adds 14px across, so the sides are 7px each (the
-    # user's pick over 6 and 8); down, everything is the standard's.
+    # The user's picks: the hot bar's 36px spots two across, as in duxaUI (four across didn't suit the user in
+    # game), the window hugging each bag, Done across the bottom and Combine over it in a tradeskill container. The
+    # game adds 14px across, so the sides are 7px each (the user's pick over 6 and 8); down, everything is the
+    # standard's.
     assert (skin.BAG_EXTRA_WIDTH, skin.BAG_EXTRA_HEIGHT, skin.BAG_BUTTON_GAP) == (14, 36, 4)  # eqgame.exe's
     step = skin.HOT_SIZE + skin.PADDING
     heights = {}
@@ -1902,11 +1903,11 @@ def test_bag_window_follows_the_spacing_standard_for_every_bag():
             inside = width - 2 * skin.BORDER, height - 2 * skin.BORDER
             for screen_id, (x, y, w, h) in drawn.items():
                 assert 0 <= x and x + w <= inside[0] and 0 <= y and y + h <= inside[1], (slots, screen_id)
-            # The slots 36px, a padding apart, four to a row, 7px from the sides and 6 from the top.
+            # The slots 36px, a padding apart, two to a row, 7px from the sides and 6 from the top.
             grid = [drawn[f'ContainerSlot{n}'] for n in range(1, slots + 1)]
             for n, spot in enumerate(grid):
-                assert spot == (skin.BAG_LEFT + n % 4 * step, skin.BAG_TOP + n // 4 * step, 36, 36)
-            assert width == skin.BAG_WIDTH == 176
+                assert spot == (skin.BAG_LEFT + n % 2 * step, skin.BAG_TOP + n // 2 * step, 36, 36)
+            assert width == skin.BAG_WIDTH == 92
             assert skin.BORDER + skin.BAG_LEFT == 7 == width - (skin.BORDER + skin.BAG_LEFT + skin.BAG_CONTENT_WIDTH)
             assert skin.BORDER + skin.BAG_TOP == skin.PADDING
             # Then the buttons across the grid, a padding under the last row and apart, and the window's edge a
@@ -1920,7 +1921,7 @@ def test_bag_window_follows_the_spacing_standard_for_every_bag():
                 above = y + h
             assert height - (skin.BORDER + above) == skin.PADDING, (slots, tradeskill)
     # A 10-slot bag, an 8-slot one, a 4-slot one and a 10-slot tradeskill container.
-    assert (heights[10, False], heights[8, False], heights[4, False], heights[10, True]) == (154, 112, 70, 176)
+    assert (heights[10, False], heights[8, False], heights[4, False], heights[10, True]) == (238, 196, 112, 260)
     # The XML's size is a 10-slot bag's (the game sets its own).
     root, window = screen(skin.CONTAINER_FILE)
     assert box(window)[2:] == bag_layout(10, False)[0]

@@ -81,7 +81,7 @@ Your hot bar in duxaUI's shape, so everything is where you're used to it, on a g
 
 ## The bag window
 
-Each bag you open gets its slots on the hot button window's grid, four to a row, with **Done** across the bottom to close it. A tradeskill container such as a sewing kit or a forge also gets **Combine** above Done. The game sizes the window to each bag, so a 4-slot bag is one row and a 10-slot bag three. Every bag's window is the same width, and the bag's name isn't shown. You can also close a bag by clicking its slot again or pressing Esc.
+Each bag you open gets its slots two to a row, as in duxaUI, the size of the hot button window's squares, with **Done** across the bottom to close it. A tradeskill container such as a sewing kit or a forge also gets **Combine** above Done. The game sizes the window to each bag, so a 4-slot bag is two rows and a 10-slot bag five. Every bag's window is the same width, and the bag's name isn't shown. You can also close a bag by clicking its slot again or pressing Esc.
 
 ## The player window
 

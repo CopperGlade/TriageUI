@@ -612,9 +612,9 @@ HOT_PAGE_LABEL = 'HB_CurrentPageLabel'
 HOT_PAGE_WIDTH = 2 * HOT_SIZE + BUTTON_GAP  # the page row, over the two macro columns
 HOT_PAGE_LABEL_TOP = round(HOT_SIZE / 2 - DIGITS_INK_MIDDLE)  # the digits' ink centered on the row
 HOT_GEM_OFFSET = (HOT_SIZE - GEM_ICON) // 2  # a spell's 24px icon, centered on its spot
-# The bag window, the one each open bag gets (Screen ContainerWindow): its slots on the hot button window's grid,
-# four across (the user's pick), and Done across the window under them, with Combine over it in a tradeskill
-# container. No name: the bags don't need to show their own (the user). The game lays the window out itself
+# The bag window, the one each open bag gets (Screen ContainerWindow): its slots the hot button window's 36px
+# spots, two across as in duxaUI (four across didn't suit the user in game), and Done across the window under them,
+# with Combine over it in a tradeskill container. No name: the bags don't need to show their own (the user). The game lays the window out itself
 # whenever a bag opens (eqgame.exe, SetContainer at 0x41717D): it hides the slots past the bag's size, never
 # moving one, shows Combine only in a tradeskill container, and measures a box around the label, the icon and the
 # visible slots (a plain min/max union at 0x4176EC, so a control of no size still counts, as a point, and the box
@@ -627,7 +627,7 @@ BAG_EXTRA_HEIGHT = 36
 BAG_BUTTON_GAP = 4
 BAG_SLOTS = 10  # ContainerSlot1 to 10, EQTypes 30 to 39: the client looks up no more
 BAG_SLOT_TYPE = 30
-BAG_COLUMNS = 4
+BAG_COLUMNS = 2
 BAG_ROWS = -(-BAG_SLOTS // BAG_COLUMNS)
 BAG_CONTENT_WIDTH = BAG_COLUMNS * HOT_SIZE + (BAG_COLUMNS - 1) * BUTTON_GAP
 # Across, the game's 14px leave 7 each side of the grid (the user's pick over 6 and 8), an exception to the
@@ -652,7 +652,8 @@ BAG_DONE_LAYOUT_HEIGHT = (BAG_TOP + PADDING + BUTTON_HEIGHT + BAG_DONE_BOTTOM + 
 # (ScreenID, label, bottom offset, XML height), in the stock order.
 BAG_BUTTONS = (('Container_Combine', 'Combine', BAG_COMBINE_BOTTOM, BAG_COMBINE_LAYOUT_HEIGHT),
                ('DoneButton', 'Done', BAG_DONE_BOTTOM, BAG_DONE_LAYOUT_HEIGHT))
-BUTTON_LABELS[(BAG_CONTENT_WIDTH, BUTTON_HEIGHT)] = tuple(label for _, label, _, _ in BAG_BUTTONS)
+_size = (BAG_CONTENT_WIDTH, BUTTON_HEIGHT)  # the group window's buttons' size too
+BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + tuple(label for _, label, _, _ in BAG_BUTTONS)
 # The XML size is a 10-slot bag's; the game sets its own.
 BAG_HEIGHT = (2 * BORDER + BAG_TOP + BAG_ROWS * HOT_SIZE + (BAG_ROWS - 1) * BUTTON_ROW_GAP + PADDING + BUTTON_HEIGHT
               + BAG_DONE_BOTTOM)
@@ -2400,7 +2401,7 @@ def hot_button_window():
 
 
 def container_window():
-    """A bag's window (see CONTAINER_FILE): its slots four across, then Done across the bottom, with Combine over it
+    """A bag's window (see CONTAINER_FILE): its slots two across, then Done across the bottom, with Combine over it
     in a tradeskill container. The bag's name and icon are there, hidden, at the grid's top corners."""
     name = hidden_label('TUI_Bag_Label', 'Container_Label', *BAG_LABEL_SPOT)
     icon = hidden_button('TUI_Bag_Icon', 'Container_Icon', *BAG_ICON_SPOT)
