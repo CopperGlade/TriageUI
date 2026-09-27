@@ -2397,3 +2397,43 @@ def test_main_reports_success_and_errors(eq, capsys):
     assert '/load TriageUI 1 ' in capsys.readouterr().out
     assert skin.main(['--eq', str(eq), '--base', 'missing']) == 1
     assert 'no skin folder' in capsys.readouterr().err
+
+
+# The window plan
+
+PLAN_FILE = Path(__file__).resolve().parent.parent / 'PLAN.md'
+
+
+def plan_sections():
+    """PLAN.md's window files, as {section heading: [file on each table row]}."""
+    sections = {}
+    heading = None
+    for line in PLAN_FILE.read_text(encoding='utf-8').splitlines():
+        if line.startswith('## '):
+            heading = line[3:].strip()
+            sections[heading] = []
+        elif heading and line.startswith('|'):
+            sections[heading] += re.findall(r'`(EQUI_\w+\.xml)`', line)
+    return sections
+
+
+def test_the_plan_marks_the_built_windows_done():
+    assert set(plan_sections()['Done']) == set(skin.WINDOW_FILES)
+
+
+def test_the_plan_lists_each_window_once():
+    listed = [name.lower() for names in plan_sections().values() for name in names]
+    assert listed and len(listed) == len(set(listed))
+
+
+def test_the_plan_lists_every_window_the_client_loads():
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / 'EQUI.xml'
+        if folder and path.is_file():
+            break
+    else:
+        pytest.skip('no EverQuest folder with uifiles/default here')
+    loaded = set(re.findall(r'<Include>\s*([^<\s]+)\s*</Include>', path.read_text(encoding='latin-1')))
+    windows = {name.lower() for name in loaded} - {'sidl.xml', 'equi_animations.xml', 'equi_templates.xml'}
+    listed = {name.lower() for names in plan_sections().values() for name in names}
+    assert windows and windows <= listed
