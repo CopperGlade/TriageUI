@@ -103,7 +103,7 @@ Both windows share the game's blue and red effect backgrounds with a few other w
 
 ## The confirmation dialog
 
-The box that asks before something happens, such as a resurrection, looting a no-drop item, destroying an item or a translocation. The question sits straight on the panel, with room for three lines, and **Yes** and **No** side by side under it. A notice gets **OK** alone, in the middle. It's as wide as the window selector, so most questions fit on two lines. The game puts it in the middle of the screen. For a question with a time limit, such as a resurrection, Zeal shows the time left at its top right corner.
+The box that asks before something happens, such as a resurrection, looting a no-drop item, destroying an item or a translocation. Since these matter, it stands out: its thin edge is red, the red of the bars beside harmful effects, and it has twice the usual room inside, around the question and above and below the buttons. The question sits straight on the panel, with room for three lines, and **Yes** and **No** side by side under it, as big as the actions window's buttons and with their names in the same small font. A notice gets **OK** alone, in the middle. It's as wide as the window selector, so most questions fit on two lines. The game puts it in the middle of the screen. For a question with a time limit, such as a resurrection, Zeal shows the time left at its top right corner.
 
 ## Install
 

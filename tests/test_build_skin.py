@@ -100,13 +100,13 @@ def direct_pieces(root, window):
     return [defined[p.text] for p in window.findall('Pieces')]
 
 
-def assemble(width, height):
+def assemble(width, height, template=skin.FRAME_TEMPLATE):
     """A window frame as the client draws it: the frame template's border pieces cut from the TGA, corners
     in the corners, sides repeated along the edges, and the background texture repeated inside."""
     root = parse(skin.ANIMATIONS_FILE)
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
-    border = items(root, 'WindowDrawTemplate')[skin.FRAME_TEMPLATE].find('Border')
+    border = items(root, 'WindowDrawTemplate')[template].find('Border')
 
     def piece(side):
         return cut(atlas, anims[border.find(side).text])
@@ -440,7 +440,8 @@ def test_every_reference_resolves():
     anims = items(root, 'Ui2DAnimation')
     textures = items(root, 'TextureInfo')
     template = items(root, 'WindowDrawTemplate')[skin.FRAME_TEMPLATE]
-    references = [e.text for e in template.find('Border') if not e.tag.startswith('Overlap')]
+    references = [e.text for name in (skin.FRAME_TEMPLATE, skin.ALERT_TEMPLATE)
+                  for e in items(root, 'WindowDrawTemplate')[name].find('Border') if not e.tag.startswith('Overlap')]
     references += [e.text for tag in ('GaugeDrawTemplate', 'ButtonDrawTemplate', 'SpellGemDrawTemplate')
                    for t in root.iter(tag) for e in t]
     # The Actions window's tab and page borders, and its tabs' icons.
@@ -474,7 +475,7 @@ def test_every_reference_resolves():
     # Everything a window, its clips or its tab pages show is defined earlier in the window's own file.
     for name in skin.WINDOW_FILES:
         file_root, window = screen(name)
-        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE)
+        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.ALERT_TEMPLATE)
         defined = set()
         for element in file_root:
             for piece in element.findall('Pieces') + element.findall('Pages'):
@@ -499,7 +500,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
-                               *skin.REPLACED_ANIMATIONS}
+                               skin.ALERT_TEMPLATE, *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
 
@@ -2382,45 +2383,74 @@ def test_confirmation_dialog_keeps_every_control_the_client_looks_for():
     root, window = check_inside_frame(skin.CONFIRM_FILE, skin.CONFIRM_WIDTH)
     assert window.get('item') == 'ConfirmationDialogBox' and window.find('Text') is None
     assert window.findtext('Style_Sizable') == 'false'
-    assert box(window)[2:] == (skin.SELECTOR_WIDTH, skin.CONFIRM_HEIGHT) == (262, 73)
+    assert box(window)[2:] == (skin.SELECTOR_WIDTH, skin.CONFIRM_HEIGHT) == (262, 94)
     ids = [e.findtext('ScreenID') for e in direct_pieces(root, window)]
     assert ids == ['TextOutput', 'Yes_Button', 'No_Button', 'OK_Button']
 
 
-def test_confirmation_text_has_three_lines_straight_on_the_panel():
-    # Room for three lines across the window between its paddings: every common message takes two there, the
-    # Sacrifice warning three (the user's pick). Nothing of its own drawn, like the raid lists, and no scrollbar,
-    # as in the stock skin.
+@pytest.mark.parametrize('size', [(9, 9), (37, 23), (262, 94)])
+def test_confirmation_dialog_is_the_panel_with_a_red_edge(size):
+    # "Confirmation boxes are important": the user asked for a thin red border. The panel's frame, its 1px edge
+    # line in the red of the harmful effects' bars instead of the faint white; the rest of the template is the
+    # other windows'.
+    root, window = screen(skin.CONFIRM_FILE)
+    assert window.findtext('DrawTemplate') == skin.ALERT_TEMPLATE
+    assert skin.ALERT_EDGE_RGBA == skin.HARMFUL_RGBA == (255, 68, 68, 255)
+    red = skin.panel_texture(*size, edge=skin.ALERT_EDGE_RGBA)
+    assert pixels(assemble(*size, skin.ALERT_TEMPLATE)) == pixels(as_image(skin.snapped_art(red)))
+    assert red.pixel(size[0] // 2, 0) == skin.ALERT_EDGE_RGBA  # solid red along the top, away from the corners
+    templates = items(parse(skin.ANIMATIONS_FILE), 'WindowDrawTemplate')
+    alert, plain = templates[skin.ALERT_TEMPLATE], templates[skin.FRAME_TEMPLATE]
+    assert [ET.tostring(e) for e in alert if e.tag != 'Border'] == [ET.tostring(e) for e in plain if e.tag != 'Border']
+    assert {e.text for e in alert.find('Border') if not e.tag.startswith('Overlap')} == {
+        f'TUI_AlertFrame{piece}' for piece in skin.BORDER_PIECES.values()}
+
+
+def test_confirmation_text_has_three_lines_with_a_dialogs_room_around_it():
+    # Room for three lines: every common message takes two, the Sacrifice warning three (the user's pick). A dialog
+    # keeps two paddings inside (the user asked for "better spacing" in dialogs and picked 12px): the first line's
+    # ink and its sides that far from the window's edge. Nothing of its own drawn, like the raid lists, and no
+    # scrollbar, as in the stock skin.
     root, window = screen(skin.CONFIRM_FILE)
     text = direct_pieces(root, window)[0]
     assert text.tag == 'STMLbox'
-    assert box(text) == (skin.LEFT, 0, skin.CONFIRM_CONTENT_WIDTH, 3 * skin.TEXT_HEIGHT)
-    assert skin.LEFT + skin.CONFIRM_CONTENT_WIDTH == skin.CONFIRM_RIGHT
+    assert skin.DIALOG_PADDING == 2 * skin.PADDING == skin.BORDER + skin.DIALOG_LEFT
+    x, y, width, height = box(text)
+    assert (x, width, height) == (skin.DIALOG_LEFT, skin.CONFIRM_CONTENT_WIDTH, 3 * skin.TEXT_HEIGHT)
+    assert x + width == skin.CONFIRM_RIGHT == skin.CONFIRM_WIDTH - 2 * skin.BORDER - skin.DIALOG_LEFT
+    assert skin.DIALOG_PADDING <= skin.BORDER + y + skin.TEXT_INK_TOP < skin.DIALOG_PADDING + 1
     assert text.findtext('Font') == str(skin.TEXT_FONT) and text.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
     assert text.findtext('Style_Transparent') == 'true' and text.findtext('Style_Border') == 'false'
     assert text.findtext('Style_VScroll') == text.findtext('Style_HScroll') == 'false'
 
 
-def test_confirmation_buttons_follow_the_spacing_standard():
+def test_confirmation_buttons_are_the_actions_windows_with_a_dialogs_room_around_them():
     # Yes and No fill the row a padding apart; the client shows OK alone, in the middle at their width (the user's
-    # pick). The row a padding under the last line's digits, and the window's edge a padding under it.
+    # pick). The row two paddings under the last line's digits, and the window's edge two paddings under it (a
+    # dialog's room).
     root, window = screen(skin.CONFIRM_FILE)
     buttons = {e.findtext('ScreenID'): e for e in root.iter('Button')}
     yes, no, ok = (box(buttons[i]) for i in ('Yes_Button', 'No_Button', 'OK_Button'))
-    last_line = 2 * skin.TEXT_HEIGHT
-    assert {yes[1], no[1], ok[1]} == {last_line + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT + skin.PADDING}
-    assert {yes[3], no[3], ok[3]} == {skin.BUTTON_HEIGHT}
-    assert yes[0] == skin.LEFT and no[0] + no[2] == skin.CONFIRM_RIGHT
+    text = box(direct_pieces(root, window)[0])
+    last_line = text[1] + 2 * skin.TEXT_HEIGHT
+    assert {yes[1], no[1], ok[1]} == {last_line + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
+                                      + skin.DIALOG_PADDING}
+    assert {yes[3], no[3], ok[3]} == {skin.TEXT_BUTTON_HEIGHT}
+    assert yes[0] == skin.DIALOG_LEFT and no[0] + no[2] == skin.CONFIRM_RIGHT
     assert yes[0] + yes[2] + skin.BUTTON_GAP == no[0] and abs(yes[2] - no[2]) <= 1
-    assert ok[2] == yes[2] and ok[0] - skin.LEFT == skin.CONFIRM_RIGHT - (ok[0] + ok[2]) == 64
-    assert box(window)[3] == 2 * skin.BORDER + yes[1] + skin.BUTTON_HEIGHT + skin.BOTTOM_GAP
-    # The labels drawn in the art, the buttons' own text empty.
-    for screen_id, label_text, *_ in skin.CONFIRM_BUTTONS:
+    assert ok[2] == yes[2] and ok[0] - skin.DIALOG_LEFT == skin.CONFIRM_RIGHT - (ok[0] + ok[2]) == 61
+    assert box(window)[3] - skin.BORDER - (yes[1] + yes[3]) == skin.DIALOG_PADDING
+    # As big as the Actions window's buttons, their names their own text in its font (the user liked those "and
+    # their text size": "confirmation boxes are important"), over the plain wash.
+    camp = parts(parse(skin.ACTIONS_FILE))['TUI_AW_AMP_CampButton']
+    for screen_id, name, *_ in skin.CONFIRM_BUTTONS:
         b = buttons[screen_id]
-        assert b.findtext('Text') == '' and b.find('TooltipReference') is None
-        art = skin.button_art(*box(b)[2:], label_text, 'Normal')
-        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{art}'
-    assert [label_text for _, label_text, *_ in skin.CONFIRM_BUTTONS] == ['Yes', 'No', 'OK']
+        assert b.findtext('Text') == name and b.find('TooltipReference') is None
+        assert b.findtext('Font') == camp.findtext('Font') == str(skin.ACTION_FONT) == '2'
+        assert rgb(b, 'TextColor') == rgb(camp, 'TextColor') == skin.TEXT_RGB
+        assert box(b)[3] == box(camp)[3]
+        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], "", "Normal")}'
+    assert [name for _, name, *_ in skin.CONFIRM_BUTTONS] == ['Yes', 'No', 'OK']
 
 
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
