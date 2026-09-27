@@ -1490,7 +1490,7 @@ def test_every_icon_is_distinct_stays_in_its_square_and_dims_when_disabled():
     (skin.BUFF_FILE, 'BuffWindow', 15, 45), (skin.SONG_FILE, 'ShortDurationBuffWindow', 6, 135)])
 def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_type):
     # EQ Triage's table look, as the user asked: a row per slot, compact, with a divider between. Wider than
-    # the other windows' 200, so longer names fit after the harmful bar (the user's calls).
+    # the other windows' 200, so longer names fit after the icon and its harmful bars (the user's calls).
     assert skin.EFFECTS_WIDTH == 232
     root, window = check_inside_frame(name, skin.EFFECTS_WIDTH)
     assert window.get('item') == item
@@ -1522,21 +1522,22 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         assert b.findtext('ButtonDrawTemplate/NormalDecal') == skin.BUFF_ICONS
         # The decal offset is within the slot; the icon's place in the window stays ROW_ICON_X.
         assert (x + number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
-        # The icon 28px into the slot, where Zeal's time box starts (the user's call: at 18 and then 23 the
-        # box covered some icons), 35px from the window's edge.
-        assert number(b, 'DecalOffset/X') == skin.TIMER_WIDTH == 28
-        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + 1 + skin.TIMER_WIDTH == 35
+        # A column for Zeal's time box from the slot's left (the user's calls: at 18 and then 23 the box
+        # covered some icons; 30 keeps 2px from the harmful bar), then the icon a bar's width in, 41px from
+        # the window's edge.
+        assert number(b, 'DecalOffset/X') == skin.TIMER_WIDTH + skin.HARMFUL_BAR_WIDTH == 34
+        assert skin.TIMER_WIDTH == 30
+        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + 1 + skin.TIMER_WIDTH + skin.HARMFUL_BAR_WIDTH == 41
         assert (number(b, 'DecalSize/CX'), number(b, 'DecalSize/CY')) == (skin.ROW_ICON, skin.ROW_ICON)
         assert skin.BORDER + skin.ROW_ICON_MARGIN == skin.PADDING
-        # The name a padding after the harmful bar's place, which is a padding after the icon (the user's
-        # pick), centered in the row, ending a padding from the edge, still 158px.
+        # The name a padding after the right harmful bar's place, which touches the icon (the user's
+        # design), centered in the row, ending a padding from the edge.
         label = names[f'Buff{n}Label']
         lx, ly, lw, lh = box(label)
         assert label.findtext('EQType') == str(first_type + n) and not label.findtext('Text')
-        assert skin.HARMFUL_BAR_X == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING
-        assert lx == skin.ROW_NAME_X == skin.HARMFUL_BAR_X + skin.HARMFUL_BAR_WIDTH + skin.PADDING
+        assert lx == skin.ROW_NAME_X == skin.ROW_ICON_X + skin.ROW_ICON + skin.HARMFUL_BAR_WIDTH + skin.PADDING
         assert lx + lw == skin.EFFECTS_RIGHT
-        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 158
+        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 159
         assert ly - y == (skin.ROW_HEIGHT - lh) // 2
     # A divider in each pixel between rows, as long as the slots, softer than the bars' track (the user).
     dividers = [box(e) for e in root.iter('StaticAnimation')]
@@ -2220,13 +2221,14 @@ def test_raid_count_level_average_and_first_caption_are_hidden_but_still_there()
     assert caption.findtext('Text') == 'Not in a group' and rgb(caption, 'TextColor') == skin.CAPTION_RGB
 
 
-def test_slot_backgrounds_are_clear_with_a_red_bar_between_a_harmful_icon_and_its_name():
+def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (art is drawn at its
     # own size), replacing the base's own. Clear, so the row is the panel at the window's own alpha (solid
     # rows in the panel's color showed as darker stripes at Alpha 205 in game), and a harmful effect's has
-    # a solid red bar 5px wide between the icon and the name, as tall as the icon (the user's pick, after a
-    # faint red across the row and then a red square behind the icon, which left a ring too faint to see).
+    # a solid red bar 4px wide on each side of the icon, touching it, as tall as the icon (the user's
+    # design, after a faint red across the row, a red square behind the icon, which left a ring too faint to
+    # see, and a single 5px bar between the icon and the name).
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
@@ -2237,16 +2239,20 @@ def test_slot_backgrounds_are_clear_with_a_red_bar_between_a_harmful_icon_and_it
     red = cut(atlas, anims['RedIconBackground'])
     assert red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
     assert skin.snapped(skin.HARMFUL_RGBA) == skin.HARMFUL_RGBA and skin.HARMFUL_RGBA[3] == 255
-    assert skin.HARMFUL_BAR_WIDTH == 5
-    # Within the slot, which the client puts at SLOT_X: level with the icon, a padding after it and a padding
-    # before the name.
-    bar = (skin.HARMFUL_BAR_X - skin.SLOT_X, skin.ROW_ICON_MARGIN, skin.HARMFUL_BAR_WIDTH, skin.ROW_ICON)
+    assert skin.HARMFUL_BAR_WIDTH == 4
+    # Within the slot, which the client puts at SLOT_X: level with the icon, one bar right after Zeal's time
+    # column and ending where the icon starts, the other starting where the icon ends, a padding before the
+    # name.
+    icon_x = skin.ROW_ICON_X - skin.SLOT_X
+    left, right = (x - skin.SLOT_X for x in skin.HARMFUL_BARS)
+    assert left == skin.TIMER_WIDTH and left + skin.HARMFUL_BAR_WIDTH == icon_x
+    assert right == icon_x + skin.ROW_ICON
+    assert skin.ROW_NAME_X - (skin.SLOT_X + right + skin.HARMFUL_BAR_WIDTH) == skin.PADDING
     for x in range(skin.SLOT_WIDTH):
         for y in range(skin.ROW_HEIGHT):
-            inside = bar[0] <= x < bar[0] + bar[2] and bar[1] <= y < bar[1] + bar[3]
+            inside = (any(bar <= x < bar + skin.HARMFUL_BAR_WIDTH for bar in (left, right))
+                      and skin.ROW_ICON_MARGIN <= y < skin.ROW_ICON_MARGIN + skin.ROW_ICON)
             assert red.getpixel((x, y)) == (skin.HARMFUL_RGBA if inside else skin.CLEAR), (x, y)
-    icon_end = skin.ROW_ICON_X + skin.ROW_ICON
-    assert skin.SLOT_X + bar[0] - icon_end == skin.ROW_NAME_X - (skin.SLOT_X + bar[0] + bar[2]) == skin.PADDING
     # Only those two: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1

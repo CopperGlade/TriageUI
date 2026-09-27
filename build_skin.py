@@ -481,8 +481,7 @@ for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
 # lays the slot buttons out itself, a pixel apart, so each runs across the row (one per row), and the
 # dividers sit in the pixel between. The icon is a padding from the window's top and bottom. The client
 # paints each slot with BlueIconBackground (helpful) or RedIconBackground (harmful), by name, so the skin
-# redefines those two: clear for helpful effects, and a red bar between the icon and the name for harmful
-# ones. The spellbook, item display and combat ability windows use them too and change with them (the
+# redefines those two: clear for helpful effects, and a red bar on each side of the icon for harmful ones. The spellbook, item display and combat ability windows use them too and change with them (the
 # user's call).
 BUFF_FILE = 'EQUI_BuffWindow.xml'
 SONG_FILE = 'EQUI_ShortDurationBuffWindow.xml'
@@ -492,10 +491,11 @@ ROW_ICON = 16
 ROW_ICON_MARGIN = PADDING - BORDER
 ROW_HEIGHT = ROW_ICON + 2 * ROW_ICON_MARGIN
 ROW_PITCH = ROW_HEIGHT + 1
-# Wider than the other windows' 200 so longer names fit: 158px for a name after Zeal's time column
-# (TIMER_WIDTH), the icon and the harmful bar, where long bard songs run to about 167 in Arial 12. 220 at
-# first (the user's call, 2026-09-26), then 12 more for the bar and its padding (the user's pick,
+# Wider than the other windows' 200 so longer names fit: 159px for a name after Zeal's time column
+# (TIMER_WIDTH), the icon and its harmful bars, where long bard songs run to about 167 in Arial 12. 220 at
+# first (the user's call, 2026-09-26), then 12 more for a single bar after the icon (the user's pick,
 # 2026-09-27, to keep the names' room) and the pixel the client's own slot placement takes (see SLOT_X).
+# The user kept it when the two bars came ("the total width of the effect window should not change").
 EFFECTS_WIDTH = 232
 EFFECTS_RIGHT = EFFECTS_WIDTH - 2 * BORDER - LEFT
 ROW_WIDTH = EFFECTS_WIDTH - 2 * BORDER
@@ -513,24 +513,28 @@ SLOT_X = ROW_WIDTH - SLOT_WIDTH - 1
 # Zeal's Buff Timers draws each effect's time left as a tooltip box pinned to its slot button's top left
 # (ui_buff.cpp, BuffWindow_PostDraw), in its largest unit only ("2h", "18m", "45s"): the game's own tooltip
 # (0x574800), the text's width + 4 by its font's height + 2, navy at alpha 200, in the slot's font (SIDL's
-# default 3), so about 28x16 for "18m". It sat over the start of the names in game, so the icon starts
-# TIMER_WIDTH into the slot: 28px, the user's call in game (36, then 24 left too much room before the names;
-# at 18 and then 23 the box still covered some of the icons, so 5 more each time), then the name.
-TIMER_WIDTH = 28
-ROW_ICON_X = SLOT_X + TIMER_WIDTH  # from the inside's left edge
-# A harmful effect's mark: a solid red bar HARMFUL_BAR_WIDTH wide, as tall as the icon and level with it, a
-# padding after the icon and a padding before the name (the user's pick, 2026-09-27: "something like 5px
-# wide", "in between the icon and the spell name"). Helpful rows keep the room empty, so every name starts
-# at the same place. The client's art swap (0x409520: the slot's Normal is RedIconBackground when the spell's
-# beneficial byte is 0) is the only sign of an effect's type a skin gets: the names (labels 45-59, 0x436F3D)
-# are set without a color, so they can't turn red (Zeal's label hook could). The art is drawn from the
-# slot's top left at its own size, so clear pixels put the bar in place. Before it: a faint red across the
-# row, then a red square behind the icon at alpha 85, which left a 2px ring too faint to see, its left side
-# under Zeal's timer box; the user had it removed.
+# default 3), so about 28x16 for "18m". It sat over the start of the names in game, so the row's marks start
+# TIMER_WIDTH into the slot: 30px, the user's calls in game (36, then 24 left too much room before the names;
+# at 18 and then 23 the box still covered some of the icons, so 5 more each time, to 28; then 30 on
+# 2026-09-27, so the widest box keeps 2px from the harmful bar before the icon).
+TIMER_WIDTH = 30
+# A harmful effect's mark: a solid red bar HARMFUL_BAR_WIDTH wide on each side of its icon, touching it, as
+# tall as the icon and level with it (the user's design, 2026-09-27: "one bar on the left and right of any
+# detrimental effect", "the normal left padding, then a 3px red bar, then the spell icon, then another 3px
+# red bar, then the prior normal padding to the start of the effect name text", then "increase the width of
+# the bars by 1 px, total 4px width each" after a preview at 3). Helpful rows keep the room
+# empty, so every icon and name starts at the same place. The client's art swap (0x409520: the slot's
+# Normal is RedIconBackground when the spell's beneficial byte is 0) is the only sign of an effect's type a
+# skin gets: the names (labels 45-59, 0x436F3D) are set without a color, so they can't turn red (Zeal's
+# label hook could). The art is drawn from the slot's top left at its own size, so clear pixels put the bars
+# in place. Before them: a faint red across the row, then a red square behind the icon at alpha 85, which
+# left a 2px ring too faint to see, its left side under Zeal's timer box (the user had it removed), then a
+# single 5px bar between the icon and the name.
 HARMFUL_RGBA = (255, 68, 68, 255)
-HARMFUL_BAR_WIDTH = 5
-HARMFUL_BAR_X = ROW_ICON_X + ROW_ICON + PADDING  # from the inside's left edge
-ROW_NAME_X = HARMFUL_BAR_X + HARMFUL_BAR_WIDTH + PADDING
+HARMFUL_BAR_WIDTH = 4
+ROW_ICON_X = SLOT_X + TIMER_WIDTH + HARMFUL_BAR_WIDTH  # from the inside's left edge
+HARMFUL_BARS = (ROW_ICON_X - HARMFUL_BAR_WIDTH, ROW_ICON_X + ROW_ICON)  # each bar's x, from the inside's left
+ROW_NAME_X = ROW_ICON_X + ROW_ICON + HARMFUL_BAR_WIDTH + PADDING
 # A helpful effect's row: clear, so the row is the panel at whatever alpha the window has. It was solid in
 # the panel's color while clicks never reached the slots (the theory: a button ignores a click where its art
 # is see-through), but the slots weren't hit-tested at all, being as wide as the inside (see SLOT_WIDTH),
@@ -1363,12 +1367,13 @@ def labeled_button_art(width, height, label, state, style=BUTTON_STYLE):
 
 
 def harmful_row():
-    """A harmful effect's row: clear like a helpful one, with the red bar between the icon and the name
-    (see HARMFUL_RGBA)."""
+    """A harmful effect's row: clear like a helpful one, with a red bar on each side of the icon (see
+    HARMFUL_RGBA)."""
     row = Texture(SLOT_WIDTH, ROW_HEIGHT, CLEAR)
-    left = HARMFUL_BAR_X - SLOT_X  # within the slot
-    for y in range(ROW_ICON_MARGIN, ROW_ICON_MARGIN + ROW_ICON):
-        row.rows[y][left:left + HARMFUL_BAR_WIDTH] = [HARMFUL_RGBA] * HARMFUL_BAR_WIDTH
+    for bar_x in HARMFUL_BARS:
+        left = bar_x - SLOT_X  # within the slot
+        for y in range(ROW_ICON_MARGIN, ROW_ICON_MARGIN + ROW_ICON):
+            row.rows[y][left:left + HARMFUL_BAR_WIDTH] = [HARMFUL_RGBA] * HARMFUL_BAR_WIDTH
     return row
 
 
@@ -1598,7 +1603,7 @@ def shared_definitions(rects):
         # inside the clip.
         animation('TUI_PercentSign', PERCENT_TEXTURE, (0, 0, SHOWN_REACH, PERCENT_GLYPH_HEIGHT)),
         # The stock slot backgrounds the client paints by name, redefined (see REPLACED_ANIMATIONS): clear
-        # rows the slot's size, a harmful one with its red bar (see HELPFUL_RGBA and HARMFUL_RGBA).
+        # rows the slot's size, a harmful one with its red bars (see HELPFUL_RGBA and HARMFUL_RGBA).
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
         frame_template(),
@@ -2167,8 +2172,9 @@ def picture(name, animation_name, rect):
 
 def effects_table(item, title, slots, first_name_type, prefix):
     """A table of effect slots, one row each: the client's slot button (ScreenID BuffN) across the row,
-    inset (see SLOT_WIDTH), Zeal's time left at its start, then the spell's icon, a harmful effect's red bar
-    and the spell's name (label first_name_type + N), rows ROW_PITCH apart with a divider between, in a window
+    inset (see SLOT_WIDTH), Zeal's time left at its start, then the spell's icon, with a red bar each side of
+    a harmful one, and the spell's name (label first_name_type + N), rows ROW_PITCH apart with a divider
+    between, in a window
     EFFECTS_WIDTH wide. The client looks up CLIENT_SLOTS buttons whatever the window shows, so the slots
     beyond are hidden."""
     dividers, buttons, names = [], [], []
