@@ -2254,9 +2254,9 @@ MERCHANT_IDS = {'MW_MerchantName', 'MerchantSlotsWnd', 'MW_SelectedItem', 'MW_Bu
 
 
 def merchant_pieces():
-    """The merchant window's file, its window, and its own pieces by ScreenID."""
+    """The merchant window's file, its window, and its own controls by ScreenID (not the divider, a picture)."""
     root, window = screen(skin.MERCHANT_FILE)
-    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window) if e.tag != 'StaticAnimation'}
 
 
 def test_merchant_window_keeps_every_control_the_client_and_quarm_look_for():
@@ -2265,7 +2265,7 @@ def test_merchant_window_keeps_every_control_the_client_and_quarm_look_for():
     # A fixed size like the other windows, so it drags by its background.
     assert window.findtext('Style_Sizable') == 'false'
     assert box(window)[2:] == (skin.MERCHANT_WIDTH, skin.MERCHANT_HEIGHT)
-    ids = [e.findtext('ScreenID') for e in direct_pieces(root, window)]
+    ids = [e.findtext('ScreenID') for e in direct_pieces(root, window) if e.tag != 'StaticAnimation']
     assert len(ids) == len(set(ids)) and set(ids) == MERCHANT_IDS
     # The 80 slots are the pieces of the client's panel for them, not the window's, each its own EQType.
     panel = merchant_pieces()[2]['MerchantSlotsWnd']
@@ -2302,8 +2302,17 @@ def test_merchant_window_follows_the_spacing_standard():
     root, window, found = merchant_pieces()
     boxes = {screen_id: box(e) for screen_id, e in found.items()}
     panel, item = boxes['MerchantSlotsWnd'], boxes['MW_SelectedItem']
-    # The considered item's square a padding under the grid, at the window's padding.
-    assert item == (skin.LEFT, panel[1] + panel[3] + skin.PADDING, skin.HOT_SIZE, skin.HOT_SIZE)
+    # Under the grid, the Effects window's divider across the content row, a padding from it (the user's request,
+    # to set the considered item apart from the slots).
+    dividers = [e for e in direct_pieces(root, window) if e.tag == 'StaticAnimation']
+    assert len(dividers) == 1
+    divider = box(dividers[0])
+    assert divider == (skin.LEFT, panel[1] + panel[3] + skin.PADDING, skin.MERCHANT_CONTENT_WIDTH, 1)
+    line = cut(decode(files()[skin.PIECES_TEXTURE]),
+               items(everything(), 'Ui2DAnimation')[dividers[0].findtext('Animation')])
+    assert line.size == divider[2:] and set(pixels(line)) == {skin.ROW_DIVIDER_RGBA}
+    # The considered item's square a padding under the divider, at the window's padding.
+    assert item == (skin.LEFT, divider[1] + divider[3] + skin.PADDING, skin.HOT_SIZE, skin.HOT_SIZE)
     # The recharge text a padding after the square and a padding before Recharge, which ends at the window's padding
     # over Done, as wide.
     charges, price, recharge = (boxes[i] for i in ('MW_Recharge_Charges', 'MW_Recharge_Price', 'MW_Recharge_Button'))

@@ -85,7 +85,7 @@ Each bag you open gets its slots two to a row, as in duxaUI, the size of the hot
 
 ## The merchant window
 
-All 80 of a merchant's slots at once, eight to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Under them, the item you're considering, and across the bottom **Buy** (for the merchant's items) or **Sell** (for yours) and **Done**. The price comes in chat, as always.
+All 80 of a merchant's slots at once, eight to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Under them, past a thin divider, the item you're considering, and across the bottom **Buy** (for the merchant's items) or **Sell** (for yours) and **Done**. The item's name and price come in chat, as always.
 
 When you select one of your own items with charges, Project Quarm's recharge shows beside it: its charges, the price of the next charge, and a **Recharge** button. Point at Recharge for the price per charge. The merchant's name isn't shown. Like the other TriageUI windows, it has a fixed size and you drag it by its background.
 
@@ -139,6 +139,7 @@ The box that asks before something happens, such as a resurrection, looting a no
 - **Fonts:** EverQuest windows can only use the game's built-in fonts, so the text is EverQuest's font rather than the overlays' Segoe UI.
 - **Colors that change:** a skin sets each text's color once, so names stay white (pets grey). The overlays color names yellow and red at low health, and Zeal colors target rings by con, but a skin can do neither.
 - **The red box around the player window while you auto-attack:** EverQuest draws it itself, a 1px red outline that flashes on top of the window, and no skin setting turns it off.
+- **The name of the item you're considering at a merchant:** EverQuest shows it only in chat. The merchant window gets the item's icon and nothing else, so no skin can show the name.
 
 ## Troubleshooting
 

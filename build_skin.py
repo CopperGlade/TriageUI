@@ -862,7 +862,10 @@ ITEM_ICONS = 'A_DragItem'
 # writes) and the Recharge button, whose tooltip it overwrites with the price per charge; otherwise
 # MW_SelectedItemLabel, which it never writes and which says nothing here (the user). It moves nothing: its one layout
 # change, the slots' panel's bottom anchor, has no effect on a panel placed by Location and Size.
-MERCHANT_BAND_TOP = LEFT + MERCHANT_GRID_HEIGHT + PADDING
+# Between the grid and the band, the row divider across the content row, a padding from each (the user's request,
+# to set the considered item apart from the slots).
+MERCHANT_DIVIDER_TOP = LEFT + MERCHANT_GRID_HEIGHT + PADDING
+MERCHANT_BAND_TOP = MERCHANT_DIVIDER_TOP + DIVIDER_HEIGHT + PADDING
 MERCHANT_BUTTON_WIDTHS = ((MERCHANT_CONTENT_WIDTH - BUTTON_GAP) // 2,
                           MERCHANT_CONTENT_WIDTH - BUTTON_GAP - (MERCHANT_CONTENT_WIDTH - BUTTON_GAP) // 2)
 MERCHANT_RECHARGE_X = MERCHANT_RIGHT - MERCHANT_BUTTON_WIDTHS[1]  # over Done
@@ -1518,6 +1521,7 @@ def pieces():
         'RowDivider': Texture(SLOT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the effect slots' width
         'GroupDivider': Texture(GROUP_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the group window's width
         'ActionsDivider': Texture(ACTIONS_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the Actions window's width
+        'MerchantDivider': Texture(MERCHANT_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the merchant window's
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
         'GemSlot': clear_texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT),  # a spell gem's row, clear (see spell_gem())
@@ -2568,8 +2572,9 @@ def raid_window():
 
 
 def merchant_window():
-    """All 80 of a merchant's slots, eight across; under them the considered item's square with Quarm's recharge
-    group beside it, then Buy or Sell and Done (see MERCHANT_FILE). The merchant's name is there, hidden."""
+    """All 80 of a merchant's slots, eight across; under them a divider, then the considered item's square with
+    Quarm's recharge group beside it, then Buy or Sell and Done (see MERCHANT_FILE). The merchant's name is there,
+    hidden."""
     # The slots, in the client's panel for them: see-through on the window's panel, placed by Location and Size, so
     # Quarm's anchor change can't move its bottom.
     slots = [inv_slot(f'TUI_MW_Slot{n}', f'MW_MerchantSlot{n}', MERCHANT_SLOT_TYPE + n,
@@ -2586,6 +2591,9 @@ def merchant_window():
         node('DrawTemplate', FRAME_TEMPLATE),
         node('Style_Border', False),
     ] + [node('Pieces', slot[2]) for slot in slots], 'TUI_MW_SlotsWnd')
+    # The divider under the grid: the Effects window's, at the content row's width.
+    divider = picture('TUI_MW_Divider', 'TUI_MerchantDivider',
+                      (LEFT, MERCHANT_DIVIDER_TOP, MERCHANT_CONTENT_WIDTH, DIVIDER_HEIGHT))
     # The considered item's square, the plain square with the item's icon on it, which the client sets.
     top = MERCHANT_BAND_TOP
     item = node('Button', [
@@ -2616,8 +2624,8 @@ def merchant_window():
                       MERCHANT_BUTTON_WIDTHS[column], tooltip=tooltip)
                for screen_id, label_text, tooltip, column in MERCHANT_BUTTONS]
     name = hidden_label('TUI_MW_MerchantName', 'MW_MerchantName')
-    return window('MerchantWnd', 'Merchant', MERCHANT_HEIGHT, [panel, item, item_label, *recharge, *buttons, name],
-                  width=MERCHANT_WIDTH, inner=slots)
+    return window('MerchantWnd', 'Merchant', MERCHANT_HEIGHT,
+                  [panel, divider, item, item_label, *recharge, *buttons, name], width=MERCHANT_WIDTH, inner=slots)
 
 
 def confirmation_dialog():
