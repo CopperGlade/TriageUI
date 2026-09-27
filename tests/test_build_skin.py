@@ -1489,9 +1489,9 @@ def test_every_icon_is_distinct_stays_in_its_square_and_dims_when_disabled():
 @pytest.mark.parametrize('name, item, slots, first_type', [
     (skin.BUFF_FILE, 'BuffWindow', 15, 45), (skin.SONG_FILE, 'ShortDurationBuffWindow', 6, 135)])
 def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_type):
-    # EQ Triage's table look, as the user asked: a row per slot, compact, with a divider between. 20px wider
-    # than the other windows' 200, so longer names fit (the user's call).
-    assert skin.EFFECTS_WIDTH == 220
+    # EQ Triage's table look, as the user asked: a row per slot, compact, with a divider between. Wider than
+    # the other windows' 200, so longer names fit after the harmful bar (the user's calls).
+    assert skin.EFFECTS_WIDTH == 232
     root, window = check_inside_frame(name, skin.EFFECTS_WIDTH)
     assert window.get('item') == item
     every_button = list(root.iter('Button'))
@@ -1507,11 +1507,13 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
     inside = box(window)[2] - 2 * skin.BORDER
     for n, b in enumerate(buttons):
         x, y, w, h = box(b)
-        # Across the row but inset like the dividers, so it's narrower than the window's inside: the client
-        # lays the slots out itself, a pixel apart, and never hit-tested slots as wide as the inside (no
-        # tooltip, no click, no red for harmful effects in game). Two don't fit across, so one per row.
-        assert (x, y, w, h) == (skin.LEFT, n * skin.ROW_PITCH, skin.SLOT_WIDTH, skin.ROW_HEIGHT)
-        assert skin.SLOT_WIDTH == inside - 2 * skin.LEFT == 208 and 2 * (w + 1) > inside
+        # Across the row but inset, so it's narrower than the window's inside: the client lays the slots out
+        # itself, a pixel apart, and never hit-tested slots as wide as the inside (no tooltip, no click, no
+        # red for harmful effects in game). Two don't fit across, so one per row, where eqgame.exe puts it
+        # (0x4090E9): the inside's width less the slot's and a pixel, a pixel right of the dividers.
+        assert (x, y, w, h) == (skin.SLOT_X, n * skin.ROW_PITCH, skin.SLOT_WIDTH, skin.ROW_HEIGHT)
+        assert skin.SLOT_WIDTH == inside - 2 * skin.LEFT == 220 and 2 * (w + 1) > inside
+        assert skin.SLOT_X == inside - (skin.SLOT_WIDTH + 1) == skin.LEFT + 1
         assert skin.ROW_PITCH == skin.ROW_HEIGHT + 1
         # The client paints the background and the spell's icon. Zeal's time left sits at the button's
         # top left (it covered the names' first letters in game), so the icon comes a padding after a
@@ -1520,16 +1522,20 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         assert b.findtext('ButtonDrawTemplate/NormalDecal') == skin.BUFF_ICONS
         # The decal offset is within the slot; the icon's place in the window stays ROW_ICON_X.
         assert (x + number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
-        # The icon 28px further in than the window's padding (the user's call: at 18 and then 23 Zeal's time
-        # box covered some icons), 34px from its edge.
-        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + skin.TIMER_WIDTH == 34
+        # The icon 28px into the slot, where Zeal's time box starts (the user's call: at 18 and then 23 the
+        # box covered some icons), 35px from the window's edge.
+        assert number(b, 'DecalOffset/X') == skin.TIMER_WIDTH == 28
+        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + 1 + skin.TIMER_WIDTH == 35
         assert (number(b, 'DecalSize/CX'), number(b, 'DecalSize/CY')) == (skin.ROW_ICON, skin.ROW_ICON)
         assert skin.BORDER + skin.ROW_ICON_MARGIN == skin.PADDING
-        # The name a padding after the icon, centered in the row, ending a padding from the edge.
+        # The name a padding after the harmful bar's place, which is a padding after the icon (the user's
+        # pick), centered in the row, ending a padding from the edge, still 158px.
         label = names[f'Buff{n}Label']
         lx, ly, lw, lh = box(label)
         assert label.findtext('EQType') == str(first_type + n) and not label.findtext('Text')
-        assert lx == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING and lx + lw == skin.EFFECTS_RIGHT
+        assert skin.HARMFUL_BAR_X == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING
+        assert lx == skin.ROW_NAME_X == skin.HARMFUL_BAR_X + skin.HARMFUL_BAR_WIDTH + skin.PADDING
+        assert lx + lw == skin.EFFECTS_RIGHT
         assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 158
         assert ly - y == (skin.ROW_HEIGHT - lh) // 2
     # A divider in each pixel between rows, as long as the slots, softer than the bars' track (the user).
@@ -2214,13 +2220,13 @@ def test_raid_count_level_average_and_first_caption_are_hidden_but_still_there()
     assert caption.findtext('Text') == 'Not in a group' and rgb(caption, 'TextColor') == skin.CAPTION_RGB
 
 
-def test_slot_backgrounds_are_clear_with_a_red_mark_behind_a_harmful_icon():
+def test_slot_backgrounds_are_clear_with_a_red_bar_between_a_harmful_icon_and_its_name():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (art is drawn at its
     # own size), replacing the base's own. Clear, so the row is the panel at the window's own alpha (solid
-    # rows in the panel's color showed as darker stripes at Alpha 205 in game), and a harmful effect's
-    # has a red square behind its icon, the row's full height, leaving a 2px ring around the 16px icon
-    # (the user's pick over a faint red across the row).
+    # rows in the panel's color showed as darker stripes at Alpha 205 in game), and a harmful effect's has
+    # a solid red bar 5px wide between the icon and the name, as tall as the icon (the user's pick, after a
+    # faint red across the row and then a red square behind the icon, which left a ring too faint to see).
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
@@ -2230,15 +2236,17 @@ def test_slot_backgrounds_are_clear_with_a_red_mark_behind_a_harmful_icon():
     assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.CLEAR} and skin.CLEAR[3] == 0
     red = cut(atlas, anims['RedIconBackground'])
     assert red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
-    assert skin.snapped(skin.HARMFUL_RGBA) == skin.HARMFUL_RGBA and 0 < skin.HARMFUL_RGBA[3] < 255
-    mark = (skin.HARMFUL_MARK_X, 0, skin.HARMFUL_MARK, skin.ROW_HEIGHT)
-    assert skin.HARMFUL_MARK == skin.ROW_HEIGHT == skin.ROW_ICON + 2 * skin.ROW_ICON_MARGIN
+    assert skin.snapped(skin.HARMFUL_RGBA) == skin.HARMFUL_RGBA and skin.HARMFUL_RGBA[3] == 255
+    assert skin.HARMFUL_BAR_WIDTH == 5
+    # Within the slot, which the client puts at SLOT_X: level with the icon, a padding after it and a padding
+    # before the name.
+    bar = (skin.HARMFUL_BAR_X - skin.SLOT_X, skin.ROW_ICON_MARGIN, skin.HARMFUL_BAR_WIDTH, skin.ROW_ICON)
     for x in range(skin.SLOT_WIDTH):
         for y in range(skin.ROW_HEIGHT):
-            inside = mark[0] <= x < mark[0] + mark[2]
+            inside = bar[0] <= x < bar[0] + bar[2] and bar[1] <= y < bar[1] + bar[3]
             assert red.getpixel((x, y)) == (skin.HARMFUL_RGBA if inside else skin.CLEAR), (x, y)
-    # In the window, the square starts a margin before the icon: the icon sits centered in it.
-    assert skin.LEFT + skin.HARMFUL_MARK_X == skin.ROW_ICON_X - skin.ROW_ICON_MARGIN
+    icon_end = skin.ROW_ICON_X + skin.ROW_ICON
+    assert skin.SLOT_X + bar[0] - icon_end == skin.ROW_NAME_X - (skin.SLOT_X + bar[0] + bar[2]) == skin.PADDING
     # Only those two: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1
