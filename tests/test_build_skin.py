@@ -100,13 +100,13 @@ def direct_pieces(root, window):
     return [defined[p.text] for p in window.findall('Pieces')]
 
 
-def assemble(width, height, template=skin.FRAME_TEMPLATE):
+def assemble(width, height):
     """A window frame as the client draws it: the frame template's border pieces cut from the TGA, corners
     in the corners, sides repeated along the edges, and the background texture repeated inside."""
     root = parse(skin.ANIMATIONS_FILE)
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
-    border = items(root, 'WindowDrawTemplate')[template].find('Border')
+    border = items(root, 'WindowDrawTemplate')[skin.FRAME_TEMPLATE].find('Border')
 
     def piece(side):
         return cut(atlas, anims[border.find(side).text])
@@ -440,8 +440,7 @@ def test_every_reference_resolves():
     anims = items(root, 'Ui2DAnimation')
     textures = items(root, 'TextureInfo')
     template = items(root, 'WindowDrawTemplate')[skin.FRAME_TEMPLATE]
-    references = [e.text for name in (skin.FRAME_TEMPLATE, skin.ALERT_TEMPLATE)
-                  for e in items(root, 'WindowDrawTemplate')[name].find('Border') if not e.tag.startswith('Overlap')]
+    references = [e.text for e in template.find('Border') if not e.tag.startswith('Overlap')]
     references += [e.text for tag in ('GaugeDrawTemplate', 'ButtonDrawTemplate', 'SpellGemDrawTemplate')
                    for t in root.iter(tag) for e in t]
     # The Actions window's tab and page borders, and its tabs' icons.
@@ -475,7 +474,7 @@ def test_every_reference_resolves():
     # Everything a window, its clips or its tab pages show is defined earlier in the window's own file.
     for name in skin.WINDOW_FILES:
         file_root, window = screen(name)
-        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.ALERT_TEMPLATE)
+        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE)
         defined = set()
         for element in file_root:
             for piece in element.findall('Pieces') + element.findall('Pages'):
@@ -500,7 +499,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
-                               skin.ALERT_TEMPLATE, *skin.REPLACED_ANIMATIONS}
+                               *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
 
@@ -2379,31 +2378,14 @@ def test_merchant_name_is_hidden_but_still_there():
 
 def test_confirmation_dialog_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the text and the three buttons. default's static Text1 is in no skin's window and not in
-    # eqgame.exe, so it's left out. As wide as the window selector (the user's pick), with no title bar.
+    # eqgame.exe, so it's left out. As wide as the window selector (the user's pick), with no title bar, and the
+    # other windows' frame: a red edge was tried and removed (the user).
     root, window = check_inside_frame(skin.CONFIRM_FILE, skin.CONFIRM_WIDTH)
     assert window.get('item') == 'ConfirmationDialogBox' and window.find('Text') is None
-    assert window.findtext('Style_Sizable') == 'false'
+    assert window.findtext('Style_Sizable') == 'false' and window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
     assert box(window)[2:] == (skin.SELECTOR_WIDTH, skin.CONFIRM_HEIGHT) == (262, 94)
     ids = [e.findtext('ScreenID') for e in direct_pieces(root, window)]
     assert ids == ['TextOutput', 'Yes_Button', 'No_Button', 'OK_Button']
-
-
-@pytest.mark.parametrize('size', [(9, 9), (37, 23), (262, 94)])
-def test_confirmation_dialog_is_the_panel_with_a_red_edge(size):
-    # "Confirmation boxes are important": the user asked for a thin red border. The panel's frame, its 1px edge
-    # line in the red of the harmful effects' bars instead of the faint white; the rest of the template is the
-    # other windows'.
-    root, window = screen(skin.CONFIRM_FILE)
-    assert window.findtext('DrawTemplate') == skin.ALERT_TEMPLATE
-    assert skin.ALERT_EDGE_RGBA == skin.HARMFUL_RGBA == (255, 68, 68, 255)
-    red = skin.panel_texture(*size, edge=skin.ALERT_EDGE_RGBA)
-    assert pixels(assemble(*size, skin.ALERT_TEMPLATE)) == pixels(as_image(skin.snapped_art(red)))
-    assert red.pixel(size[0] // 2, 0) == skin.ALERT_EDGE_RGBA  # solid red along the top, away from the corners
-    templates = items(parse(skin.ANIMATIONS_FILE), 'WindowDrawTemplate')
-    alert, plain = templates[skin.ALERT_TEMPLATE], templates[skin.FRAME_TEMPLATE]
-    assert [ET.tostring(e) for e in alert if e.tag != 'Border'] == [ET.tostring(e) for e in plain if e.tag != 'Border']
-    assert {e.text for e in alert.find('Border') if not e.tag.startswith('Overlap')} == {
-        f'TUI_AlertFrame{piece}' for piece in skin.BORDER_PIECES.values()}
 
 
 def test_confirmation_text_has_three_lines_with_a_dialogs_room_around_it():

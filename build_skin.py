@@ -896,18 +896,14 @@ MERCHANT_HEIGHT = 2 * BORDER + MERCHANT_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
 # (2026-09-27, from mockups): the window selector's width with room for three lines, where every common message
 # (about 45 to 100 characters, eqstr_en.txt) takes two and the Sacrifice warning three; Yes and No filling the row,
 # OK alone in the middle at their width. Then, since "confirmation boxes are important" (the user, the same day):
-# the Actions window's buttons, taller and with their names in the game's font 2, a red edge (ALERT_TEMPLATE), and
-# more room inside (DIALOG_PADDING).
+# the Actions window's buttons, taller and with their names in the game's font 2, and more room inside
+# (DIALOG_PADDING). A red edge came with them and went again at the user's request.
 CONFIRM_FILE = 'EQUI_ConfirmationDialog.xml'
 # Dialogs, windows with only text and buttons, keep two paddings from their edge to what's inside and between the
 # text and the buttons (the user asked for "better spacing for these type of dialog boxes" and picked 12 from
 # mockups); buttons side by side stay BUTTON_GAP apart. DIALOG_LEFT is that padding inside the frame.
 DIALOG_PADDING = 2 * PADDING
 DIALOG_LEFT = DIALOG_PADDING - BORDER
-# A dialog's frame: the panel's, its edge line the red of the harmful effects' bars rather than the faint white, so
-# the box reads as important (the user asked for "a thin red border").
-ALERT_TEMPLATE = 'WDT_TriageAlert'
-ALERT_EDGE_RGBA = HARMFUL_RGBA
 CONFIRM_WIDTH = SELECTOR_WIDTH
 CONFIRM_RIGHT = CONFIRM_WIDTH - 2 * BORDER - DIALOG_LEFT
 CONFIRM_CONTENT_WIDTH = CONFIRM_RIGHT - DIALOG_LEFT
@@ -1397,11 +1393,10 @@ def slot_icon_art(shape):
     return solid(art)
 
 
-def frame_pieces(edge=EDGE_FADED, name='Frame'):
-    """The window frame's eight pieces, cut from a panel just big enough to hold every corner, its edge line in
-    edge, each named name and its place (FrameTopLeft and so on)."""
+def frame_pieces():
+    """The window frame's eight pieces, cut from a panel just big enough to hold every corner."""
     size = 2 * BORDER + 1
-    panel = panel_texture(size, size, edge=edge)
+    panel = panel_texture(size, size)
     far = BORDER + 1
 
     def corner(x, y):
@@ -1414,9 +1409,9 @@ def frame_pieces(edge=EDGE_FADED, name='Frame'):
         return panel.crop(x, BORDER, BORDER, 1).repeated(BORDER, PIECE_LENGTH)
 
     return {
-        f'{name}TopLeft': corner(0, 0), f'{name}Top': across(0), f'{name}TopRight': corner(far, 0),
-        f'{name}Left': down(0), f'{name}Right': down(far),
-        f'{name}BottomLeft': corner(0, far), f'{name}Bottom': across(far), f'{name}BottomRight': corner(far, far),
+        'FrameTopLeft': corner(0, 0), 'FrameTop': across(0), 'FrameTopRight': corner(far, 0),
+        'FrameLeft': down(0), 'FrameRight': down(far),
+        'FrameBottomLeft': corner(0, far), 'FrameBottom': across(far), 'FrameBottomRight': corner(far, far),
     }
 
 
@@ -1510,7 +1505,6 @@ def pieces():
     icons['Book'] = (icon_coverage(book_icon), BOOK_WIDTH, TOGGLE_SIZE)  # the spell bar's wide book button
     return {
         **frame_pieces(),
-        **frame_pieces(ALERT_EDGE_RGBA, 'AlertFrame'),  # a dialog's, its edge in red (see ALERT_TEMPLATE)
         'TwinTrack': Texture(TWIN_BAR_WIDTH, TWIN_BAR_HEIGHT, EDGE_FADED),
         'TwinFill': Texture(TWIN_BAR_WIDTH, TWIN_BAR_HEIGHT, BAR_FILL),
         'CastTrack': Texture(CAST_BAR_WIDTH, TWIN_BAR_HEIGHT, EDGE_FADED),
@@ -1683,13 +1677,13 @@ def scrollbar():
     ])
 
 
-def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None, title=None, frame='Frame'):
+def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None, title=None):
     """The overlay's panel as a window frame, with our slim scrollbar. The horizontal scrollbar and title
-    boxes, which no TriageUI window shows, keep the base skin's look. frame names the rounded border's pieces
-    (see frame_pieces()). edge, when given, is the animation for every side and corner of the border instead
-    of the panel's rounded one. title, when given, is the animation for the title bar's left, middle and right
-    (the chat windows' thin bar); otherwise the stock rounded title bar, which no other TriageUI window shows."""
-    border = {side: edge or f'TUI_{frame}{piece}' for side, piece in BORDER_PIECES.items()}
+    boxes, which no TriageUI window shows, keep the base skin's look. edge, when given, is the animation
+    for every side and corner of the border instead of the panel's rounded one. title, when given, is
+    the animation for the title bar's left, middle and right (the chat windows' thin bar); otherwise the
+    stock rounded title bar, which no other TriageUI window shows."""
+    border = {side: edge or f'TUI_Frame{piece}' for side, piece in BORDER_PIECES.items()}
     title_bar = {side: title or f'A_RoundedFrameTitle{side}' for side in ('Right', 'Left', 'Middle')}
     return node('WindowDrawTemplate', [
         node('Background', background),
@@ -1723,8 +1717,6 @@ def shared_definitions(rects):
         frame_template(),
         # The chat windows' frame: the same, with the thin title bar to drag them by (see TITLE_HEIGHT).
         frame_template(CHAT_TEMPLATE, title='TUI_TitleBar'),
-        # A dialog's frame: the same, its edge line red (see ALERT_TEMPLATE).
-        frame_template(ALERT_TEMPLATE, frame='AlertFrame'),
         # The chat input's field: a plain strip darker than the panel, outlined by a 1px line in the
         # window edge's color, a faint light line against both the field and the panel around it.
         frame_template(FIELD_TEMPLATE, FIELD_TEXTURE, edge='TUI_FieldEdge'),
@@ -2643,8 +2635,8 @@ def merchant_window():
 
 
 def confirmation_dialog():
-    """The question or notice in up to three lines, with Yes and No under it, or OK alone in the middle, in a red
-    edged frame with a dialog's room inside (see CONFIRM_FILE)."""
+    """The question or notice in up to three lines, with Yes and No under it, or OK alone in the middle, with a
+    dialog's room inside (see CONFIRM_FILE)."""
     # Straight on the panel, like the raid lists: a clear template and nothing of its own drawn. SIDL gives an
     # STMLbox no text color, so the text is in the client's.
     text = node('STMLbox', [
@@ -2664,8 +2656,7 @@ def confirmation_dialog():
                       font=ACTION_FONT, text=name)
                for screen_id, name, x, width in CONFIRM_BUTTONS]
     # No name of ours: the stock window has none, and no title bar shows one.
-    return window('ConfirmationDialogBox', None, CONFIRM_HEIGHT, [text, *buttons], width=CONFIRM_WIDTH,
-                  template=ALERT_TEMPLATE)
+    return window('ConfirmationDialogBox', None, CONFIRM_HEIGHT, [text, *buttons], width=CONFIRM_WIDTH)
 
 
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
