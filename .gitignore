@@ -10,6 +10,7 @@ venv/
 
 # Local notes for Claude Code, not published
 CLAUDE.md
+notes/
 
 # macOS metadata, including the ._ files it writes on network shares
 .DS_Store

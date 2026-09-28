@@ -960,6 +960,40 @@ CLOSE_CLEAR = PADDING - BORDER - CLOSE_BOX_TOP
 # The bar: the Close button, a padding under it, then the divider as the bar's bottom row.
 ITEM_TITLE_HEIGHT = CLOSE_BOX_TOP + CLOSE_CLEAR + BUTTON_HEIGHT + PADDING + DIVIDER_HEIGHT
 ITEM_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + ITEM_TEXT_TOP + ITEM_TEXT_LINES * TEXT_HEIGHT + LEFT
+# The quantity window: what the game asks with when you pick up part of a stack or of your coins. From eqgame.exe
+# (CQuantityWnd, 0x42F1A0): it looks up the slider, the number field and Accept, nothing else, and uses the first two
+# unchecked, so both must be there. Each time it opens it sets the slider from 0 to the stack's size and the number
+# to the whole stack, puts the window's top left on the middle of the slot you clicked (kept on the screen at the
+# right and bottom), and leaves the caret after the number, so what you type is added to it. The field takes only
+# digits and caps the number at the stack; Enter or Accept takes it. It never moves or resizes anything inside. The
+# user's picks (2026-09-28, from mockups): the stock arrangement, the slider across the window over the field and
+# Accept side by side; the slider a knob on the bars' faint track; a dialog's room inside (DIALOG_PADDING). As wide as
+# the hot button window, like the other small windows.
+QUANTITY_FILE = 'EQUI_QuantityWnd.xml'
+QUANTITY_WIDTH = HOT_WIDTH
+QUANTITY_RIGHT = QUANTITY_WIDTH - 2 * BORDER - DIALOG_LEFT
+QUANTITY_CONTENT_WIDTH = QUANTITY_RIGHT - DIALOG_LEFT
+# The slider, from eqgame.exe (CSliderWnd, 0x5A69D0): its template's background is stretched between the end caps,
+# which sit at the slider's left and right edges at their own size, all three centered down the slider by the
+# background's height. The knob (Thumb, drawn at its Normal art's size) has its top level with the background's, and
+# its left edge goes from the left cap's width (at 0) to the slider's width less the right cap's (at the most). So the
+# left cap has no width and the right cap is as wide as the knob, which just fits at either end, and the background
+# is the rest of the slider, so it's drawn at its own size. All three are as tall as the knob, with the track's line
+# across their middle. A click on the track, or a drag, puts the knob's left edge at the pointer.
+SLIDER_TEMPLATE = 'TUI_Slider'
+SLIDER_KNOB_WIDTH = 10
+SLIDER_HEIGHT = 15  # the knob's, odd so the 3px track centers on it
+SLIDER_TRACK_TOP = (SLIDER_HEIGHT - TWIN_BAR_HEIGHT) // 2
+QUANTITY_SLIDER_TOP = DIALOG_LEFT
+# The number field (the chat input's strip) and Accept (the confirmation dialog's buttons) share the row a dialog
+# padding under the knob, each half of it.
+QUANTITY_ROW_TOP = QUANTITY_SLIDER_TOP + SLIDER_HEIGHT + DIALOG_PADDING
+QUANTITY_ROW_WIDTHS = ((QUANTITY_CONTENT_WIDTH - BUTTON_GAP) // 2,
+                       QUANTITY_CONTENT_WIDTH - BUTTON_GAP - (QUANTITY_CONTENT_WIDTH - BUTTON_GAP) // 2)
+QUANTITY_ACCEPT_X = QUANTITY_RIGHT - QUANTITY_ROW_WIDTHS[1]
+_size = (QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT)  # no label of ours: the button's text is its name
+BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('',)
+QUANTITY_HEIGHT = 2 * BORDER + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1518,6 +1552,15 @@ def harmful_row():
     return row
 
 
+def slider_track(width):
+    """A stretch of the slider's track (see SLIDER_TEMPLATE): the bars' faint track as a line across the middle of the
+    knob's height, clear above and below."""
+    track = clear_texture(width, SLIDER_HEIGHT)
+    for y in range(SLIDER_TRACK_TOP, SLIDER_TRACK_TOP + TWIN_BAR_HEIGHT):
+        track.rows[y] = [EDGE_FADED] * width
+    return track
+
+
 def title_piece(height=TITLE_HEIGHT):
     """A title bar: the panel's color with a row divider along its bottom, height tall (a chat window's
     TITLE_HEIGHT unless given). The one piece serves as the bar's left, middle and right, repeated across."""
@@ -1584,6 +1627,12 @@ def pieces():
         **{f'HotSlot{name}': slot_icon_art(shape) for name, shape in SLOT_ICONS.items()},
         **{f'ToggleHot{name}{state}': solid(toggle_art(icons[name][0], state, ARROW_SIZE, HOT_SIZE))
            for name in ARROW_ICONS for state in ICON_LOOKS},
+        # The quantity window's slider (see SLIDER_TEMPLATE): the knob in the buttons' looks, solid so the track
+        # doesn't show through it, and the track on the background and the right end cap.
+        **{f'SliderKnob{state}': solid(labeled_button_art(SLIDER_KNOB_WIDTH, SLIDER_HEIGHT, '', state))
+           for state in BUTTON_LOOKS},
+        'SliderTrack': slider_track(QUANTITY_CONTENT_WIDTH - SLIDER_KNOB_WIDTH),
+        'SliderCapRight': slider_track(SLIDER_KNOB_WIDTH),
         'TitleBar': title_piece(),
         'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
         **{f'ItemClose{state}': close_box_art(state) for state in BUTTON_LOOKS},
@@ -1762,6 +1811,8 @@ def shared_definitions(rects):
         # rows the slot's size, a harmful one with its red bars (see HELPFUL_RGBA and HARMFUL_RGBA).
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
+        # The slider's left end cap, with no width (see SLIDER_TEMPLATE): the client draws one, so it must be there.
+        animation('TUI_SliderCapLeft', PIECES_TEXTURE, (*rects['SliderCapRight'][:2], 0, SLIDER_HEIGHT)),
         frame_template(),
         # The chat windows' frame: the same, with the thin title bar to drag them by (see TITLE_HEIGHT).
         frame_template(CHAT_TEMPLATE, title='TUI_TitleBar'),
@@ -1783,6 +1834,13 @@ def shared_definitions(rects):
         # A list column's heading strip (see LIST_HEADER).
         node('FrameTemplate', [node(side, 'TUI_ListHeaderWash') for side in ('Left', 'Middle', 'Right')] + overlaps(),
              LIST_HEADER),
+        # The quantity window's slider: the knob in every state, the track and its end caps (see SLIDER_TEMPLATE).
+        node('SliderDrawTemplate', [
+            node('Thumb', [node(state, f'TUI_SliderKnob{BUTTON_ART[state]}') for state in BUTTON_STATES]),
+            node('Background', 'TUI_SliderTrack'),
+            node('EndCapRight', 'TUI_SliderCapRight'),
+            node('EndCapLeft', 'TUI_SliderCapLeft'),
+        ], SLIDER_TEMPLATE),
     ]
 
 
@@ -2750,12 +2808,51 @@ def item_display_window():
                   font=TEXT_FONT, close_box=True)
 
 
+def quantity_window():
+    """How many of a stack to take: the slider across the window, and under it the number field and Accept side by
+    side, with a dialog's room inside (see QUANTITY_FILE)."""
+    slider = node('Slider', [
+        node('ScreenID', 'QTYW_Slider'),
+        node('RelativePosition', True),
+        point('Location', DIALOG_LEFT, QUANTITY_SLIDER_TOP),
+        size(QUANTITY_CONTENT_WIDTH, SLIDER_HEIGHT),
+        node('SliderArt', SLIDER_TEMPLATE),
+    ], 'TUI_QTYW_Slider')
+    # The field as the chat input's: a child window drawing the strip, and the see-through number box on it, inset
+    # FIELD_PADDING each side.
+    width = QUANTITY_ROW_WIDTHS[0]
+    strip = node('Screen', [
+        node('RelativePosition', True),
+        point('Location', DIALOG_LEFT, QUANTITY_ROW_TOP),
+        size(width, INPUT_HEIGHT),
+        node('DrawTemplate', FIELD_TEMPLATE),
+        node('Style_Transparent', False),
+        node('Style_Border', True),
+    ], 'TUI_QTYW_Field')
+    number = node('Editbox', [
+        node('ScreenID', 'QTYW_SliderInput'),
+        node('Font', TEXT_FONT),
+        node('DrawTemplate', EDIT_TEMPLATE),
+        node('RelativePosition', True),
+        point('Location', DIALOG_LEFT + FIELD_PADDING, QUANTITY_ROW_TOP),
+        size(width - 2 * FIELD_PADDING, INPUT_HEIGHT),
+        node('Style_Border', False),
+        node('Style_Transparent', True),
+        color('TextColor', TEXT_RGB),
+    ], 'TUI_QTYW_SliderInput')
+    # The confirmation dialog's button: its name its own text, in the Actions window's font.
+    accept = button('TUI_QTYW_Accept_Button', 'QTYW_Accept_Button', '', QUANTITY_ACCEPT_X, QUANTITY_ROW_TOP,
+                    QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Accept')
+    return window('QuantityWnd', 'Quantity', QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
-                MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window}
+                MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
+                QUANTITY_FILE: quantity_window}
 
 
 def stranded_definitions(skin_xml):

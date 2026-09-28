@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · by 
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs and player windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player and quantity windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with the item's name on the item window. Drag a window by its background to move it, and a chat or item window by the strip along its top.
 
@@ -111,6 +111,12 @@ Both windows share the game's blue and red effect backgrounds with a few other w
 
 The box that asks before something happens, such as a resurrection, looting a no-drop item, destroying an item or a translocation. Since these matter, it has twice the usual room inside, around the question and above and below the buttons. The question sits straight on the panel, with room for three lines, and **Yes** and **No** side by side under it, as big as the actions window's buttons and with their names in the same small font. A notice gets **OK** alone, in the middle. It's as wide as the window selector, so most questions fit on two lines. The game puts it in the middle of the screen. For a question with a time limit, such as a resurrection, Zeal shows the time left at its top right corner.
 
+## The quantity window
+
+What EverQuest asks when you pick up part of a stack, or some of your coins. A slider runs across the top: a small knob on a faint line, which you drag, or click anywhere on the line to jump there. Under it, the number and **Accept** side by side. Like the confirmation dialog, it has twice the usual room inside. It's as wide as the hot button window, and the game opens it at the slot you clicked, with the whole stack filled in.
+
+The number takes digits only. What you type is added after the number that's there, so delete it first (Backspace) to type a new one. Press Enter or click **Accept** to take that many. There's no title bar or close box: drag the window by its background, and press Esc to close it.
+
 ## Install
 
 1. **Install Python 3** on Windows from [python.org](https://www.python.org/downloads/) if you don't have it. Nothing else is needed.
@@ -154,7 +160,7 @@ The box that asks before something happens, such as a resurrection, looting a no
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
-- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow` or `TUI_` are about TriageUI.
+- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 

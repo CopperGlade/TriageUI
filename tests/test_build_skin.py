@@ -28,7 +28,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
-              skin.CONFIRM_FILE, skin.ITEM_FILE]
+              skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE]
 
 
 @functools.cache
@@ -256,6 +256,8 @@ def test_atlas_pieces_fit_without_overlap_and_repeat_their_edges_outward():
             continue
         x, y, w, h = rect_of(anim)
         assert 1 <= x and x + w + 1 <= atlas.width and 1 <= y and y + h + 1 <= atlas.height
+        if w == 0:
+            continue  # draws nothing, so it has no cell of its own (the slider's left end cap)
         cells.append((x - 1, y - 1, x + w + 1, y + h + 1))
         for mx in range(x - 1, x + w + 1):
             for my in range(y - 1, y + h + 1):
@@ -455,6 +457,12 @@ def test_every_reference_resolves():
     # The raid window's list column headings.
     headers = {e.text for e in root.iter('Header')}
     assert headers and headers <= set(frames)
+    # The quantity window's slider: its template, and the knob in every state, its track and end caps.
+    sliders = items(root, 'SliderDrawTemplate')
+    assert {e.findtext('SliderArt') for e in root.iter('Slider')} == {skin.SLIDER_TEMPLATE} <= set(sliders)
+    for t in sliders.values():
+        references += [e.text for e in t.find('Thumb')]
+        references += [t.findtext(part) for part in ('Background', 'EndCapRight', 'EndCapLeft')]
     # The spell and item icons are the stock ones (see the stock names test).
     stock = {skin.BUFF_ICONS, skin.ITEM_ICONS}
     for name in set(references) - stock:
@@ -495,7 +503,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
-                     'ConfirmationDialogBox', 'ItemDisplayWindow'}
+                     'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -2539,6 +2547,97 @@ def test_item_icon_and_text_take_what_the_game_puts_there():
     assert text.findtext('Style_Transparent') == 'true' and text.findtext('Style_Border') == 'false'
     assert text.findtext('Style_VScroll') == 'true' and text.findtext('Style_HScroll') == 'false'
     assert text.find('Text') is None and text.find('TextColor') is None
+
+
+def quantity_parts():
+    root, window = screen(skin.QUANTITY_FILE)
+    return root, window, direct_pieces(root, window)
+
+
+def test_quantity_window_keeps_every_control_the_client_looks_for():
+    # eqgame.exe looks up the slider, the number field and Accept, and uses the first two unchecked: a missing one
+    # would crash the game. The field's strip is ours, with no ScreenID. As wide as the hot button window, with no
+    # title bar (it drags by its background, and Esc closes it).
+    root, window = check_inside_frame(skin.QUANTITY_FILE, skin.QUANTITY_WIDTH)
+    assert window.get('item') == 'QuantityWnd' and window.findtext('Text') == 'Quantity'
+    assert window.findtext('Style_Sizable') == 'false' and window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.HOT_WIDTH, skin.QUANTITY_HEIGHT) == (174, 71)
+    _, _, pieces = quantity_parts()
+    assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
+        ('Slider', 'QTYW_Slider'), ('Screen', None), ('Editbox', 'QTYW_SliderInput'), ('Button', 'QTYW_Accept_Button')]
+
+
+def test_quantity_window_has_a_dialogs_room_around_the_slider_and_the_row_under_it():
+    # The user picked the dialog padding: the knob two paddings from the window's top edge, the row under it two
+    # paddings further down, and the window's edge two paddings under the row. The slider spans the row, and the field
+    # and Accept each take half of it, a padding apart.
+    _, window, (slider, strip, number_box, accept) = quantity_parts()
+    edge = skin.BORDER
+    sx, sy, sw, sh = box(slider)
+    assert edge + sx == edge + sy == skin.DIALOG_PADDING and sx + sw == skin.QUANTITY_RIGHT
+    assert sh == skin.SLIDER_HEIGHT  # the knob's height: the slider shows nothing above or below it
+    fx, fy, fw, fh = box(strip)
+    ax, ay, aw, ah = box(accept)
+    assert fy == ay == sy + sh + skin.DIALOG_PADDING
+    assert fx == skin.DIALOG_LEFT and fx + fw + skin.BUTTON_GAP == ax and ax + aw == skin.QUANTITY_RIGHT
+    assert fw == aw == 72 and fh == ah == skin.INPUT_HEIGHT == skin.TEXT_BUTTON_HEIGHT
+    assert box(window)[3] - edge - (ay + ah) == skin.DIALOG_PADDING
+
+
+def test_quantity_slider_is_a_knob_on_the_bars_faint_track():
+    # From eqgame.exe: the knob's left edge goes from the left cap's width to the slider's width less the right cap's,
+    # and its top is the track's. So the left cap has no width and the right cap is the knob's, which keeps the knob
+    # inside the slider at both ends; the track fills the rest, drawn at its own size (the client stretches it to that
+    # width). Each is as tall as the knob, with the bars' faint 3px track across its middle.
+    root = everything()
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(root, 'Ui2DAnimation')
+    template = items(root, 'SliderDrawTemplate')[skin.SLIDER_TEMPLATE]
+    knob = template.find('Thumb')
+    assert [e.tag for e in knob] == list(skin.BUTTON_STATES)
+    assert [e.text for e in knob] == [f'TUI_SliderKnob{skin.BUTTON_ART[s]}' for s in skin.BUTTON_STATES]
+    _, _, (slider, *_) = quantity_parts()
+    width, height = box(slider)[2:]
+    track, right, left = (anims[template.findtext(part)] for part in ('Background', 'EndCapRight', 'EndCapLeft'))
+    assert rect_of(left)[2:] == (0, height)
+    assert rect_of(right)[2:] == (skin.SLIDER_KNOB_WIDTH, height)
+    assert rect_of(track)[2:] == (width - skin.SLIDER_KNOB_WIDTH, height)
+    clear = [(255, 255, 255, 0)] * skin.SLIDER_TRACK_TOP
+    column = clear + [skin.EDGE_FADED] * skin.TWIN_BAR_HEIGHT + clear  # centered on the knob
+    assert len(column) == height
+    for piece in (track, right):
+        image = cut(atlas, piece)
+        for x in range(image.width):
+            assert [image.getpixel((x, y)) for y in range(height)] == column
+    # The knob is a small button in the buttons' looks: the wash at rest, slate when pointed at, darker while
+    # dragged, and solid in every state, so the track never shows through it.
+    art = {state: cut(atlas, anims[f'TUI_SliderKnob{state}']) for state in skin.BUTTON_LOOKS}
+    for state, image in art.items():
+        assert image.size == (skin.SLIDER_KNOB_WIDTH, height)
+        assert {a for *_, a in pixels(image)} == {255}, state
+    middle = (skin.SLIDER_KNOB_WIDTH // 2, height // 2)
+    assert art['Normal'].getpixel(middle) == skin.snapped(skin.over(skin.BUTTON_LOOKS['Normal'][0], 1, skin.PANEL_RGBA))
+    assert art['Flyby'].getpixel(middle) == skin.BUTTON_LOOKS['Flyby'][0]
+    assert sum(art['Pressed'].getpixel(middle)[:3]) < sum(art['Flyby'].getpixel(middle)[:3])
+
+
+def test_quantity_field_is_the_chat_inputs_strip_and_accept_the_dialogs_button():
+    # The number sits on the chat input's strip, inset as far as there, in the text's color; the box itself draws
+    # nothing. Accept is the confirmation dialog's button: its name its own text in the Actions window's font, over the
+    # plain wash, with no tooltip (the stock one has none).
+    _, _, (slider, strip, number_box, accept) = quantity_parts()
+    assert strip.findtext('DrawTemplate') == skin.FIELD_TEMPLATE and strip.findtext('Style_Border') == 'true'
+    fx, fy, fw, fh = box(strip)
+    assert box(number_box) == (fx + skin.FIELD_PADDING, fy, fw - 2 * skin.FIELD_PADDING, fh)
+    assert number_box.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+    assert number_box.findtext('Style_Transparent') == 'true' and number_box.findtext('Style_Border') == 'false'
+    assert number_box.findtext('Font') == str(skin.TEXT_FONT) and rgb(number_box, 'TextColor') == skin.TEXT_RGB
+    confirm_yes = {e.findtext('ScreenID'): e for e in parse(skin.CONFIRM_FILE).iter('Button')}['Yes_Button']
+    assert accept.findtext('Text') == 'Accept' and accept.find('TooltipReference') is None
+    assert accept.findtext('Font') == confirm_yes.findtext('Font') == str(skin.ACTION_FONT)
+    assert rgb(accept, 'TextColor') == rgb(confirm_yes, 'TextColor') == skin.TEXT_RGB
+    assert box(accept)[3] == box(confirm_yes)[3]
+    assert accept.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(accept)[2:], "", "Normal")}'
 
 
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
