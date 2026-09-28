@@ -240,15 +240,20 @@ LABEL_GLYPHS = {
     'B': ('####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'),
     'C': ('.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'),
     'D':('####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.'),
+    # 5 wide, unlike F: the compass's N, E, S and W all are, so each label centers exactly on its mark (see
+    # COMPASS_MARKS).
+    'E': ('#####', '#....', '#....', '####.', '#....', '#....', '#####'),
     'F': ('####', '#...', '#...', '###.', '#...', '#...', '#...'),
     'G': ('.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'),
     'I': ('#', '#', '#', '#', '#', '#', '#'),
     'L': ('#...', '#...', '#...', '#...', '#...', '#...', '####'),
     'M': ('#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'),
+    'N': ('#...#', '##..#', '#.#.#', '#.#.#', '#..##', '#...#', '#...#'),
     'O': ('.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'),
     'R': ('####.', '#...#', '#...#', '####.', '#.#..', '#..#.', '#...#'),
     'S': ('.###.', '#...#', '#....', '.###.', '....#', '#...#', '.###.'),
     'T': ('#####', '..#..', '..#..', '..#..', '..#..', '..#..', '..#..'),
+    'W': ('#...#', '#...#', '#...#', '#.#.#', '#.#.#', '##.##', '#...#'),  # M upside down
     'a': ('....', '....', '.##.', '...#', '.###', '#..#', '.###'),
     'b': ('#...', '#...', '###.', '#..#', '#..#', '#..#', '###.'),
     'c': ('...', '...', '.##', '#..', '#..', '#..', '.##'),
@@ -1105,6 +1110,37 @@ for _screen_id, _label, _column in LOOT_BUTTONS:
     _size = (LOOT_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
     BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
 LOOT_HEIGHT = 2 * BORDER + LOOT_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
+# The compass: two copies of a strip of directions (CompassStrip1 and 2) that the game slides sideways as you turn,
+# under an overlay (CompassOverlay) drawn last, all three StaticAnimations the client looks up by ScreenID. Every
+# skin keeps the stock strip's 180px, half a pixel a degree, and the marks where the stock art has them: north at
+# column 146 (E 11, S 56, W 101), which the game lines up with the stock overlay's pointer at column 49 across the
+# inside. The window is the stock one's 106 wide, so however the game works out that line-up, it holds (a 107 wide
+# window, which would center the pointer, might put it a pixel off). The user's picks (2026-09-28, from mockups):
+# the stock scale, eight directions lettered, north and the pointer in the casting window's soft red.
+COMPASS_FILE = 'EQUI_CompassWnd.xml'
+COMPASS_STRIPS = ('CompassStrip1', 'CompassStrip2')
+COMPASS_STRIP_WIDTH = 180
+COMPASS_NORTH_X = 146
+COMPASS_POINTER_X = 49
+COMPASS_WIDTH = 106
+COMPASS_INSIDE_WIDTH = COMPASS_WIDTH - 2 * BORDER
+COMPASS_TICK_STEP = COMPASS_STRIP_WIDTH * 10 // 360  # a tick every 10°, as on the stock strip
+COMPASS_TICK_HEIGHT = 2
+COMPASS_TICKS_HEIGHT = 5  # the tick row: the cardinal ticks and the pointer are this tall
+# The letters' ink a padding under the window's edge (our lettering's ink starts at its top), the tick row a padding
+# under them, and the edge a padding under that.
+COMPASS_LETTERS_TOP = LEFT
+COMPASS_TICKS_TOP = COMPASS_LETTERS_TOP + LABEL_HEIGHT + PADDING
+COMPASS_INSIDE_HEIGHT = COMPASS_TICKS_TOP + COMPASS_TICKS_HEIGHT + LEFT
+COMPASS_HEIGHT = COMPASS_INSIDE_HEIGHT + 2 * BORDER
+# The overlay hides the strip within the window's padding and fades it in over this much more, so letters slide in and
+# out softly instead of being cut off.
+COMPASS_FADE = PADDING
+COMPASS_NORTH_RGB = SPELL_RGB
+# (label, degrees clockwise from north, color). With every capital 5 wide, a cardinal's label is centered on its tick's
+# column and an intercardinal's (12 wide) on the line between two columns, where a half-degree-a-pixel strip puts it.
+COMPASS_MARKS = (('N', 0, COMPASS_NORTH_RGB), ('NE', 45, PET_RGB), ('E', 90, TEXT_RGB), ('SE', 135, PET_RGB),
+                 ('S', 180, TEXT_RGB), ('SW', 225, PET_RGB), ('W', 270, TEXT_RGB), ('NW', 315, PET_RGB))
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1695,6 +1731,47 @@ def close_box_art(state):
     return art
 
 
+def compass_mark_center(degrees):
+    """Where a heading falls across the compass strip, from its left edge, a pixel column's middle being its index + 0.5
+    (see COMPASS_FILE)."""
+    return (COMPASS_NORTH_X + 0.5 + degrees * COMPASS_STRIP_WIDTH / 360) % COMPASS_STRIP_WIDTH
+
+
+def compass_strip():
+    """The compass's strip, the inside's height, clear but for its marks: a faint tick every 10° along the bottom of the
+    tick row, a taller one in the text's color under N, E, S and W, and each direction's label centered over its
+    heading (see COMPASS_MARKS). The game draws two copies end to end, so the ticks keep their spacing across the ends."""
+    strip = clear_texture(COMPASS_STRIP_WIDTH, COMPASS_INSIDE_HEIGHT)
+    ticks_bottom = COMPASS_TICKS_TOP + COMPASS_TICKS_HEIGHT
+    for x in range(COMPASS_NORTH_X % COMPASS_TICK_STEP, COMPASS_STRIP_WIDTH, COMPASS_TICK_STEP):
+        for y in range(ticks_bottom - COMPASS_TICK_HEIGHT, ticks_bottom):
+            strip.rows[y][x] = EDGE_FADED
+    for label, degrees, rgb in COMPASS_MARKS:
+        center = compass_mark_center(degrees)
+        width, ink = lettering(label)
+        left = int(center - width / 2)  # exact: see COMPASS_MARKS
+        for x, y in ink:
+            strip.rows[COMPASS_LETTERS_TOP + y][left + x] = (*rgb, 255)
+        if len(label) == 1:
+            for y in range(COMPASS_TICKS_TOP, ticks_bottom):
+                strip.rows[y][int(center)] = (*TEXT_RGB, 255)
+    return strip
+
+
+def compass_overlay():
+    """What the compass draws over its strip, the inside's size: the panel's color over the strip within the window's
+    padding each side, fading to clear over COMPASS_FADE more, and the soft red pointer line through the tick row at
+    COMPASS_POINTER_X. Clear elsewhere, in the panel's color like the fade, so filtering never lightens its end."""
+    overlay = Texture(COMPASS_INSIDE_WIDTH, COMPASS_INSIDE_HEIGHT, CLEAR)
+    for i in range(LEFT + COMPASS_FADE):
+        alpha = 255 if i < LEFT else round(255 * (LEFT + COMPASS_FADE - i) / (COMPASS_FADE + 1))
+        for row in overlay.rows:
+            row[i] = row[-1 - i] = (*PANEL_RGBA[:3], alpha)
+    for y in range(COMPASS_TICKS_TOP, COMPASS_TICKS_TOP + COMPASS_TICKS_HEIGHT):
+        overlay.rows[y][COMPASS_POINTER_X] = (*COMPASS_NORTH_RGB, 255)
+    return overlay
+
+
 def pieces():
     """Every piece of art the windows use, by name.
 
@@ -1766,6 +1843,9 @@ def pieces():
            for (*_, icon), width in zip(ACTIONS_PAGES, TAB_WIDTHS) for state in ('Normal', 'Pressed')},
         **{f'TabBorder{side}': clear_texture(*size) for side, size in TAB_BORDER_PIECES.items()},
         **{f'PageBorder{side}': clear_texture(*size) for side, size in PAGE_BORDER_PIECES.items()},
+        # The compass's strip, which the game slides, and what it draws over it (see COMPASS_FILE).
+        'CompassStrip': compass_strip(),
+        'CompassOverlay': compass_overlay(),
     }
 
 
@@ -2507,10 +2587,11 @@ def actions_window():
                   inner=inner)
 
 
-def picture(name, animation_name, rect):
-    """A still picture: not a control, so it never takes a click."""
+def picture(name, animation_name, rect, screen_id=None):
+    """A still picture: not a control, so it never takes a click. screen_id names one the client looks up (the
+    compass's)."""
     x, y, width, height = rect
-    return node('StaticAnimation', [
+    return node('StaticAnimation', ([node('ScreenID', screen_id)] if screen_id else []) + [
         node('RelativePosition', True),
         point('Location', x, y),
         size(width, height),
@@ -3081,6 +3162,17 @@ def loot_window():
     return window('LootWnd', 'Loot', LOOT_HEIGHT, [name, panel, *buttons], width=LOOT_WIDTH, inner=slots)
 
 
+def compass_window():
+    """The eight directions on a strip the game slides past a soft red pointer as you turn, in the stock window's
+    pieces and size (see COMPASS_FILE). The strips sit at the inside's left, as in the stock file, wider than the window:
+    the game moves them and draws only what's inside. Nothing in it takes a click, so it drags by any part."""
+    strips = [picture(f'TUI_Compass_Strip{n}', 'TUI_CompassStrip', (0, 0, COMPASS_STRIP_WIDTH, COMPASS_INSIDE_HEIGHT),
+                      screen_id) for n, screen_id in enumerate(COMPASS_STRIPS, 1)]
+    overlay = picture('TUI_Compass_Overlay', 'TUI_CompassOverlay', (0, 0, COMPASS_INSIDE_WIDTH, COMPASS_INSIDE_HEIGHT),
+                      'CompassOverlay')
+    return window('CompassWindow', None, COMPASS_HEIGHT, [*strips, overlay], width=COMPASS_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
@@ -3088,7 +3180,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
-                LOOT_FILE: loot_window}
+                LOOT_FILE: loot_window, COMPASS_FILE: compass_window}
 
 
 def stranded_definitions(skin_xml):

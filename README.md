@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give, trade and loot windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give, trade and loot windows, the spell bar, the confirmation dialog and the compass.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with the item's name on the item window. Drag a window by its background to move it, and a chat or item window by the strip along its top.
 
@@ -128,6 +128,10 @@ What opens when you trade with another player. What they offer is on the left, u
 ## The loot window
 
 What opens when you loot a corpse. The corpse's name is along the top. Under it, all 30 of its slots sit six to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Along the bottom are **Link All**, which puts a link to every item in your chat line, **Loot All**, which takes everything, and **Done**. Link All and Loot All are Zeal's, the same as `/linkall` and `/lootall`. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
+
+## The compass
+
+A strip of directions slides past a thin soft red line in the middle as you turn: the direction under the line is the way you face. **N**, **E**, **S** and **W** each have a taller tick under them, with **N** in the same soft red as the line, so north stands out, and **NE**, **SE**, **SW** and **NW** sit between them in grey. A faint tick marks every 10°. The strip moves at EverQuest's own scale, so about half the circle is in view, and it fades out toward the window's sides. It's the size of EverQuest's own compass, with no title bar: drag it by any part.
 
 ## Install
 

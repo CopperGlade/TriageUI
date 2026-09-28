@@ -30,6 +30,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Give | `EQUI_GiveWnd.xml` |
 | Trade | `EQUI_TradeWnd.xml` |
 | Loot | `EQUI_LootWnd.xml` |
+| Compass | `EQUI_CompassWnd.xml` |
 
 ## To do: everyday
 
@@ -42,7 +43,6 @@ Roughly in order of how much a player sees them.
 | Bank | `EQUI_BankWnd.xml` | duxaUI |
 | Inspect | `EQUI_InspectWnd.xml` | duxaUI |
 | Skills | `EQUI_SkillsWindow.xml` | duxaUI |
-| Compass | `EQUI_CompassWnd.xml` | duxaUI |
 | Tracking | `EQUI_TrackingWnd.xml` | duxaUI |
 | Raid Options | `EQUI_RaidOptionsWindow.xml` | duxaUI |
 | Friends | `EQUI_FriendsWnd.xml` | default |

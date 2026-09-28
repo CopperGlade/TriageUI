@@ -9,9 +9,9 @@ button in another state (Flyby, Pressed, Disabled). Item and spell icons come fr
 folder is found (EQ_DIR, C:\\QUARM or the Mac mount), grey squares otherwise.
 
 It draws what the XML says the way the client does: the frame, title bar and close box from the window's template,
-then each piece in order. A child Screen clips what it holds, anchored controls take their place from their
-anchors, and a TabBox is drawn once per page, stacked. The bag window is sized as the game sizes it, for the sample
-bag (BAG). Fonts are Arial stand-ins (12px for font 3, 10 for 2, 9 for 1). The samples show one state of each
+then each piece in order, clipped to the window's inside. A child Screen clips what it holds, anchored controls take
+their place from their anchors, and a TabBox is drawn once per page, stacked. The bag window is sized as the game
+sizes it, for the sample bag (BAG), and the compass's strips slid to the sample heading (HEADING). Fonts are Arial stand-ins (12px for font 3, 10 for 2, 9 for 1). The samples show one state of each
 window: edit them at the top of this file to check another (the OK-only dialog, a smaller bag).
 
 The builder's files are made in memory (no copy of the base skin) and kept in the output folder until
@@ -113,6 +113,7 @@ SLIDER = (12, 20)  # value, most
 ITEM_DECALS = {'IconButton', 'MW_SelectedItem'}  # decals the client fills with an item's icon, not a spell's
 HIDDEN = {'OK_Button'}  # what the client hides in the sample state: a Yes/No question shows no OK
 BAG = (10, True)  # slots, tradeskill: the game sizes the bag window around them
+HEADING = 20  # which way you face, degrees clockwise from north: the game slides the compass's strips to it
 
 
 def xml_root(data):
@@ -319,6 +320,8 @@ class Preview:
             x, y, w, h = place(element, *area)
             if w <= 0 or h <= 0 or element.findtext('ScreenID') in self.hidden:
                 continue  # hidden: the client finds it but nothing shows
+            if element.findtext('ScreenID') in skin.COMPASS_STRIPS:
+                x = self.strip_x(element.findtext('ScreenID'))
             if element.tag == 'Button':
                 if (x, y, w, h) in drawn:
                     continue  # a pair sharing a spot (Invite and Follow): the client shows one
@@ -336,10 +339,23 @@ class Preview:
         self.pieces(clip, [p.text for p in element.findall('Pieces')], defined, (0, 0), size, state, page)
         layer.alpha_composite(clip, at)
 
+    @staticmethod
+    def strip_x(screen_id):
+        """Where the game slides a compass strip for the sample heading, across the inside: the heading's mark on the
+        pointer, as the stock art lines them up (see COMPASS_FILE in build_skin.py), and the other copy on whichever
+        side covers the rest."""
+        mark = int(skin.COMPASS_NORTH_X + HEADING * skin.COMPASS_STRIP_WIDTH / 360) % skin.COMPASS_STRIP_WIDTH
+        first = skin.COMPASS_POINTER_X - mark
+        if screen_id == skin.COMPASS_STRIPS[0]:
+            return first
+        return first - skin.COMPASS_STRIP_WIDTH if first > 0 else first + skin.COMPASS_STRIP_WIDTH
+
     def draw_staticanimation(self, layer, element, at, size, *_):
         art = self.art(element.findtext('Animation'))
         if art is not None:
-            layer.alpha_composite(art if art.size == size else art.resize(size), at)
+            x, y = at  # a compass strip starts left of the inside: only what's inside is drawn
+            layer.alpha_composite(art if art.size == size else art.resize(size), (max(x, 0), max(y, 0)),
+                                  (max(-x, 0), max(-y, 0)))
 
     def draw_label(self, layer, element, at, size, *_):
         eq_type = element.findtext('EQType')
@@ -601,8 +617,10 @@ class Preview:
             bar = self.title_bar(image, window, template, edges, state) if flag(window, 'Style_Titlebar') else 0
             left, top, right, bottom = edges
             area = (width - left - right, height - top - bottom - bar)
-            self.pieces(image, [p.text for p in window.findall('Pieces')], defined, (left, top + bar), area,
-                        state, page)
+            # The client draws nothing outside the inside: the pieces go onto it, cut out with its panel, and back.
+            inside = image.crop((left, top + bar, left + area[0], top + bar + area[1]))
+            self.pieces(inside, [p.text for p in window.findall('Pieces')], defined, (0, 0), area, state, page)
+            image.paste(inside, (left, top + bar))
             images.append(image)
         return images
 

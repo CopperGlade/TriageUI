@@ -29,7 +29,8 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
-              skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE]
+              skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
+              skin.COMPASS_FILE]
 
 
 @functools.cache
@@ -504,7 +505,8 @@ def test_our_names_never_clash_with_the_stock_skin():
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
-                     'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd'}
+                     'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
+                     'CompassWindow'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -541,6 +543,8 @@ def check_inside_frame(name, expected_width=skin.WINDOW_WIDTH):
     for element in direct_pieces(root, window):
         if element.findtext('AutoStretch') == 'true':
             continue  # placed by its anchors, as the window's size comes out (see the bag window's tests)
+        if element.findtext('ScreenID') in skin.COMPASS_STRIPS:
+            continue  # wider than the window, as the stock ones: the game slides them and draws what's inside
         x, y, w, h = box(element)
         assert 0 <= x and x + w <= inner_width and 0 <= y and y + h <= inner_height, element.get('item')
     return root, window
@@ -2973,6 +2977,163 @@ def test_loot_name_and_buttons_take_what_the_game_and_zeal_put_there():
         ('LinkAllButton', 'Link All'), ('LootAllButton', 'Loot All'), ('DoneButton', 'Done')]
 
 
+def compass_parts():
+    root, window = screen(skin.COMPASS_FILE)
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+
+
+def compass_art(name):
+    """One of the compass's pieces of art, cut from the atlas."""
+    return cut(decode(files()[skin.PIECES_TEXTURE]), items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')[f'TUI_{name}'])
+
+
+def stock_compass():
+    """default's compass window file, and its strip's and overlay's art, or a skip without an EverQuest folder."""
+    for folder in EQ_DIRS:
+        default = Path(folder) / 'uifiles' / 'default'
+        if folder and (default / skin.COMPASS_FILE).is_file():
+            animations = (default / skin.ANIMATIONS_FILE).read_text(encoding='latin-1')
+            art = []
+            for name in ('A_CompassStrip', 'A_CompassOverlay'):
+                anim = ET.fromstring(re.search(rf'<Ui2DAnimation item\s*=\s*"{name}"\s*>.*?</Ui2DAnimation>',
+                                               animations, flags=re.S).group(0))
+                art.append(cut(Image.open(default / anim.findtext('Frames/Texture')).convert('RGBA'), anim))
+            return ET.fromstring((default / skin.COMPASS_FILE).read_bytes()), *art
+    pytest.skip('no EverQuest folder with uifiles/default here')
+
+
+def test_compass_window_keeps_every_control_the_client_looks_for():
+    # The client looks up the two strips it slides and the overlay over them, still pictures drawn in the stock order,
+    # the overlay last. With no title bar, close box or name, as in the stock window: nothing in it takes a click, so it
+    # drags by any part.
+    root, window = check_inside_frame(skin.COMPASS_FILE, skin.COMPASS_WIDTH)
+    assert window.get('item') == 'CompassWindow' and window.find('Text') is None
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.COMPASS_WIDTH, skin.COMPASS_HEIGHT) == (106, 30)
+    pieces = direct_pieces(root, window)
+    assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
+        ('StaticAnimation', 'CompassStrip1'), ('StaticAnimation', 'CompassStrip2'), ('StaticAnimation', 'CompassOverlay')]
+    # Both strips are the one strip, as wide as the game's, at the inside's left as in the stock file; the overlay covers
+    # the inside. Each is its art's size.
+    inside = (skin.COMPASS_INSIDE_WIDTH, skin.COMPASS_INSIDE_HEIGHT)
+    strip = (0, 0, skin.COMPASS_STRIP_WIDTH, inside[1])
+    assert [(box(e), e.findtext('Animation')) for e in pieces] == [
+        (strip, 'TUI_CompassStrip'), (strip, 'TUI_CompassStrip'), ((0, 0, *inside), 'TUI_CompassOverlay')]
+    assert compass_art('CompassStrip').size == strip[2:] and compass_art('CompassOverlay').size == inside
+
+
+def test_compass_marks_sit_where_the_stock_strip_has_them():
+    # The game lines the heading up with the pointer by where the stock art puts each mark, so ours are where the stock
+    # strip has them: a tick every 10°, the wider ones under E, S, W and N, across the strip's width; the pointer at
+    # the stock one's column (the tip of the notch hanging from the overlay's top edge); and the window the stock one's
+    # width, so its inside is too.
+    window_file, strip, overlay = stock_compass()
+    stock = {e.findtext('ScreenID'): e for e in window_file if e.tag == 'StaticAnimation'}
+    assert set(stock) == {*skin.COMPASS_STRIPS, 'CompassOverlay'}
+    assert {box(stock[screen_id])[2] for screen_id in skin.COMPASS_STRIPS} == {strip.width} == {skin.COMPASS_STRIP_WIDTH}
+    assert box(window_file[-1])[2] == skin.COMPASS_WIDTH
+    bottom = strip.height - 1
+    paper = strip.getpixel((0, bottom))
+    runs = []
+    for x in range(strip.width):
+        if sum(abs(a - b) for a, b in zip(strip.getpixel((x, bottom))[:3], paper[:3])) > 60:
+            if runs and runs[-1][1] == x - 1:
+                runs[-1][1] = x
+            else:
+                runs.append([x, x])
+    assert [(a + b) / 2 for a, b in runs] == list(range(skin.COMPASS_NORTH_X % skin.COMPASS_TICK_STEP,
+                                                       skin.COMPASS_STRIP_WIDTH, skin.COMPASS_TICK_STEP))
+    cardinals = {int(skin.compass_mark_center(degrees)) for label, degrees, _ in skin.COMPASS_MARKS if len(label) == 1}
+    assert {(a + b) // 2 for a, b in runs if b > a} == cardinals == {11, 56, 101, 146}
+    x, y = skin.COMPASS_POINTER_X, 0
+    while overlay.getpixel((x, y + 1))[3]:
+        y += 1
+    left, right = x, x
+    while overlay.getpixel((left - 1, y))[3]:
+        left -= 1
+    while overlay.getpixel((right + 1, y))[3]:
+        right += 1
+    assert y > skin.BORDER and (left, right) == (x - 1, x + 1)
+
+
+def test_compass_strip_is_a_tick_every_10_degrees_and_eight_labels_over_their_headings():
+    strip = compass_art('CompassStrip')
+    drawn = {(x, y): strip.getpixel((x, y)) for x in range(strip.width) for y in range(strip.height)
+             if strip.getpixel((x, y))[3]}
+    # Each heading half a pixel a degree from north's column (a column's middle is its index + 0.5): N, E, S and W on a
+    # column's middle, the others between two columns.
+    assert [(label, skin.compass_mark_center(degrees)) for label, degrees, _ in skin.COMPASS_MARKS] == [
+        ('N', 146.5), ('NE', 169), ('E', 11.5), ('SE', 34), ('S', 56.5), ('SW', 79), ('W', 101.5), ('NW', 124)]
+    # A faint tick every 10° along the bottom of the tick row, the bars' track color, and a taller one in the text's
+    # color under N, E, S and W; they stay 5px apart across the strip's ends, where the game's two copies meet.
+    cardinals = {11, 56, 101, 146}
+    top, bottom = skin.COMPASS_TICKS_TOP, skin.COMPASS_TICKS_TOP + skin.COMPASS_TICKS_HEIGHT
+    expected = {}
+    for x in range(1, skin.COMPASS_STRIP_WIDTH, 5):
+        for y in range(top if x in cardinals else bottom - skin.COMPASS_TICK_HEIGHT, bottom):
+            expected[x, y] = skin.snapped((*skin.TEXT_RGB, 255)) if x in cardinals else skin.EDGE_FADED
+    assert {spot: p for spot, p in drawn.items() if spot[1] >= top} == expected
+    assert (skin.COMPASS_TICK_HEIGHT, skin.COMPASS_TICKS_HEIGHT) == (2, 5)
+    columns = sorted({x for x, _ in expected})
+    assert columns[0] + skin.COMPASS_STRIP_WIDTH - columns[-1] == 5
+    # Each label in our lettering, centered exactly on its heading, its ink along the letters' row: N in the casting
+    # window's soft red, E, S and W in the text's color, the others in the overlays' grey. Nothing else is drawn.
+    colors = {label: rgb for label, _, rgb in skin.COMPASS_MARKS}
+    assert colors['N'] == skin.SPELL_RGB and colors['E'] == colors['S'] == colors['W'] == skin.TEXT_RGB
+    assert {colors[label] for label in ('NE', 'SE', 'SW', 'NW')} == {skin.PET_RGB}
+    expected = {}
+    for label, degrees, rgb in skin.COMPASS_MARKS:
+        width, ink = skin.lettering(label)
+        assert width == (5 if len(label) == 1 else 12)
+        left = skin.compass_mark_center(degrees) - width / 2
+        assert left == int(left) and 0 <= left and left + width <= skin.COMPASS_STRIP_WIDTH
+        for x, y in ink:
+            expected[int(left) + x, skin.COMPASS_LETTERS_TOP + y] = skin.snapped((*rgb, 255))
+    assert {spot: p for spot, p in drawn.items() if spot[1] < top} == expected
+
+
+def test_compass_overlay_is_a_red_pointer_with_the_strip_faded_out_at_the_sides():
+    overlay = compass_art('CompassOverlay')
+    width, height = overlay.size
+    # The pointer: a 1px line in north's soft red through the tick row, at the stock pointer's column.
+    pointer = [overlay.getpixel((skin.COMPASS_POINTER_X, y)) for y in range(height)]
+    rows = range(skin.COMPASS_TICKS_TOP, skin.COMPASS_TICKS_TOP + skin.COMPASS_TICKS_HEIGHT)
+    assert [y for y, p in enumerate(pointer) if p[3]] == list(rows)
+    assert {pointer[y] for y in rows} == {skin.snapped((*skin.COMPASS_NORTH_RGB, 255))}
+    # Everything else the panel's color, the same all the way down each column: opaque within the window's padding,
+    # fading to clear over COMPASS_FADE more, the same on both sides, and clear between.
+    fades = []
+    for x in range(width):
+        column = {overlay.getpixel((x, y)) for y in range(height) if (x, y) not in {(skin.COMPASS_POINTER_X, y) for y in rows}}
+        assert len(column) == 1 and next(iter(column))[:3] == skin.PANEL_RGBA[:3], x
+        fades.append(next(iter(column))[3])
+    margin = skin.LEFT + skin.COMPASS_FADE
+    assert fades == fades[::-1]
+    assert fades[:skin.LEFT] == [255] * skin.LEFT and set(fades[margin:width - margin]) == {0}
+    assert all(a > b for a, b in zip(fades[skin.LEFT - 1:margin], fades[skin.LEFT:margin + 1]))
+
+
+def test_compass_window_follows_the_spacing_standard():
+    b = skin.BORDER
+    _, window, _ = compass_parts()
+    # Down: our lettering's ink starts at its top, a padding under the window's edge; the tick row (the ticks and the
+    # pointer) a padding under the letters' ink; the window's edge a padding under it.
+    strip = compass_art('CompassStrip')
+    inked = [y for y in range(strip.height) if any(strip.getpixel((x, y))[3] for x in range(strip.width))]
+    letters = [y for y in inked if y < skin.COMPASS_TICKS_TOP]
+    ticks = [y for y in inked if y >= skin.COMPASS_TICKS_TOP]
+    assert b + letters[0] == skin.PADDING and len(letters) == skin.LABEL_HEIGHT
+    assert ticks[0] - (letters[-1] + 1) == skin.PADDING
+    assert box(window)[3] - (b + ticks[-1] + 1) == skin.PADDING
+    # Across: the overlay hides the strip within the window's padding on each side, so what shows starts a padding in
+    # from the window's edges.
+    overlay = compass_art('CompassOverlay')
+    opaque = [x for x in range(overlay.width) if overlay.getpixel((x, 0))[3] == 255]
+    assert opaque == [*range(skin.LEFT), *range(overlay.width - skin.LEFT, overlay.width)]
+    assert b + skin.LEFT == skin.PADDING
+
+
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (art is drawn at its
@@ -3282,6 +3443,28 @@ def test_preview_fills_in_what_the_game_writes_in_the_loot_window(tmp_path):
     slots = [pixels(region(left + x, top + y, width, height))
              for x, y, width, height in (box(slot) for slot in direct_pieces(root, panel))]
     assert all(slot != slots[-1] for slot in slots[:3]) and slots[3:] == [slots[-1]] * 27
+
+
+@pytest.mark.parametrize('heading, label', [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')])
+def test_preview_slides_the_compass_strip_to_the_heading(tmp_path, monkeypatch, heading, label):
+    # The strips go where the stock art's line-up puts them, so the direction faced has its label centered over the
+    # pointer (the labels either side are 22.5px away, outside the columns looked at), and the frame is left alone.
+    preview = preview_module()
+    monkeypatch.setattr(preview, 'HEADING', heading)
+    drawer = preview.Preview(files(), eq_dir=tmp_path)
+    [image] = drawer.render(skin.COMPASS_FILE)
+    b = skin.BORDER
+    pointer = b + skin.COMPASS_POINTER_X
+    color = skin.snapped((*{name: rgb for name, _, rgb in skin.COMPASS_MARKS}[label], 255))
+    top = b + skin.COMPASS_LETTERS_TOP
+    ink = {x for x in range(pointer - 12, pointer + 13) for y in range(top, top + skin.LABEL_HEIGHT)
+           if image.getpixel((x, y)) == color}
+    assert (min(ink) + max(ink) + 1) / 2 == pointer + 0.5
+    frame, _ = drawer.frame(skin.FRAME_TEMPLATE, *image.size)
+    width, height = image.size
+    border = [(x, y) for x in range(width) for y in range(height)
+              if not (b <= x < width - b and b <= y < height - b)]
+    assert all(image.getpixel(spot) == frame.getpixel(spot) for spot in border)
 
 
 def test_preview_picks_windows_by_words_from_their_file_names():
