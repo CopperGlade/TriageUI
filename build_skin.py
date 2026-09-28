@@ -2222,7 +2222,8 @@ def group_window():
                             'TUI_PetGaugeFill', PET_RGB, text_rgb=PET_RGB, text_at=(PET_INDENT, 0),
                             bar_at=(PET_INDENT, PET_TEXT_HEIGHT + PET_BAR_GAP), font=PET_FONT))
         # "72%" ending at the row's padding; the % shows only while the slot has a member. The client
-        # writes a 0 into an empty slot's number, which a skin can't hide (see CLAUDE.md).
+        # writes a 0 into an empty slot's number, which a skin can't hide: art drawn over it shows only where a
+        # gauge has a value, and an empty slot's gauge has none.
         percent, readout = health_readout(f'TUI_GW{n}', 34 + n, 10 + n, top, GROUP_RIGHT, f'HPLabel{n}', GROUP_RGB)
         inner.append(percent)
         labels += readout

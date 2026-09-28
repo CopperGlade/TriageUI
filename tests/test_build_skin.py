@@ -1,4 +1,5 @@
 import functools
+import importlib.util
 import io
 import os
 import re
@@ -2837,3 +2838,51 @@ def test_the_plan_lists_every_window_the_client_loads():
     windows = {name.lower() for name in loaded} - {'sidl.xml', 'equi_animations.xml', 'equi_templates.xml'}
     listed = {name.lower() for names in plan_sections().values() for name in names}
     assert windows and windows <= listed
+
+
+# The preview renderer (tools/preview.py)
+
+@functools.cache
+def preview_module():
+    path = Path(__file__).resolve().parent.parent / 'tools' / 'preview.py'
+    spec = importlib.util.spec_from_file_location('preview', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_preview_draws_every_window_at_its_size_on_its_panel(tmp_path):
+    preview = preview_module()
+    drawer = preview.Preview(files(), eq_dir=tmp_path)  # no EverQuest folder here: grey squares for icons
+    for name in skin.WINDOW_FILES:
+        root, window = screen(name)
+        images = drawer.render(name)
+        # One image per page of a tab box (the Actions window's four), else one.
+        assert len(images) == max([len(tab.findall('Pages')) for tab in root.iter('TabBox')] + [1]), name
+        for image in images:
+            if window.get('item') == 'ContainerWindow':
+                assert image.size == bag_layout(*preview.BAG)[0]  # the game sizes the bag window
+            else:
+                assert image.size == box(window)[2:], name
+            width, height = image.size
+            assert image.getpixel((width // 2, height - 3))[3] == 255, name  # the opaque panel
+            assert image.getpixel((0, 0))[3] < 20, name  # a rounded corner
+
+
+def test_preview_saves_each_window_scaled_on_a_backdrop(tmp_path):
+    preview = preview_module()
+    [path] = preview.save(preview.Preview(files(), eq_dir=tmp_path), [skin.QUANTITY_FILE], tmp_path, scale=2)
+    _, window = screen(skin.QUANTITY_FILE)
+    width, height = box(window)[2:]
+    image = Image.open(path)
+    assert path.name == 'EQUI_QuantityWnd.png'
+    assert image.size == (2 * (width + 2 * preview.MARGIN), 2 * (height + 2 * preview.MARGIN))
+    assert image.convert('RGBA').getpixel((0, 0)) == preview.BACKDROP
+
+
+def test_preview_picks_windows_by_words_from_their_file_names():
+    preview = preview_module()
+    assert preview.chosen([]) == list(skin.WINDOW_FILES)
+    assert preview.chosen(['quantity', 'ITEM']) == [skin.ITEM_FILE, skin.QUANTITY_FILE]
+    with pytest.raises(SystemExit):
+        preview.chosen(['nothing'])

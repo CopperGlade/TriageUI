@@ -172,3 +172,9 @@ The builder uses only Python's standard library. The tests also need Pillow and 
 pip install -r requirements-dev.txt
 python -m pytest tests
 ```
+
+To look at the windows without starting the game, `tools/preview.py` draws them as PNGs with sample text and values (Pillow). With no arguments it draws every window into `build/preview`; give it a word from a window's file name to draw just that one:
+
+```
+python tools/preview.py quantity
+```
