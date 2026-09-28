@@ -61,6 +61,7 @@ HOT_ITEMS = {'HB_InvSlot3': 20}
 HOT_SPELLS = {'HB_SpellGem2': 11}
 MERCHANT_ITEMS = 23  # a merchant's items fill the slots from the first
 BAG_ITEMS = 6
+GIVE_ITEMS = 2  # what you hand an NPC fills its slots from the first
 HELD_SLOTS = {13, 22}  # the primary hand and the first bag, on the hot bar's slots
 LABELS = {
     1: 'Sebik', 12: '60', 13: '45', 14: '38', 15: '41', 16: '52', 17: '4321', 18: '4970', 19: '87', 20: '64',
@@ -82,7 +83,9 @@ BUTTON_TEXT = {
         ['Assist', 'Pull', 'Camp Out', 'Train Pet', 'Mez', 'Sit Down', 'Pull Mob', 'Rez Me', 'Heals', 'Buffs',
          'Loot All', 'Tell Grp'], 1)},
     'HB_Button1': 'Heal', 'HB_Button4': 'Assist', 'HB_Button5': 'Camp', 'HB_Button6': 'Loot',
+    'GVW_MyMoney0': '12', 'GVW_MyMoney1': '3', 'GVW_MyMoney2': '0', 'GVW_MyMoney3': '0',
 }
+LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin'}  # labels with no EQType whose text the client writes, by ScreenID
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
@@ -333,7 +336,8 @@ class Preview:
 
     def draw_label(self, layer, element, at, size, *_):
         eq_type = element.findtext('EQType')
-        text = LABELS.get(int(eq_type), '') if eq_type else (element.findtext('Text') or '')
+        text = LABELS.get(int(eq_type), '') if eq_type else (
+            LABEL_TEXT.get(element.findtext('ScreenID') or '') or element.findtext('Text') or '')
         clip = Image.new('RGBA', size, (0, 0, 0, 0))
         align = 'right' if flag(element, 'AlignRight') else 'center' if flag(element, 'AlignCenter') else 'left'
         self.text(clip, (0, 0), text, number(element, 'Font', 3), color(element, 'TextColor'), size[0], align)
@@ -396,7 +400,8 @@ class Preview:
             return HOT_ITEMS[screen_id]
         merchant = skin.MERCHANT_SLOT_TYPE <= eq_type < skin.MERCHANT_SLOT_TYPE + MERCHANT_ITEMS
         bag = skin.BAG_SLOT_TYPE <= eq_type < skin.BAG_SLOT_TYPE + BAG_ITEMS
-        return (eq_type * 7 + 3) % 36 if merchant or bag or eq_type in HELD_SLOTS else None
+        given = skin.GIVE_SLOT_TYPE <= eq_type < skin.GIVE_SLOT_TYPE + GIVE_ITEMS
+        return (eq_type * 7 + 3) % 36 if merchant or bag or given or eq_type in HELD_SLOTS else None
 
     def draw_invslot(self, layer, element, at, size, *_):
         screen_id = element.findtext('ScreenID') or ''

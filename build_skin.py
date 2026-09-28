@@ -994,6 +994,39 @@ QUANTITY_ACCEPT_X = QUANTITY_RIGHT - QUANTITY_ROW_WIDTHS[1]
 _size = (QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT)  # no label of ours: the button's text is its name
 BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('',)
 QUANTITY_HEIGHT = 2 * BORDER + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
+# The give window: what opens when you hand an NPC an item or coins. eqgame.exe looks up the NPC's name (which it
+# writes), the four item slots (GVW_MyItemSlot0 to 3, EQTypes 3000 to 3003), the four coin buttons (GVW_MyMoney0 to 3:
+# platinum, gold, silver and copper, each showing the amount you give as its text), Give and Cancel, and nothing else.
+# The user's picks (2026-09-28, from mockups): the hot button window's width with the four slots in a row on its
+# squares, the NPC's name over them, the coins two to a row, each lettered with its coin, then Give and Cancel.
+GIVE_FILE = 'EQUI_GiveWnd.xml'
+GIVE_WIDTH = HOT_WIDTH
+GIVE_RIGHT = GIVE_WIDTH - 2 * BORDER - LEFT
+GIVE_CONTENT_WIDTH = GIVE_RIGHT - LEFT
+# The name's line at the inside's top, so its ink starts about 7.5px under the window's edge, like the player window's
+# name: a label placed into the frame isn't drawn. The slots a padding under its capitals' and digits' ink.
+GIVE_NAME_TOP = 0
+GIVE_SLOTS_TOP = GIVE_NAME_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+GIVE_SLOT_TYPE = 3000
+GIVE_SLOTS = 4
+GIVE_HALF_WIDTHS = ((GIVE_CONTENT_WIDTH - BUTTON_GAP) // 2,
+                    GIVE_CONTENT_WIDTH - BUTTON_GAP - (GIVE_CONTENT_WIDTH - BUTTON_GAP) // 2)
+# The coin boxes, (ScreenID, caption) in reading order, two to a row a padding under the slots. Each is the slots' wash
+# at its own size with its coin lettered in, a padding in from its left edge; the game writes the amount as its text,
+# centered, in font 3, so a box is as tall as the quantity window's number field.
+GIVE_COINS = (('GVW_MyMoney0', 'pp'), ('GVW_MyMoney1', 'gp'), ('GVW_MyMoney2', 'sp'), ('GVW_MyMoney3', 'cp'))
+GIVE_COIN_COLUMNS = 2
+GIVE_COIN_ROWS = -(-len(GIVE_COINS) // GIVE_COIN_COLUMNS)
+GIVE_COIN_HEIGHT = TEXT_BUTTON_HEIGHT
+GIVE_COINS_TOP = GIVE_SLOTS_TOP + HOT_SIZE + BUTTON_ROW_GAP
+GIVE_COIN_TOOLTIP = 'Drop coins here'  # the stock window's
+# Give and Cancel fill the row a padding under the coins: (ScreenID, label, column). The stock ones have no tooltips.
+GIVE_BUTTONS_TOP = GIVE_COINS_TOP + GIVE_COIN_ROWS * (GIVE_COIN_HEIGHT + BUTTON_ROW_GAP)
+GIVE_BUTTONS = (('GVW_Give_Button', 'Give', 0), ('GVW_Cancel_Button', 'Cancel', 1))
+for _screen_id, _label, _column in GIVE_BUTTONS:
+    _size = (GIVE_HALF_WIDTHS[_column], BUTTON_HEIGHT)
+    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
+GIVE_HEIGHT = 2 * BORDER + GIVE_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1530,14 +1563,18 @@ def lettering(text):
     return x - LETTER_SPACING, ink
 
 
-def labeled_button_art(width, height, label, state, style=BUTTON_STYLE):
-    """A button in one state with its label drawn centered on it, in the style's text color."""
+def labeled_button_art(width, height, label, state, style=BUTTON_STYLE, left=None):
+    """A button in one state with its label drawn on it in the style's text color: centered, or its ink starting left
+    in from the art's left edge. The label's x-height is on the button's middle (LABEL_TOP down on a button
+    BUTTON_HEIGHT tall)."""
     art = panel_texture(width, height, *button_look(style, state))
     text_width, ink = lettering(label)
-    left = (width - text_width) // 2
+    if left is None:
+        left = (width - text_width) // 2
+    top = (height - LABEL_HEIGHT) // 2
     color = (*BUTTON_STYLES[style][2], LABEL_ALPHA[state])
     for x, y in ink:
-        art.rows[LABEL_TOP + y][left + x] = over(color, 1, art.rows[LABEL_TOP + y][left + x])
+        art.rows[top + y][left + x] = over(color, 1, art.rows[top + y][left + x])
     return snapped_art(art)
 
 
@@ -1633,6 +1670,10 @@ def pieces():
            for state in BUTTON_LOOKS},
         'SliderTrack': slider_track(QUANTITY_CONTENT_WIDTH - SLIDER_KNOB_WIDTH),
         'SliderCapRight': slider_track(SLIDER_KNOB_WIDTH),
+        # The give window's coin boxes (see GIVE_COINS), solid like the slots, so a drop anywhere on one counts.
+        **{f'GiveCoin{caption}{state}': solid(labeled_button_art(GIVE_HALF_WIDTHS[n % GIVE_COIN_COLUMNS],
+                                                                  GIVE_COIN_HEIGHT, caption, state, left=PADDING))
+           for n, (_, caption) in enumerate(GIVE_COINS) for state in BUTTON_LOOKS},
         'TitleBar': title_piece(),
         'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
         **{f'ItemClose{state}': close_box_art(state) for state in BUTTON_LOOKS},
@@ -2847,13 +2888,46 @@ def quantity_window():
     return window('QuantityWnd', 'Quantity', QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH)
 
 
+def give_window():
+    """What you hand an NPC: its name, then your four item slots in a row on the hot bar's squares, the coin boxes two
+    to a row, and Give and Cancel (see GIVE_FILE)."""
+    name = label('TUI_GVW_NPCName', None, (LEFT, GIVE_NAME_TOP, GIVE_CONTENT_WIDTH, TEXT_HEIGHT), '',
+                 screen_id='GVW_NPCName')
+    slots = [inv_slot(f'TUI_GVW_MyItemSlot{n}', f'GVW_MyItemSlot{n}', GIVE_SLOT_TYPE + n,
+                      (LEFT + n * HOT_PITCH, GIVE_SLOTS_TOP), 'TUI_HotButtonNormal')
+             for n in range(GIVE_SLOTS)]
+    coins = []
+    for n, (screen_id, caption) in enumerate(GIVE_COINS):
+        column, row = n % GIVE_COIN_COLUMNS, n // GIVE_COIN_COLUMNS
+        coins.append(node('Button', [
+            node('ScreenID', screen_id),
+            node('Font', TEXT_FONT),
+            node('RelativePosition', True),
+            point('Location', LEFT + sum(GIVE_HALF_WIDTHS[:column]) + column * BUTTON_GAP,
+                  GIVE_COINS_TOP + row * (GIVE_COIN_HEIGHT + BUTTON_ROW_GAP)),
+            size(GIVE_HALF_WIDTHS[column], GIVE_COIN_HEIGHT),
+            node('Style_Transparent', False),
+            node('TooltipReference', GIVE_COIN_TOOLTIP),
+            node('Style_Checkbox', False),
+            node('Text', ''),  # the game writes the amount
+            color('TextColor', TEXT_RGB),
+            node('ButtonDrawTemplate', [node(state, f'TUI_GiveCoin{caption}{BUTTON_ART[state]}')
+                                        for state in BUTTON_STATES]),
+        ], f'TUI_GVW_{screen_id}'))
+    buttons = [button(f'TUI_GVW_{screen_id}', screen_id, label_text,
+                      LEFT + sum(GIVE_HALF_WIDTHS[:column]) + column * BUTTON_GAP, GIVE_BUTTONS_TOP,
+                      GIVE_HALF_WIDTHS[column])
+               for screen_id, label_text, column in GIVE_BUTTONS]
+    return window('GiveWnd', 'Give', GIVE_HEIGHT, [name, *slots, *coins, *buttons], width=GIVE_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
-                QUANTITY_FILE: quantity_window}
+                QUANTITY_FILE: quantity_window, GIVE_FILE: give_window}
 
 
 def stranded_definitions(skin_xml):

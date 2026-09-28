@@ -27,6 +27,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Confirmation dialog | `EQUI_ConfirmationDialog.xml` |
 | Item Display | `EQUI_ItemDisplay.xml` |
 | Quantity (splitting a stack) | `EQUI_QuantityWnd.xml` |
+| Give | `EQUI_GiveWnd.xml` |
 
 ## To do: everyday
 
@@ -39,7 +40,6 @@ Roughly in order of how much a player sees them.
 | Loot | `EQUI_LootWnd.xml` | duxaUI |
 | Bank | `EQUI_BankWnd.xml` | duxaUI |
 | Trade | `EQUI_TradeWnd.xml` | duxaUI |
-| Give | `EQUI_GiveWnd.xml` | duxaUI |
 | Inspect | `EQUI_InspectWnd.xml` | duxaUI |
 | Skills | `EQUI_SkillsWindow.xml` | duxaUI |
 | Compass | `EQUI_CompassWnd.xml` | duxaUI |
