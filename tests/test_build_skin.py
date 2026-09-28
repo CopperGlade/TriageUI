@@ -3041,9 +3041,14 @@ def test_build_needs_the_base_skin(tmp_path):
 
 def test_main_reports_success_and_errors(eq, capsys):
     assert skin.main(['--eq', str(eq)]) == 0
-    assert '/load TriageUI 1 ' in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert f'Built TriageUI {skin.VERSION} into ' in printed and '/load TriageUI 1 ' in printed
     assert skin.main(['--eq', str(eq), '--base', 'missing']) == 1
     assert 'no skin folder' in capsys.readouterr().err
+
+
+def test_the_built_folder_names_its_version(eq):
+    assert f'TriageUI {skin.VERSION}\'s build_skin.py' in (skin.build(eq) / skin.MARKER_FILE).read_text()
 
 
 # The window plan
@@ -3180,3 +3185,121 @@ def test_preview_picks_windows_by_words_from_their_file_names():
     assert preview.chosen(['quantity', 'ITEM']) == [skin.ITEM_FILE, skin.QUANTITY_FILE]
     with pytest.raises(SystemExit):
         preview.chosen(['nothing'])
+
+
+# Releases (tools/release.py)
+
+REPO = Path(__file__).resolve().parent.parent
+
+
+@functools.cache
+def release_module():
+    spec = importlib.util.spec_from_file_location('release', REPO / 'tools' / 'release.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def commit(**changes):
+    """A commit that passes every rule, with changes."""
+    release = release_module()
+    good = release.Commit('a' * 40, *release.IDENTITY, '2026-09-28 10:00:00 +0000', *release.IDENTITY,
+                          '2026-09-28 10:00:00 +0000', 'Add the give window\n\n1. README and CLAUDE.md describe it\n')
+    return good._replace(**changes)
+
+
+def test_the_version_is_on_the_readmes_tagline():
+    release = release_module()
+    assert re.fullmatch(r'\d+\.\d+\.\d+', skin.VERSION)
+    assert release.readme_version((REPO / 'README.md').read_text(encoding='utf-8')) == skin.VERSION
+    assert release.source_version((REPO / 'build_skin.py').read_text(encoding='utf-8')) == skin.VERSION
+    # Only the tagline counts, the first line under the heading.
+    assert release.readme_version('# TriageUI\n\nSkin · by Sebik\n\nSkin · v1.0.0 · by Sebik\n') is None
+
+
+def test_a_release_is_cut_from_dev_with_everything_committed():
+    release = release_module()
+    assert release.state_problems('dev', '') == []
+    assert len(release.state_problems('main', ' M README.md\n')) == 2
+
+
+def test_the_version_goes_up_and_is_on_the_readme():
+    release = release_module()
+    readme = '# TriageUI\n\nSkin · v1.2.0 · by Sebik\n'
+    assert release.version_problems('1.2.0', readme, []) == []
+    assert release.version_problems('1.2.0', readme, ['v1.0.0', 'v1.1.0', 'wip']) == []
+    [tagged] = release.version_problems('1.2.0', readme, ['v1.2.0'])
+    assert 'already tagged' in tagged
+    [below] = release.version_problems('1.2.0', readme, ['v1.10.0'])  # by number, not by text
+    assert 'below the latest tag' in below
+    [readme_problem] = release.version_problems('1.3.0', readme, ['v1.2.0'])
+    assert readme_problem.startswith('README.md') and 'v1.2.0, not v1.3.0' in readme_problem
+    assert 'isn\'t X.Y.Z' in release.version_problems('1.3', readme, [])[0]
+
+
+def test_commits_carry_only_the_noreply_identity_with_utc_dates():
+    release = release_module()
+    assert release.identity_problems([commit()]) == []
+    problems = release.identity_problems([commit(author_email='someone@work.example',
+                                                 committer_date='2026-09-28 13:00:00 +0300')])
+    assert len(problems) == 2
+    assert 'the author isn\'t CopperGlade' in problems[0] and 'the committer date isn\'t UTC' in problems[1]
+    assert 'work.example' not in ''.join(problems)  # the real identity is never printed
+
+
+def test_no_commit_credits_an_ai():
+    release = release_module()
+    assert release.attribution_problems([commit()]) == []  # naming CLAUDE.md is fine
+    for trailer in ('Co-Authored-By: Someone <noreply@anthropic.com>',
+                    '🤖 Generated with [Claude Code](https://claude.com/claude-code)'):
+        assert len(release.attribution_problems([commit(message=f'Fix a window\n\n{trailer}\n')])) == 1
+
+
+def test_only_our_own_files_are_tracked():
+    release = release_module()
+    assert release.tracked_problems(['.gitignore', 'README.md', 'build_skin.py', 'tests/conftest.py',
+                                     'tools/release.py']) == []
+    theirs = ['CLAUDE.md', 'notes/client.md', 'build/preview/EQUI_TargetWindow.png', 'dist/TriageUI-v1.0.0.zip',
+              'window_pieces01.tga', 'EQUI_Inventory.xml', 'art/Icons.DDS', 'art/splash.bmp']
+    assert len(release.tracked_problems(theirs)) == len(theirs)
+
+
+def test_character_names_come_from_the_everquest_folders_character_files(tmp_path):
+    release = release_module()
+    for name in ['UI_Zorvak_pq.proj.ini', 'BZR_Quillbank_pq.proj.ini', 'Talmir_pq.proj.ini', 'Brenna_spellsets.ini',
+                 'UI_Sebik_pq.proj.ini', 'Sebik_spellsets.ini', 'eqclient.ini', 'zeal.ini', 'Talmir_pq.proj.ini.bak']:
+        (tmp_path / name).write_text('')
+    assert release.character_names(tmp_path) == {'zorvak', 'quillbank', 'talmir', 'brenna'}
+
+
+def test_character_names_are_found_as_words_and_never_printed():
+    release = release_module()
+    second = release.second_player((REPO / 'tests' / 'conftest.py').read_text())
+    assert second == 'mera'
+    texts = {
+        'README.md': 'Zorvak casts\ncamera zorvakian\nUI_Zorvak_pq.proj.ini',
+        'tests/test_x.py': 'Mera and Mera\nMera and zorvak',
+        'tools/x.py': 'Mera',
+        'commit abc1234': 'Fix a window\n\nfor ZORVAK',
+    }
+    problems = release.name_problems(texts, {'zorvak', second}, second)
+    assert [problem.rsplit(':', 1)[0] for problem in problems] == [
+        'README.md:1', 'README.md:3', 'tests/test_x.py:2', 'tools/x.py:1', 'commit abc1234:3']
+    assert not re.search('zorvak|mera', ' '.join(problems), re.I)
+    assert release.name_problems(texts, set()) == []
+
+
+def test_nothing_mentions_playing_several_characters_at_once():
+    release = release_module()
+    # Built from parts, so this file doesn't trip the check itself.
+    words = ['multi' + 'box', 'Multi-' + 'box' + 'ing', 'box' + 'ing', 'dual ' + 'box', 'box' + 'ers']
+    texts = {'README.md': '\n'.join(['the close box', 'a tab box', 'the dialog box', 'two boxes', 'a boxed set', *words])}
+    assert [problem.split(':')[1] for problem in release.boxing_problems(texts)] == ['6', '7', '8', '9', '10']
+
+
+def test_the_release_zip_is_the_builder_and_readme_cut_from_the_tag(tmp_path):
+    release = release_module()
+    out = tmp_path / release.zip_name('1.2.0')
+    assert out.name == 'TriageUI-v1.2.0.zip'
+    assert release.archive_command('1.2.0', out) == [
+        'archive', '--format=zip', '--prefix=TriageUI/', '-o', str(out), 'v1.2.0', 'build_skin.py', 'README.md']

@@ -1,6 +1,9 @@
 # Build output, when built with --out inside the repo
 build/
 
+# Release zips and notes, attached to the GitHub releases
+dist/
+
 # Python
 __pycache__/
 *.py[cod]

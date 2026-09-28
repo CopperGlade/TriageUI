@@ -15,6 +15,9 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 SKIN_NAME = 'TriageUI'
+# The release's version, the only place it's set: README's first line shows it and tools/release.py checks it
+# against the git tags.
+VERSION = '1.0.0'
 DEFAULT_EQ_DIR = Path(r'C:\QUARM')
 DEFAULT_BASE = 'duxaUI'
 # Written into every folder this script builds, so a rebuild only ever replaces its own output.
@@ -3120,7 +3123,7 @@ def build(eq_dir, base=DEFAULT_BASE, out=None):
         for name, data in files.items():
             (out / name).write_bytes(data)
         (out / MARKER_FILE).write_text(
-            f'Built by TriageUI\'s build_skin.py from uifiles\\{base}. Rebuild rather than edit: '
+            f'Built by TriageUI {VERSION}\'s build_skin.py from uifiles\\{base}. Rebuild rather than edit: '
             'the script replaces this folder.\n'
         )
     except OSError as error:
@@ -3141,7 +3144,7 @@ def main(argv=None):
     except BuildError as error:
         print(f'Error: {error}', file=sys.stderr)
         return 1
-    print(f'Built {out} from {args.base} with the TriageUI windows.')
+    print(f'Built TriageUI {VERSION} into {out} from {args.base}.')
     # The 1 keeps the character's window layout; without it windows move to the skin's default spots.
     print(f'In game, type /load {out.name} 1 to use it, or /load {args.base} 1 to go back.')
     return 0

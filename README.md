@@ -1,6 +1,6 @@
 # TriageUI
 
-EverQuest windows for Project Quarm in the look of the EQ Triage overlays · by Sebik &lt;Europa&gt;
+EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.0.0 · by Sebik &lt;Europa&gt;
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
@@ -128,7 +128,7 @@ What opens when you trade with another player. What they offer is on the left, u
 ## Install
 
 1. **Install Python 3** on Windows from [python.org](https://www.python.org/downloads/) if you don't have it. Nothing else is needed.
-2. **Get TriageUI.** Click **Code → Download ZIP** on this page and extract it anywhere, for example `C:\TriageUI`.
+2. **Get TriageUI.** Download `TriageUI-vX.Y.Z.zip` from the [latest release](https://github.com/CopperGlade/TriageUI/releases/latest) and extract it anywhere. It holds a `TriageUI` folder, so extracting it into `C:\` gives you `C:\TriageUI`.
 3. **Build the skin.** Open a command prompt in that folder and run:
 
    ```
@@ -153,6 +153,14 @@ What opens when you trade with another player. What they offer is on the left, u
 
 > [!NOTE]
 > **Build again after Project Quarm's patcher updates duxaUI**, so TriageUI picks up the new files. Building replaces the whole `TriageUI` folder, so don't edit files in it.
+
+### Updating
+
+1. Download the newest `TriageUI-vX.Y.Z.zip` from the [latest release](https://github.com/CopperGlade/TriageUI/releases/latest) and extract it over your old `TriageUI` folder.
+2. Build again with `python build_skin.py`. It prints the version it built.
+3. In game, type `/reloadskin` (from Zeal), or `/load TriageUI 1`.
+
+Your window layout is kept: EverQuest saves it per character in your EverQuest folder, not in the skin.
 
 ## Limits
 
