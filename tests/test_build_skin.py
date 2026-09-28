@@ -29,7 +29,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
-              skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE]
+              skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE]
 
 
 @functools.cache
@@ -504,7 +504,7 @@ def test_our_names_never_clash_with_the_stock_skin():
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
-                     'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd'}
+                     'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -2887,6 +2887,92 @@ def test_trade_coin_boxes_are_the_give_windows_and_only_yours_take_coins():
                 assert coin.find('TooltipReference') is None
 
 
+def loot_parts():
+    root, window = screen(skin.LOOT_FILE)
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+
+
+def test_loot_window_keeps_every_control_the_client_and_zeal_look_for():
+    # eqgame.exe looks up the corpse's name, the slots' panel and its 30 slots, and Done; Zeal looks up Link All and
+    # Loot All. Every one is shown, in reading order. With no title bar or close box: it drags by its background, and
+    # Done closes it.
+    root, window = check_inside_frame(skin.LOOT_FILE, skin.LOOT_WIDTH)
+    assert window.get('item') == 'LootWnd' and window.findtext('Text') == 'Loot'
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.LOOT_WIDTH, skin.LOOT_HEIGHT) == (258, 255)
+    pieces = direct_pieces(root, window)
+    assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
+        ('Label', 'LW_CorpseName'), ('Screen', 'LootInvWnd'), ('Button', 'LinkAllButton'),
+        ('Button', 'LootAllButton'), ('Button', 'DoneButton')]
+    # The 30 slots are the pieces of the client's panel for them, not the window's, each its own EQType.
+    slots = direct_pieces(root, pieces[1])
+    assert {s.tag for s in slots} == {'InvSlot'}
+    assert [s.findtext('ScreenID') for s in slots] == [f'LW_LootSlot{n}' for n in range(30)]
+    assert [number(s, 'EQType') for s in slots] == list(range(5000, 5030))
+    assert all(box(e)[2:] != (0, 0) for e in pieces + slots)
+
+
+def test_loot_slots_are_all_30_six_across_on_the_hot_bars_squares():
+    root, _, found = loot_parts()
+    panel = found['LootInvWnd']
+    # All at once, nothing to scroll (the user's pick): the panel is exactly the grid, see-through on the window's
+    # panel, placed by Location and Size like the merchant's.
+    assert (skin.LOOT_COLUMNS, skin.LOOT_ROWS) == (6, 5)
+    assert box(panel) == (skin.LEFT, skin.LOOT_SLOTS_TOP, skin.LOOT_CONTENT_WIDTH, skin.LOOT_GRID_HEIGHT)
+    assert panel.findtext('Style_VScroll') == 'false' and panel.findtext('Style_Transparent') == 'true'
+    assert panel.findtext('Style_Border') == 'false' and panel.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert panel.find('AutoStretch') is None
+    # The hot bar's 36px squares, a padding apart, left to right then down; empty ones the plain square.
+    slots = direct_pieces(root, panel)
+    for n, slot in enumerate(slots):
+        assert box(slot) == (n % 6 * skin.HOT_PITCH, n // 6 * skin.HOT_PITCH, skin.HOT_SIZE, skin.HOT_SIZE)
+        assert slot.findtext('Background') == 'TUI_HotButtonNormal'
+    x, y, width, height = box(slots[-1])
+    assert (x + width, y + height) == box(panel)[2:]
+
+
+def test_loot_window_follows_the_spacing_standard():
+    _, window, found = loot_parts()
+    b = skin.BORDER
+    # The name's line at the inside's top, across the content row: its ink starts 7.5px under the window's edge, the
+    # closest the frame allows (a label placed into it isn't drawn), as in the give and trade windows.
+    name = box(found['LW_CorpseName'])
+    assert name == (skin.LEFT, 0, skin.LOOT_CONTENT_WIDTH, skin.TEXT_HEIGHT)
+    assert b + name[1] + skin.TEXT_INK_TOP == 7.5
+    # The slots a padding under the name's capitals and digits, filling the row from the window's padding to its
+    # padding.
+    panel = box(found['LootInvWnd'])
+    assert panel[1] == name[1] + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT + skin.PADDING
+    assert b + panel[0] == skin.PADDING and panel[0] + panel[2] == skin.LOOT_RIGHT
+    assert skin.LOOT_WIDTH - 2 * b - skin.LOOT_RIGHT == skin.LEFT
+    # Link All, Loot All and Done fill the row a padding under the slots, a padding apart and equally wide, and the
+    # window's edge is a padding under them.
+    buttons = [box(found[screen_id]) for screen_id, _, _ in skin.LOOT_BUTTONS]
+    assert {button[1] for button in buttons} == {panel[1] + panel[3] + skin.BUTTON_ROW_GAP}
+    assert buttons[0][0] == skin.LEFT and buttons[-1][0] + buttons[-1][2] == skin.LOOT_RIGHT
+    for left, right in zip(buttons, buttons[1:]):
+        assert left[0] + left[2] + skin.BUTTON_GAP == right[0]
+    assert {button[2:] for button in buttons} == {(78, skin.BUTTON_HEIGHT)}
+    assert box(window)[3] - (b + buttons[0][1] + buttons[0][3]) == skin.PADDING
+
+
+def test_loot_name_and_buttons_take_what_the_game_and_zeal_put_there():
+    _, _, found = loot_parts()
+    # The game writes the corpse's name, in the text's color, on one line from the left, as the give window's NPC.
+    name = found['LW_CorpseName']
+    assert name.findtext('Text') == '' and name.find('EQType') is None
+    assert name.findtext('Font') == str(skin.TEXT_FONT) and rgb(name, 'TextColor') == skin.TEXT_RGB
+    assert name.findtext('AlignLeft') == name.findtext('NoWrap') == 'true'
+    # duxaUI's three buttons in its order, lettered, with no tooltips (neither the stock Done nor duxaUI's have one).
+    for screen_id, label_text, _ in skin.LOOT_BUTTONS:
+        b = found[screen_id]
+        assert b.findtext('Text') == '' and b.find('Font') is None and b.find('TooltipReference') is None
+        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], label_text, "Normal")}'
+    assert [(screen_id, label_text) for screen_id, label_text, _ in skin.LOOT_BUTTONS] == [
+        ('LinkAllButton', 'Link All'), ('LootAllButton', 'Loot All'), ('DoneButton', 'Done')]
+
+
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (art is drawn at its
@@ -3177,6 +3263,25 @@ def test_preview_fills_in_what_the_game_writes_in_the_trade_window(tmp_path):
     panel = image.getpixel((skin.BORDER + skin.TRADE_DIVIDER_X + 1, skin.BORDER + skin.TRADE_COINS_TOP - 3))
     line = set(pixels(region('TUI_TRDW_Divider')))
     assert len(line) == 1 and line != {panel}
+
+
+def test_preview_fills_in_what_the_game_writes_in_the_loot_window(tmp_path):
+    # The corpse's name, and items in the first slots.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.LOOT_FILE)
+    root, _, found = loot_parts()
+    panel = found['LootInvWnd']
+    left, top = box(panel)[:2]
+
+    def region(x, y, width, height):
+        return image.crop((skin.BORDER + x, skin.BORDER + y, skin.BORDER + x + width, skin.BORDER + y + height))
+
+    assert preview.LABEL_TEXT['LW_CorpseName'] == "a gnoll pup's corpse"
+    assert sum(1 for p in pixels(region(*box(found['LW_CorpseName']))) if min(p[:3]) > 150)
+    assert preview.LOOT_ITEMS == 3
+    slots = [pixels(region(left + x, top + y, width, height))
+             for x, y, width, height in (box(slot) for slot in direct_pieces(root, panel))]
+    assert all(slot != slots[-1] for slot in slots[:3]) and slots[3:] == [slots[-1]] * 27
 
 
 def test_preview_picks_windows_by_words_from_their_file_names():

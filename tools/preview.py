@@ -63,6 +63,7 @@ MERCHANT_ITEMS = 23  # a merchant's items fill the slots from the first
 BAG_ITEMS = 6
 GIVE_ITEMS = 2  # what you hand an NPC fills its slots from the first
 TRADE_ITEMS = 1  # what the other side offers fills its slots from the first; yours share the give window's EQTypes
+LOOT_ITEMS = 3  # a corpse's items fill its slots from the first
 HELD_SLOTS = {13, 22}  # the primary hand and the first bag, on the hot bar's slots
 LABELS = {
     1: 'Sebik', 12: '60', 13: '45', 14: '38', 15: '41', 16: '52', 17: '4321', 18: '4970', 19: '87', 20: '64',
@@ -90,7 +91,8 @@ BUTTON_TEXT = {
 }
 # Labels with no EQType whose text the client writes, by ScreenID. The other side of a trade is a placeholder, not a
 # character's name.
-LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_MyName': 'Sebik'}
+LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_MyName': 'Sebik',
+              'LW_CorpseName': "a gnoll pup's corpse"}
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
@@ -408,7 +410,9 @@ class Preview:
         given = skin.GIVE_SLOT_TYPE <= eq_type < skin.GIVE_SLOT_TYPE + GIVE_ITEMS
         theirs = skin.TRADE_SLOT_TYPE + skin.TRADE_SLOTS
         offered = theirs <= eq_type < theirs + TRADE_ITEMS
-        return (eq_type * 7 + 3) % 36 if merchant or bag or given or offered or eq_type in HELD_SLOTS else None
+        looted = skin.LOOT_SLOT_TYPE <= eq_type < skin.LOOT_SLOT_TYPE + LOOT_ITEMS
+        held = merchant or bag or given or offered or looted or eq_type in HELD_SLOTS
+        return (eq_type * 7 + 3) % 36 if held else None
 
     def draw_invslot(self, layer, element, at, size, *_):
         screen_id = element.findtext('ScreenID') or ''

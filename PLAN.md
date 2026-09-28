@@ -29,6 +29,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Quantity (splitting a stack) | `EQUI_QuantityWnd.xml` |
 | Give | `EQUI_GiveWnd.xml` |
 | Trade | `EQUI_TradeWnd.xml` |
+| Loot | `EQUI_LootWnd.xml` |
 
 ## To do: everyday
 
@@ -38,7 +39,6 @@ Roughly in order of how much a player sees them.
 |---|---|---|
 | Inventory | `EQUI_Inventory.xml` | duxaUI |
 | Spell Book | `EQUI_SpellBookWnd.xml` | duxaUI, without the bright slot bars |
-| Loot | `EQUI_LootWnd.xml` | duxaUI |
 | Bank | `EQUI_BankWnd.xml` | duxaUI |
 | Inspect | `EQUI_InspectWnd.xml` | duxaUI |
 | Skills | `EQUI_SkillsWindow.xml` | duxaUI |

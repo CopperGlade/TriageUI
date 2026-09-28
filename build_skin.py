@@ -1075,6 +1075,36 @@ for _screen_id, _label, _column in TRADE_BUTTONS:
     _size = (TRADE_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
     BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
 TRADE_HEIGHT = 2 * BORDER + TRADE_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
+# The loot window: a corpse's items. eqgame.exe looks up the corpse's name (LW_CorpseName, which it writes), the slots'
+# panel (LootInvWnd) and its 30 slots (LW_LootSlot0 to 29, EQTypes 5000 to 5029), and DoneButton; Zeal looks up
+# LinkAllButton and LootAllButton, if there, and makes them do what /linkall and /lootall do. Stock skins lay the slots
+# out 2 or 8 across, so XML positions hold. The user's picks (2026-09-28, from mockups): all 30 slots at once, six
+# across on the hot button window's squares, so nothing scrolls; the name along the top from the left, as in the give
+# window; duxaUI's Link All, Loot All and Done along the bottom.
+LOOT_FILE = 'EQUI_LootWnd.xml'
+LOOT_SLOTS = 30
+LOOT_SLOT_TYPE = 5000
+LOOT_COLUMNS = 6
+LOOT_ROWS = -(-LOOT_SLOTS // LOOT_COLUMNS)
+LOOT_CONTENT_WIDTH = LOOT_COLUMNS * HOT_SIZE + (LOOT_COLUMNS - 1) * BUTTON_GAP
+LOOT_WIDTH = LOOT_CONTENT_WIDTH + 2 * PADDING
+LOOT_RIGHT = LOOT_WIDTH - 2 * BORDER - LEFT
+LOOT_GRID_HEIGHT = LOOT_ROWS * HOT_SIZE + (LOOT_ROWS - 1) * BUTTON_ROW_GAP
+# The name's line at the inside's top, its ink 7.5px under the window's edge, as in the give and trade windows; the
+# slots a padding under its capitals' and digits' ink.
+LOOT_NAME_TOP = 0
+LOOT_SLOTS_TOP = LOOT_NAME_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+# The three buttons fill the row a padding under the slots: (ScreenID, label, column). Neither the stock Done nor
+# duxaUI's Zeal buttons have tooltips.
+LOOT_BUTTONS_TOP = LOOT_SLOTS_TOP + LOOT_GRID_HEIGHT + BUTTON_ROW_GAP
+LOOT_BUTTONS = (('LinkAllButton', 'Link All', 0), ('LootAllButton', 'Loot All', 1), ('DoneButton', 'Done', 2))
+_LOOT_SPAN = LOOT_CONTENT_WIDTH - (len(LOOT_BUTTONS) - 1) * BUTTON_GAP
+LOOT_BUTTON_WIDTHS = tuple(_LOOT_SPAN * (c + 1) // len(LOOT_BUTTONS) - _LOOT_SPAN * c // len(LOOT_BUTTONS)
+                           for c in range(len(LOOT_BUTTONS)))
+for _screen_id, _label, _column in LOOT_BUTTONS:
+    _size = (LOOT_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
+    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
+LOOT_HEIGHT = 2 * BORDER + LOOT_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -3024,13 +3054,41 @@ def trade_window():
     return window('TradeWnd', 'Trade', TRADE_HEIGHT, parts, width=TRADE_WIDTH)
 
 
+def loot_window():
+    """A corpse's name along the top, then all 30 of its slots six across on the hot bar's squares, and Link All, Loot
+    All and Done along the bottom (see LOOT_FILE)."""
+    name = label('TUI_LW_CorpseName', None, (LEFT, LOOT_NAME_TOP, LOOT_CONTENT_WIDTH, TEXT_HEIGHT), '',
+                 screen_id='LW_CorpseName')
+    # The slots in the client's panel for them, see-through on the window's panel, as the merchant's are.
+    slots = [inv_slot(f'TUI_LW_LootSlot{n}', f'LW_LootSlot{n}', LOOT_SLOT_TYPE + n,
+                      (n % LOOT_COLUMNS * HOT_PITCH, n // LOOT_COLUMNS * HOT_PITCH), 'TUI_HotButtonNormal')
+             for n in range(LOOT_SLOTS)]
+    panel = node('Screen', [
+        node('ScreenID', 'LootInvWnd'),
+        node('RelativePosition', True),
+        point('Location', LEFT, LOOT_SLOTS_TOP),
+        size(LOOT_CONTENT_WIDTH, LOOT_GRID_HEIGHT),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
+        node('Style_Transparent', True),
+        node('DrawTemplate', FRAME_TEMPLATE),
+        node('Style_Border', False),
+    ] + [node('Pieces', slot[2]) for slot in slots], 'TUI_LW_LootInvWnd')
+    buttons = [button(f'TUI_LW_{screen_id}', screen_id, label_text,
+                      LEFT + sum(LOOT_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP, LOOT_BUTTONS_TOP,
+                      LOOT_BUTTON_WIDTHS[column])
+               for screen_id, label_text, column in LOOT_BUTTONS]
+    return window('LootWnd', 'Loot', LOOT_HEIGHT, [name, panel, *buttons], width=LOOT_WIDTH, inner=slots)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
-                QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window}
+                QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
+                LOOT_FILE: loot_window}
 
 
 def stranded_definitions(skin_xml):

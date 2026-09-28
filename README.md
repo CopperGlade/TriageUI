@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give and trade windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give, trade and loot windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with the item's name on the item window. Drag a window by its background to move it, and a chat or item window by the strip along its top.
 
@@ -124,6 +124,10 @@ What opens when you hand an NPC an item or some coins. The NPC's name is along t
 ## The trade window
 
 What opens when you trade with another player. What they offer is on the left, under their name, and what you offer is on the right, under yours, with a thin line between the two sides. Each side has its eight item slots, two to a row, and under them its coin boxes, one to a row, marked **pp**, **gp**, **sp** and **cp** as in the give window. To offer coins, pick them up from your inventory and drop them on one of your boxes; the other side's boxes only show what they offer. **Trade** and **Cancel** are along the bottom. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
+
+## The loot window
+
+What opens when you loot a corpse. The corpse's name is along the top. Under it, all 30 of its slots sit six to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Along the bottom are **Link All**, which puts a link to every item in your chat line, **Loot All**, which takes everything, and **Done**. Link All and Loot All are Zeal's, the same as `/linkall` and `/lootall`. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
 
 ## Install
 
