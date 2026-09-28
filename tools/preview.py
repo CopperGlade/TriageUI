@@ -62,6 +62,7 @@ HOT_SPELLS = {'HB_SpellGem2': 11}
 MERCHANT_ITEMS = 23  # a merchant's items fill the slots from the first
 BAG_ITEMS = 6
 GIVE_ITEMS = 2  # what you hand an NPC fills its slots from the first
+TRADE_ITEMS = 1  # what the other side offers fills its slots from the first; yours share the give window's EQTypes
 HELD_SLOTS = {13, 22}  # the primary hand and the first bag, on the hot bar's slots
 LABELS = {
     1: 'Sebik', 12: '60', 13: '45', 14: '38', 15: '41', 16: '52', 17: '4321', 18: '4970', 19: '87', 20: '64',
@@ -84,8 +85,12 @@ BUTTON_TEXT = {
          'Loot All', 'Tell Grp'], 1)},
     'HB_Button1': 'Heal', 'HB_Button4': 'Assist', 'HB_Button5': 'Camp', 'HB_Button6': 'Loot',
     'GVW_MyMoney0': '12', 'GVW_MyMoney1': '3', 'GVW_MyMoney2': '0', 'GVW_MyMoney3': '0',
+    'TRDW_HisMoney0': '120', 'TRDW_HisMoney1': '5', 'TRDW_HisMoney2': '0', 'TRDW_HisMoney3': '0',
+    'TRDW_MyMoney0': '0', 'TRDW_MyMoney1': '0', 'TRDW_MyMoney2': '0', 'TRDW_MyMoney3': '0',
 }
-LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin'}  # labels with no EQType whose text the client writes, by ScreenID
+# Labels with no EQType whose text the client writes, by ScreenID. The other side of a trade is a placeholder, not a
+# character's name.
+LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_MyName': 'Sebik'}
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
@@ -401,7 +406,9 @@ class Preview:
         merchant = skin.MERCHANT_SLOT_TYPE <= eq_type < skin.MERCHANT_SLOT_TYPE + MERCHANT_ITEMS
         bag = skin.BAG_SLOT_TYPE <= eq_type < skin.BAG_SLOT_TYPE + BAG_ITEMS
         given = skin.GIVE_SLOT_TYPE <= eq_type < skin.GIVE_SLOT_TYPE + GIVE_ITEMS
-        return (eq_type * 7 + 3) % 36 if merchant or bag or given or eq_type in HELD_SLOTS else None
+        theirs = skin.TRADE_SLOT_TYPE + skin.TRADE_SLOTS
+        offered = theirs <= eq_type < theirs + TRADE_ITEMS
+        return (eq_type * 7 + 3) % 36 if merchant or bag or given or offered or eq_type in HELD_SLOTS else None
 
     def draw_invslot(self, layer, element, at, size, *_):
         screen_id = element.findtext('ScreenID') or ''

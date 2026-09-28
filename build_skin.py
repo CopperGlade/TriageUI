@@ -108,6 +108,7 @@ BACKGROUND_TEXTURE = 'triageui_bg.tga'
 PERCENT_TEXTURE = 'triageui_percent.tga'
 FIELD_TEXTURE = 'triageui_field.tga'  # the chat input's strip, darker than the panel
 GUTTER_TEXTURE = 'triageui_gutter.tga'  # the scrollbar's track: clear, so only the thumb shows
+DIVIDER_TEXTURE = 'triageui_divider.tga'  # the row divider's color, for a divider standing up (see DIVIDER_TEMPLATE)
 # The skin's copy of the base's EQUI_Animations.xml carries our shared definitions: the client loads it
 # before every window file, so every window can use them.
 ANIMATIONS_FILE = 'EQUI_Animations.xml'
@@ -994,6 +995,15 @@ QUANTITY_ACCEPT_X = QUANTITY_RIGHT - QUANTITY_ROW_WIDTHS[1]
 _size = (QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT)  # no label of ours: the button's text is its name
 BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('',)
 QUANTITY_HEIGHT = 2 * BORDER + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
+# Coin boxes (the give and trade windows, see coin_box()): the buttons the game writes an amount of one coin on, as
+# its text, centered, in font 3. Money0 to 3 are platinum, gold, silver and copper in every window, as the stock
+# windows' coin decals show. Each box is the slots' wash with its coin lettered in a padding in from its left edge
+# (the user's pick, over the stock coin pictures), as tall as the quantity window's number field and as wide as two
+# slots and the padding between them.
+COIN_CAPTIONS = ('pp', 'gp', 'sp', 'cp')
+COIN_WIDTH = 2 * HOT_SIZE + BUTTON_GAP
+COIN_HEIGHT = TEXT_BUTTON_HEIGHT
+COIN_TOOLTIP = 'Drop coins here'  # the stock windows', on your own coins
 # The give window: what opens when you hand an NPC an item or coins. eqgame.exe looks up the NPC's name (which it
 # writes), the four item slots (GVW_MyItemSlot0 to 3, EQTypes 3000 to 3003), the four coin buttons (GVW_MyMoney0 to 3:
 # platinum, gold, silver and copper, each showing the amount you give as its text), Give and Cancel, and nothing else.
@@ -1011,22 +1021,57 @@ GIVE_SLOT_TYPE = 3000
 GIVE_SLOTS = 4
 GIVE_HALF_WIDTHS = ((GIVE_CONTENT_WIDTH - BUTTON_GAP) // 2,
                     GIVE_CONTENT_WIDTH - BUTTON_GAP - (GIVE_CONTENT_WIDTH - BUTTON_GAP) // 2)
-# The coin boxes, (ScreenID, caption) in reading order, two to a row a padding under the slots. Each is the slots' wash
-# at its own size with its coin lettered in, a padding in from its left edge; the game writes the amount as its text,
-# centered, in font 3, so a box is as tall as the quantity window's number field.
-GIVE_COINS = (('GVW_MyMoney0', 'pp'), ('GVW_MyMoney1', 'gp'), ('GVW_MyMoney2', 'sp'), ('GVW_MyMoney3', 'cp'))
+# The coin boxes (see COIN_CAPTIONS), (ScreenID, caption) in reading order, two to a row a padding under the slots,
+# each half the row.
+GIVE_COINS = tuple((f'GVW_MyMoney{n}', caption) for n, caption in enumerate(COIN_CAPTIONS))
 GIVE_COIN_COLUMNS = 2
 GIVE_COIN_ROWS = -(-len(GIVE_COINS) // GIVE_COIN_COLUMNS)
-GIVE_COIN_HEIGHT = TEXT_BUTTON_HEIGHT
 GIVE_COINS_TOP = GIVE_SLOTS_TOP + HOT_SIZE + BUTTON_ROW_GAP
-GIVE_COIN_TOOLTIP = 'Drop coins here'  # the stock window's
 # Give and Cancel fill the row a padding under the coins: (ScreenID, label, column). The stock ones have no tooltips.
-GIVE_BUTTONS_TOP = GIVE_COINS_TOP + GIVE_COIN_ROWS * (GIVE_COIN_HEIGHT + BUTTON_ROW_GAP)
+GIVE_BUTTONS_TOP = GIVE_COINS_TOP + GIVE_COIN_ROWS * (COIN_HEIGHT + BUTTON_ROW_GAP)
 GIVE_BUTTONS = (('GVW_Give_Button', 'Give', 0), ('GVW_Cancel_Button', 'Cancel', 1))
 for _screen_id, _label, _column in GIVE_BUTTONS:
     _size = (GIVE_HALF_WIDTHS[_column], BUTTON_HEIGHT)
     BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
 GIVE_HEIGHT = 2 * BORDER + GIVE_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
+# The trade window: what opens when you trade with another player. From eqgame.exe and Zeal's TradeWnd (game_ui.h): the
+# client looks up the two names (TRDW_HisName, the other side's, and TRDW_MyName, yours; it writes both), the 16 item
+# slots (TRDW_TradeSlot0 to 7 yours and 8 to 15 theirs, EQTypes 3000 to 3015, numbered down each column first in the
+# stock window), each side's four coin boxes (TRDW_HisMoney0 to 3 and TRDW_MyMoney0 to 3, see COIN_CAPTIONS), Trade and
+# Cancel, and nothing else. The user's picks (2026-09-28, from mockups): the stock arrangement, their side on the left
+# and yours on the right, each two slots across over its coins, with the row divider standing between them a padding
+# from each; the coins lettered, as in the give window; the names in font 3; Trade and Cancel across the bottom.
+TRADE_FILE = 'EQUI_TradeWnd.xml'
+TRADE_SLOTS = 8  # a side's
+TRADE_SLOT_TYPE = 3000
+TRADE_SLOT_ROWS = 4
+TRADE_SIDE_WIDTH = COIN_WIDTH  # two slots and the padding between them, over a coin box as wide
+TRADE_DIVIDER_X = LEFT + TRADE_SIDE_WIDTH + PADDING
+# Each side as (ScreenID prefix, x, its first slot's number), in the stock window's order: theirs, then yours.
+TRADE_SIDES = (('His', LEFT, TRADE_SLOTS), ('My', TRADE_DIVIDER_X + DIVIDER_HEIGHT + PADDING, 0))
+TRADE_RIGHT = TRADE_SIDES[1][1] + TRADE_SIDE_WIDTH
+TRADE_WIDTH = TRADE_RIGHT + LEFT + 2 * BORDER
+TRADE_CONTENT_WIDTH = TRADE_RIGHT - LEFT
+# The names' line at the inside's top, so their ink starts 7.5px under the window's edge (the user's pick, with font 3:
+# a label placed into the frame isn't drawn). The slots a padding under their capitals' and digits' ink, the coins a
+# padding under the slots.
+TRADE_NAME_TOP = 0
+TRADE_SLOTS_TOP = TRADE_NAME_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+TRADE_COINS_TOP = TRADE_SLOTS_TOP + TRADE_SLOT_ROWS * HOT_PITCH
+TRADE_COINS_BOTTOM = TRADE_COINS_TOP + len(COIN_CAPTIONS) * (COIN_HEIGHT + BUTTON_ROW_GAP) - BUTTON_ROW_GAP
+# The divider from the window's padding at the top down to the coins' bottom (see DIVIDER_TEMPLATE).
+TRADE_DIVIDER_TOP = LEFT
+TRADE_DIVIDER_HEIGHT = TRADE_COINS_BOTTOM - TRADE_DIVIDER_TOP
+# Trade and Cancel fill the row a padding under the coins and the divider: (ScreenID, label, column). The stock ones
+# have no tooltips.
+TRADE_BUTTONS_TOP = TRADE_COINS_BOTTOM + BUTTON_ROW_GAP
+TRADE_BUTTON_WIDTHS = ((TRADE_CONTENT_WIDTH - BUTTON_GAP) // 2,
+                       TRADE_CONTENT_WIDTH - BUTTON_GAP - (TRADE_CONTENT_WIDTH - BUTTON_GAP) // 2)
+TRADE_BUTTONS = (('TRDW_Trade_Button', 'Trade', 0), ('TRDW_Cancel_Button', 'Cancel', 1))
+for _screen_id, _label, _column in TRADE_BUTTONS:
+    _size = (TRADE_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
+    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
+TRADE_HEIGHT = 2 * BORDER + TRADE_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1050,6 +1095,10 @@ FIELD_TEMPLATE = 'WDT_TriageField'
 # in game: an Editbox seems to draw its template's background even when marked see-through. The raid window's
 # lists use it too: they sit on the window's panel with only our slim scrollbar drawn.
 EDIT_TEMPLATE = 'WDT_TriageClear'
+# A divider standing up (the trade window's, see vertical_divider()): a child window 1px wide drawing the row
+# divider's color as its background, with no border. A piece as tall as the trade window's (283px) doesn't fit in
+# the atlas, which packs pieces in rows as tall as their tallest and has less than that left.
+DIVIDER_TEMPLATE = 'WDT_TriageDivider'
 
 
 class BuildError(Exception):
@@ -1670,10 +1719,9 @@ def pieces():
            for state in BUTTON_LOOKS},
         'SliderTrack': slider_track(QUANTITY_CONTENT_WIDTH - SLIDER_KNOB_WIDTH),
         'SliderCapRight': slider_track(SLIDER_KNOB_WIDTH),
-        # The give window's coin boxes (see GIVE_COINS), solid like the slots, so a drop anywhere on one counts.
-        **{f'GiveCoin{caption}{state}': solid(labeled_button_art(GIVE_HALF_WIDTHS[n % GIVE_COIN_COLUMNS],
-                                                                  GIVE_COIN_HEIGHT, caption, state, left=PADDING))
-           for n, (_, caption) in enumerate(GIVE_COINS) for state in BUTTON_LOOKS},
+        # The coin boxes (see COIN_CAPTIONS), solid like the slots, so a drop anywhere on one counts.
+        **{f'Coin{caption}{state}': solid(labeled_button_art(COIN_WIDTH, COIN_HEIGHT, caption, state, left=PADDING))
+           for caption in COIN_CAPTIONS for state in BUTTON_LOOKS},
         'TitleBar': title_piece(),
         'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
         **{f'ItemClose{state}': close_box_art(state) for state in BUTTON_LOOKS},
@@ -1844,6 +1892,7 @@ def shared_definitions(rects):
         texture_info(PERCENT_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         texture_info(FIELD_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         texture_info(GUTTER_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
+        texture_info(DIVIDER_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         *(animation(f'TUI_{name}', PIECES_TEXTURE, rect) for name, rect in rects.items()),
         # Far wider than its texture: the client repeats or stretches it, and only the first % is ever
         # inside the clip.
@@ -1866,6 +1915,8 @@ def shared_definitions(rects):
         frame_template(FIELD_TEMPLATE, FIELD_TEXTURE, edge='TUI_FieldEdge'),
         # The chat input box's: nothing drawn (see EDIT_TEMPLATE).
         frame_template(EDIT_TEMPLATE, GUTTER_TEXTURE, edge='TUI_Clear'),
+        # A divider standing up: only its background, the row divider's color (see DIVIDER_TEMPLATE).
+        frame_template(DIVIDER_TEMPLATE, DIVIDER_TEXTURE, edge='TUI_Clear'),
         # The Actions window's tab and page borders: clear pieces that place the tabs and pages (see
         # TAB_BORDER), every one the stock templates have.
         node('FrameTemplate', [node(side, f'TUI_TabBorder{side}') for side in TAB_BORDER_PIECES] + overlaps(),
@@ -2888,6 +2939,44 @@ def quantity_window():
     return window('QuantityWnd', 'Quantity', QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH)
 
 
+def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True):
+    """A box the game writes an amount of one coin on (see COIN_CAPTIONS), COIN_WIDTH x COIN_HEIGHT at x, y. lit
+    gives it the buttons' hovered and pressed looks, for your own coins, which take a drop; without it the box keeps
+    its resting look, like a slot."""
+    children = [
+        node('ScreenID', screen_id),
+        node('Font', TEXT_FONT),
+        node('RelativePosition', True),
+        point('Location', x, y),
+        size(COIN_WIDTH, COIN_HEIGHT),
+        node('Style_Transparent', False),
+    ]
+    if tooltip:
+        children.append(node('TooltipReference', tooltip))
+    return node('Button', children + [
+        node('Style_Checkbox', False),
+        node('Text', ''),  # the game writes the amount
+        color('TextColor', TEXT_RGB),
+        node('ButtonDrawTemplate', [node(state, f'TUI_Coin{caption}{BUTTON_ART[state] if lit else "Normal"}')
+                                    for state in BUTTON_STATES]),
+    ], name)
+
+
+def vertical_divider(name, x, y, height):
+    """The row divider standing up, height tall at x, y: a child window drawing only its background (see
+    DIVIDER_TEMPLATE)."""
+    return node('Screen', [
+        node('RelativePosition', True),
+        point('Location', x, y),
+        size(DIVIDER_HEIGHT, height),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
+        node('Style_Transparent', False),
+        node('DrawTemplate', DIVIDER_TEMPLATE),
+        node('Style_Border', False),
+    ], name)
+
+
 def give_window():
     """What you hand an NPC: its name, then your four item slots in a row on the hot bar's squares, the coin boxes two
     to a row, and Give and Cancel (see GIVE_FILE)."""
@@ -2896,29 +2985,40 @@ def give_window():
     slots = [inv_slot(f'TUI_GVW_MyItemSlot{n}', f'GVW_MyItemSlot{n}', GIVE_SLOT_TYPE + n,
                       (LEFT + n * HOT_PITCH, GIVE_SLOTS_TOP), 'TUI_HotButtonNormal')
              for n in range(GIVE_SLOTS)]
-    coins = []
-    for n, (screen_id, caption) in enumerate(GIVE_COINS):
-        column, row = n % GIVE_COIN_COLUMNS, n // GIVE_COIN_COLUMNS
-        coins.append(node('Button', [
-            node('ScreenID', screen_id),
-            node('Font', TEXT_FONT),
-            node('RelativePosition', True),
-            point('Location', LEFT + sum(GIVE_HALF_WIDTHS[:column]) + column * BUTTON_GAP,
-                  GIVE_COINS_TOP + row * (GIVE_COIN_HEIGHT + BUTTON_ROW_GAP)),
-            size(GIVE_HALF_WIDTHS[column], GIVE_COIN_HEIGHT),
-            node('Style_Transparent', False),
-            node('TooltipReference', GIVE_COIN_TOOLTIP),
-            node('Style_Checkbox', False),
-            node('Text', ''),  # the game writes the amount
-            color('TextColor', TEXT_RGB),
-            node('ButtonDrawTemplate', [node(state, f'TUI_GiveCoin{caption}{BUTTON_ART[state]}')
-                                        for state in BUTTON_STATES]),
-        ], f'TUI_GVW_{screen_id}'))
+    coins = [coin_box(f'TUI_GVW_{screen_id}', screen_id, caption,
+                      LEFT + sum(GIVE_HALF_WIDTHS[:n % GIVE_COIN_COLUMNS]) + n % GIVE_COIN_COLUMNS * BUTTON_GAP,
+                      GIVE_COINS_TOP + n // GIVE_COIN_COLUMNS * (COIN_HEIGHT + BUTTON_ROW_GAP))
+             for n, (screen_id, caption) in enumerate(GIVE_COINS)]
     buttons = [button(f'TUI_GVW_{screen_id}', screen_id, label_text,
                       LEFT + sum(GIVE_HALF_WIDTHS[:column]) + column * BUTTON_GAP, GIVE_BUTTONS_TOP,
                       GIVE_HALF_WIDTHS[column])
                for screen_id, label_text, column in GIVE_BUTTONS]
     return window('GiveWnd', 'Give', GIVE_HEIGHT, [name, *slots, *coins, *buttons], width=GIVE_WIDTH)
+
+
+def trade_window():
+    """Their side on the left and yours on the right with a divider between them, each its name, then its eight slots
+    two across and its coin boxes under them; Trade and Cancel across the bottom (see TRADE_FILE)."""
+    parts = [vertical_divider('TUI_TRDW_Divider', TRADE_DIVIDER_X, TRADE_DIVIDER_TOP, TRADE_DIVIDER_HEIGHT)]
+    for prefix, x, first in TRADE_SIDES:
+        # The game writes the name, centered over its side like the stock window's.
+        parts.append(label(f'TUI_TRDW_{prefix}Name', None, (x, TRADE_NAME_TOP, TRADE_SIDE_WIDTH, TEXT_HEIGHT), '',
+                           screen_id=f'TRDW_{prefix}Name', align_center=True))
+        parts += [inv_slot(f'TUI_TRDW_TradeSlot{first + n}', f'TRDW_TradeSlot{first + n}', TRADE_SLOT_TYPE + first + n,
+                           (x + n // TRADE_SLOT_ROWS * HOT_PITCH, TRADE_SLOTS_TOP + n % TRADE_SLOT_ROWS * HOT_PITCH),
+                           'TUI_HotButtonNormal')
+                  for n in range(TRADE_SLOTS)]
+        # Only your own coins take a drop, so theirs keep their resting look under the pointer, with no tooltip.
+        yours = prefix == 'My'
+        parts += [coin_box(f'TUI_TRDW_{prefix}Money{n}', f'TRDW_{prefix}Money{n}', caption, x,
+                           TRADE_COINS_TOP + n * (COIN_HEIGHT + BUTTON_ROW_GAP), tooltip=COIN_TOOLTIP if yours else None,
+                           lit=yours)
+                  for n, caption in enumerate(COIN_CAPTIONS)]
+    parts += [button(f'TUI_TRDW_{screen_id}', screen_id, label_text,
+                     LEFT + sum(TRADE_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP, TRADE_BUTTONS_TOP,
+                     TRADE_BUTTON_WIDTHS[column])
+              for screen_id, label_text, column in TRADE_BUTTONS]
+    return window('TradeWnd', 'Trade', TRADE_HEIGHT, parts, width=TRADE_WIDTH)
 
 
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
@@ -2927,7 +3027,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
-                QUANTITY_FILE: quantity_window, GIVE_FILE: give_window}
+                QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window}
 
 
 def stranded_definitions(skin_xml):
@@ -2964,6 +3064,7 @@ def skin_files(base_animations, stranded=()):
         PERCENT_TEXTURE: percent_glyph(),
         FIELD_TEXTURE: Texture(BACKGROUND_SIZE, BACKGROUND_SIZE, FIELD_RGBA),
         GUTTER_TEXTURE: clear_texture(BACKGROUND_SIZE, BACKGROUND_SIZE),
+        DIVIDER_TEXTURE: Texture(BACKGROUND_SIZE, BACKGROUND_SIZE, ROW_DIVIDER_RGBA),
     }
     # Every pixel on the 16 steps, so the client has nothing to dither (see STEP).
     files = {name: tga_bytes(snapped_art(texture)) for name, texture in textures.items()}

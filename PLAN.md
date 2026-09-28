@@ -28,6 +28,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Item Display | `EQUI_ItemDisplay.xml` |
 | Quantity (splitting a stack) | `EQUI_QuantityWnd.xml` |
 | Give | `EQUI_GiveWnd.xml` |
+| Trade | `EQUI_TradeWnd.xml` |
 
 ## To do: everyday
 
@@ -39,7 +40,6 @@ Roughly in order of how much a player sees them.
 | Spell Book | `EQUI_SpellBookWnd.xml` | duxaUI, without the bright slot bars |
 | Loot | `EQUI_LootWnd.xml` | duxaUI |
 | Bank | `EQUI_BankWnd.xml` | duxaUI |
-| Trade | `EQUI_TradeWnd.xml` | duxaUI |
 | Inspect | `EQUI_InspectWnd.xml` | duxaUI |
 | Skills | `EQUI_SkillsWindow.xml` | duxaUI |
 | Compass | `EQUI_CompassWnd.xml` | duxaUI |
@@ -73,13 +73,15 @@ Roughly in order of how much a player sees them.
 | Gems (the minigame) | `EQUI_GemsGameWnd.xml` | default |
 | Cursor attachment (the item on the cursor and its stack count; little to restyle) | `EQUI_CursorAttachment.xml` | duxaUI |
 
-## To do: before login
+## Left as they are
 
-| Window | File | Look now |
-|---|---|---|
-| Character Select | `EQUI_CharacterSelect.xml` | default |
-| Character Create | `EQUI_CharacterCreate.xml` | default |
-| Face Pick | `EQUI_FacePick.xml` | default |
+Seen only before login. TriageUI leaves them to the base skin, so they keep default's look.
+
+| Window | File |
+|---|---|
+| Character Select | `EQUI_CharacterSelect.xml` |
+| Character Create | `EQUI_CharacterCreate.xml` |
+| Face Pick | `EQUI_FacePick.xml` |
 
 ## Out of reach
 

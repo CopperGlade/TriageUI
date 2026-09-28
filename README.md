@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · by 
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity and give windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give and trade windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with the item's name on the item window. Drag a window by its background to move it, and a chat or item window by the strip along its top.
 
@@ -121,6 +121,10 @@ The number takes digits only. What you type is added after the number that's the
 
 What opens when you hand an NPC an item or some coins. The NPC's name is along the top, so you can see who gets them. Under it, your four item slots sit in a row on the hot button window's squares. Then come the coin boxes, two to a row, each marked **pp**, **gp**, **sp** or **cp** and showing how many of that coin you're giving. To give coins, pick them up from your inventory and drop them on their box. **Give** and **Cancel** are along the bottom. The window is as wide as the hot button window and has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
 
+## The trade window
+
+What opens when you trade with another player. What they offer is on the left, under their name, and what you offer is on the right, under yours, with a thin line between the two sides. Each side has its eight item slots, two to a row, and under them its coin boxes, one to a row, marked **pp**, **gp**, **sp** and **cp** as in the give window. To offer coins, pick them up from your inventory and drop them on one of your boxes; the other side's boxes only show what they offer. **Trade** and **Cancel** are along the bottom. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
+
 ## Install
 
 1. **Install Python 3** on Windows from [python.org](https://www.python.org/downloads/) if you don't have it. Nothing else is needed.
@@ -164,7 +168,7 @@ What opens when you hand an NPC an item or some coins. The NPC's name is along t
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
-- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd`, `GiveWnd` or `TUI_` are about TriageUI.
+- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd`, `GiveWnd`, `TradeWnd` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 
