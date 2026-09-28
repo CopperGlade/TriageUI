@@ -924,6 +924,42 @@ for _width in sorted(set(CONFIRM_BUTTON_WIDTHS)):  # no label of ours: the butto
     _size = (_width, TEXT_BUTTON_HEIGHT)
     BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('',)
 CONFIRM_HEIGHT = 2 * BORDER + CONFIRM_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
+# The item window: what the game shows when you right-click an item, or a spell with Zeal's spell info on. From
+# eqgame.exe: it looks up only ItemDescription (the text) and IconButton (0x423331). SetItem (0x423640) writes the
+# item's name into the window's title alone (the text never has it), builds the text, and makes the item's icon, an
+# A_DragItem cell 40px square, the icon button's own Normal art, clearing its decal. SetSpell puts the spell's
+# A_SpellIcons cell (40px too) in the decal and has the buff window paint the button BlueIconBackground or
+# RedIconBackground, the effect slots' art. Neither moves nor resizes anything. The window handles one click, on the
+# icon, which puts a link to the item in the chat input (0x425cf6), and Page Up and Page Down scroll the text
+# (0x425d69). Zeal makes its own item windows (ZealItemDisplay0 to 4 in the character's ini) from the same XML, links
+# only ItemDescription and then IconButton as their children, and keeps no size for them, so they open at the XML's.
+# The user's picks (2026-09-27, from mockups): a title bar with the name in font 3, the icon at the top left with
+# the text in a column to its right, a lettered Close button on the bar (the close box: the game handles no other
+# button here, so none inside the window could close it), and a fixed size.
+ITEM_FILE = 'EQUI_ItemDisplay.xml'
+ITEM_TEMPLATE = 'WDT_TriageItem'
+ITEM_WIDTH = 400  # the stock window's
+ITEM_RIGHT = ITEM_WIDTH - 2 * BORDER - LEFT
+ITEM_ICON = 40  # the game's item and spell icons, drawn at their own size
+ITEM_TEXT_X = LEFT + ITEM_ICON + PADDING
+# The first line's ink level with the icon's top, a padding under the title bar, if the text box draws its first
+# line at its top like a label.
+ITEM_TEXT_TOP = PADDING - PERCENT_INK_TOP
+ITEM_TEXT_LINES = 12
+# The close box, from eqgame.exe (0x57165a): drawn at its art's size, its right edge CLOSE_BOX_INSET in from the
+# inside's right edge (the window within its border) and its top CLOSE_BOX_TOP under the title bar's. A minimize box
+# would sit at the bar's left, 8 in and 2 down. The bar is as tall as its pieces, and the game writes the window's
+# title on it in the window's Font, centered down the bar less a pixel, light grey (#c0c0c0), white while the window
+# is active (0x5729b0). So the Close button's right edge is 11px from the window's (the user accepted it, forced).
+CLOSE_BOX_TOP = 1
+CLOSE_BOX_INSET = 7
+CLOSE_WIDTH = 50  # the pet window's buttons', whose names are as long
+# Clear rows over the Close button in its art, so it starts a padding under the window's top edge. More would center
+# it on the name (about 2px lower, by the game's rule and an estimate of font 3's height), at the padding's cost.
+CLOSE_CLEAR = PADDING - BORDER - CLOSE_BOX_TOP
+# The bar: the Close button, a padding under it, then the divider as the bar's bottom row.
+ITEM_TITLE_HEIGHT = CLOSE_BOX_TOP + CLOSE_CLEAR + BUTTON_HEIGHT + PADDING + DIVIDER_HEIGHT
+ITEM_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + ITEM_TEXT_TOP + ITEM_TEXT_LINES * TEXT_HEIGHT + LEFT
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1482,12 +1518,19 @@ def harmful_row():
     return row
 
 
-def title_piece():
-    """A chat window's title bar: the panel's color with a row divider along its bottom, TITLE_HEIGHT
-    tall. The one piece serves as the bar's left, middle and right, repeated across."""
-    piece = Texture(TITLE_PIECE_WIDTH, TITLE_HEIGHT, PANEL_RGBA)
+def title_piece(height=TITLE_HEIGHT):
+    """A title bar: the panel's color with a row divider along its bottom, height tall (a chat window's
+    TITLE_HEIGHT unless given). The one piece serves as the bar's left, middle and right, repeated across."""
+    piece = Texture(TITLE_PIECE_WIDTH, height, PANEL_RGBA)
     piece.rows[-1] = [TITLE_DIVIDER_RGBA] * TITLE_PIECE_WIDTH
     return piece
+
+
+def close_box_art(state):
+    """The item window's close box in one state: the lettered Close button under CLOSE_CLEAR clear rows."""
+    art = clear_texture(CLOSE_WIDTH, CLOSE_CLEAR + BUTTON_HEIGHT)
+    art.rows[CLOSE_CLEAR:] = labeled_button_art(CLOSE_WIDTH, BUTTON_HEIGHT, 'Close', state).rows
+    return art
 
 
 def pieces():
@@ -1542,6 +1585,8 @@ def pieces():
         **{f'ToggleHot{name}{state}': solid(toggle_art(icons[name][0], state, ARROW_SIZE, HOT_SIZE))
            for name in ARROW_ICONS for state in ICON_LOOKS},
         'TitleBar': title_piece(),
+        'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
+        **{f'ItemClose{state}': close_box_art(state) for state in BUTTON_LOOKS},
         'ListHeaderWash': Texture(PIECE_LENGTH, RAID_HEADER_HEIGHT, HEADER_RGBA),  # see LIST_HEADER
         'FieldEdge': Texture(1, 1, EDGE_FADED),
         'Clear': clear_texture(1, 1),
@@ -1677,20 +1722,23 @@ def scrollbar():
     ])
 
 
-def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None, title=None):
+def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None, title=None, close=None):
     """The overlay's panel as a window frame, with our slim scrollbar. The horizontal scrollbar and title
     boxes, which no TriageUI window shows, keep the base skin's look. edge, when given, is the animation
     for every side and corner of the border instead of the panel's rounded one. title, when given, is
     the animation for the title bar's left, middle and right (the chat windows' thin bar); otherwise the
-    stock rounded title bar, which no other TriageUI window shows."""
+    stock rounded title bar, which no other TriageUI window shows. close, when given, is the close box's
+    animation for each of BUTTON_STATES (the item window's Close button); otherwise the stock box."""
     border = {side: edge or f'TUI_Frame{piece}' for side, piece in BORDER_PIECES.items()}
     title_bar = {side: title or f'A_RoundedFrameTitle{side}' for side in ('Right', 'Left', 'Middle')}
+    close_box = (node('CloseBox', [node(state, close[state]) for state in BUTTON_STATES]) if close
+                 else stock_buttons('CloseBox', 'A_CloseBtn'))
     return node('WindowDrawTemplate', [
         node('Background', background),
         scrollbar(),
         stock_scrollbar('HSBTemplate', 'A_HSBLeft', 'A_HSBRight',
                         [('Right', 'A_HSBThumbRight'), ('Left', 'A_HSBThumbLeft'), ('Middle', 'A_HSBThumbMiddle')]),
-        stock_buttons('CloseBox', 'A_CloseBtn'),
+        close_box,
         stock_buttons('MinimizeBox', 'A_MinimizeBtn'),
         stock_buttons('TileBox', 'A_TileBtn'),
         node('Border', [node(side, art) for side, art in border.items()] + overlaps()),
@@ -1717,6 +1765,10 @@ def shared_definitions(rects):
         frame_template(),
         # The chat windows' frame: the same, with the thin title bar to drag them by (see TITLE_HEIGHT).
         frame_template(CHAT_TEMPLATE, title='TUI_TitleBar'),
+        # The item window's: the same with a title bar tall enough for its Close button, the close box (see
+        # ITEM_FILE).
+        frame_template(ITEM_TEMPLATE, title='TUI_ItemTitleBar',
+                       close={state: f'TUI_ItemClose{BUTTON_ART[state]}' for state in BUTTON_STATES}),
         # The chat input's field: a plain strip darker than the panel, outlined by a 1px line in the
         # window edge's color, a faint light line against both the field and the panel around it.
         frame_template(FIELD_TEMPLATE, FIELD_TEXTURE, edge='TUI_FieldEdge'),
@@ -1981,12 +2033,13 @@ def hidden_button(name, screen_id, x=0, y=0):
 
 
 def window(item, title, height, parts, tooltip=None, width=WINDOW_WIDTH, inner=(), sizable=False,
-           template=FRAME_TEMPLATE, title_bar=False, font=None):
+           template=FRAME_TEMPLATE, title_bar=False, font=None, close_box=False):
     """A window without a title bar, like the overlays with their header hidden, holding parts in drawing order.
 
     title None leaves the window's name to the client, as for chat windows. inner are defined first but
     aren't pieces of the window: they belong to clips or tab pages among the parts. title_bar draws template's title
-    bar (the chat windows' thin one); font is the window's own, for the name the client writes on it.
+    bar (the chat windows' thin one); font is the window's own, for the name the client writes on it. close_box
+    puts template's close box on the bar (the item window's Close button).
     """
     children = [node('ScreenID')]
     if font is not None:
@@ -2008,7 +2061,7 @@ def window(item, title, height, parts, tooltip=None, width=WINDOW_WIDTH, inner=(
     children += [
         node('DrawTemplate', template),
         node('Style_Titlebar', title_bar),
-        node('Style_Closebox', False),
+        node('Style_Closebox', close_box),
         node('Style_Minimizebox', False),
         node('Style_Border', True),
         node('Style_Sizable', sizable),
@@ -2016,10 +2069,10 @@ def window(item, title, height, parts, tooltip=None, width=WINDOW_WIDTH, inner=(
     return list(inner) + parts + [node('Screen', children + [node('Pieces', part[2]) for part in parts], item)]
 
 
-def anchor_nodes(offsets, top_from_bottom, right_from_left=False):
+def anchor_nodes(offsets, top_from_bottom, right_from_left=False, bottom_from_top=False):
     """AutoStretch and the anchors that pin a control to its window's inner edges: offsets are (left, top, right,
     bottom) in from them, the bottom measured up from the bottom edge. top_from_bottom measures the top up from the
-    bottom too, and right_from_left the right from the left edge."""
+    bottom too, right_from_left the right from the left edge and bottom_from_top the bottom down from the top."""
     left, top, right, bottom = offsets
     return [
         node('AutoStretch', True),
@@ -2029,7 +2082,7 @@ def anchor_nodes(offsets, top_from_bottom, right_from_left=False):
         node('BottomAnchorOffset', bottom),
         node('TopAnchorToTop', not top_from_bottom),
         node('RightAnchorToLeft', right_from_left),
-        node('BottomAnchorToTop', False),
+        node('BottomAnchorToTop', bottom_from_top),
     ]
 
 
@@ -2659,12 +2712,50 @@ def confirmation_dialog():
     return window('ConfirmationDialogBox', None, CONFIRM_HEIGHT, [text, *buttons], width=CONFIRM_WIDTH)
 
 
+def item_display_window():
+    """The item's name on the title bar with the Close button, its icon in the top left corner and its text in a
+    column to the icon's right (see ITEM_FILE). Only the stock window's two controls, in its order: Zeal links just
+    those in its own item windows."""
+    # Straight on the panel, like the raid lists, with our slim scrollbar. Anchored like every stock skin's, so a
+    # window the game gives another size (the old sizable one's in the ini) still lays out.
+    text = node('STMLbox', [
+        node('ScreenID', 'ItemDescription'),
+        node('Font', TEXT_FONT),
+        node('DrawTemplate', EDIT_TEMPLATE),
+        node('RelativePosition', True),
+        node('Style_VScroll', True),
+        node('Style_HScroll', False),
+        node('Style_Transparent', True),
+        *anchor_nodes((ITEM_TEXT_X, ITEM_TEXT_TOP, LEFT, LEFT), False),
+        node('Style_Border', False),
+    ], 'TUI_IDW_ItemDescription')
+    # The game makes an item's icon the button's Normal art and a spell's its decal, both 40px (see ITEM_FILE); the
+    # XML's are what the stock window has, never shown.
+    icon = node('Button', [
+        node('ScreenID', 'IconButton'),
+        node('RelativePosition', True),
+        *anchor_nodes((LEFT, PADDING, LEFT + ITEM_ICON, PADDING + ITEM_ICON), False, right_from_left=True,
+                      bottom_from_top=True),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
+        node('Style_Transparent', False),
+        node('Style_Checkbox', False),
+        node('ButtonDrawTemplate', [node('Normal', 'TUI_Clear'), node('NormalDecal', BUFF_ICONS)]),
+        point('DecalOffset', 0, 0),
+        node('DecalSize', [node('CX', ITEM_ICON), node('CY', ITEM_ICON)]),
+    ], 'TUI_IDW_IconButton')
+    # The game writes the item's name over "Item Display", its own placeholder, in the window's font.
+    return window('ItemDisplayWindow', 'Item Display', ITEM_HEIGHT, [text, icon],
+                  tooltip='This is an Item Display window', width=ITEM_WIDTH, template=ITEM_TEMPLATE, title_bar=True,
+                  font=TEXT_FONT, close_box=True)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
                 ACTIONS_FILE: actions_window, CASTSPELL_FILE: spell_bar_window, HOTBUTTON_FILE: hot_button_window,
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
-                MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog}
+                MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window}
 
 
 def stranded_definitions(skin_xml):

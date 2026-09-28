@@ -28,7 +28,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.CHAT_FILE, skin.PET_WINDOW_FILE, skin.CONTAINER_FILE, skin.ACTIONS_FILE, skin.SELECTOR_FILE,
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
-              skin.CONFIRM_FILE]
+              skin.CONFIRM_FILE, skin.ITEM_FILE]
 
 
 @functools.cache
@@ -474,7 +474,7 @@ def test_every_reference_resolves():
     # Everything a window, its clips or its tab pages show is defined earlier in the window's own file.
     for name in skin.WINDOW_FILES:
         file_root, window = screen(name)
-        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE)
+        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.ITEM_TEMPLATE)
         defined = set()
         for element in file_root:
             for piece in element.findall('Pieces') + element.findall('Pages'):
@@ -495,11 +495,11 @@ def test_our_names_never_clash_with_the_stock_skin():
     stock_windows = {'GroupWindow', 'TargetWindow', 'CastingWindow', 'ChatWindow', 'PetInfoWindow', 'SelectorWindow',
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
-                     'ConfirmationDialogBox'}
+                     'ConfirmationDialogBox', 'ItemDisplayWindow'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
-                               *skin.REPLACED_ANIMATIONS}
+                               skin.ITEM_TEMPLATE, *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
 
@@ -2433,6 +2433,112 @@ def test_confirmation_buttons_are_the_actions_windows_with_a_dialogs_room_around
         assert box(b)[3] == box(camp)[3]
         assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], "", "Normal")}'
     assert [name for _, name, *_ in skin.CONFIRM_BUTTONS] == ['Yes', 'No', 'OK']
+
+
+def item_inside(height=None):
+    """The item window's inside under its title bar, where its controls are placed (the window within its border,
+    less the bar), at its own height or the one given."""
+    height = skin.ITEM_HEIGHT if height is None else height
+    return skin.ITEM_WIDTH - 2 * skin.BORDER, height - 2 * skin.BORDER - skin.ITEM_TITLE_HEIGHT
+
+
+def test_item_window_keeps_only_the_stock_windows_two_controls_in_its_order():
+    # eqgame.exe looks up only the text and the icon, and Zeal links just those two, in this order, as the children
+    # of its own item windows (ZealItemDisplay0 to 4), so nothing else may be added. The user's picks: a title bar
+    # with the name in font 3 and a Close button on it, no minimize box, and a fixed size (Zeal keeps no size for
+    # its windows anyway).
+    root, window = screen(skin.ITEM_FILE)
+    assert window.get('item') == 'ItemDisplayWindow'
+    assert [(e.tag, e.findtext('ScreenID')) for e in direct_pieces(root, window)] == [
+        ('STMLbox', 'ItemDescription'), ('Button', 'IconButton')]
+    assert window.findtext('Style_Titlebar') == window.findtext('Style_Closebox') == 'true'
+    assert window.findtext('Style_Minimizebox') == window.findtext('Style_Sizable') == 'false'
+    assert window.findtext('DrawTemplate') == skin.ITEM_TEMPLATE
+    assert window.findtext('Font') == str(skin.TEXT_FONT) == '3'
+    assert box(window)[2:] == (skin.ITEM_WIDTH, skin.ITEM_HEIGHT) == (400, 206)
+    # The game writes the item's name over its own placeholder. The stock window's tooltip.
+    assert window.findtext('Text') == 'Item Display'
+    assert window.findtext('TooltipReference') == 'This is an Item Display window'
+
+
+def test_item_title_bar_is_the_chat_bars_look_with_a_lettered_close_button():
+    # The usual frame with the chat bar's look (the panel, a row divider along the bottom), tall enough for the
+    # Close button (the user's pick; the close box is the only button the game lets close the window).
+    templates = items(everything(), 'WindowDrawTemplate')
+    item, usual = templates[skin.ITEM_TEMPLATE], templates[skin.FRAME_TEMPLATE]
+    assert item.findtext('Background') == usual.findtext('Background') == skin.BACKGROUND_TEXTURE
+    assert [(e.tag, e.text) for e in item.find('Border')] == [(e.tag, e.text) for e in usual.find('Border')]
+    assert {item.findtext(f'Titlebar/{side}') for side in ('Left', 'Middle', 'Right')} == {'TUI_ItemTitleBar'}
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    bar = cut(atlas, anims['TUI_ItemTitleBar'])
+    assert bar.size == (skin.TITLE_PIECE_WIDTH, skin.ITEM_TITLE_HEIGHT) and skin.ITEM_TITLE_HEIGHT == 25
+    rows = [set(bar.getpixel((x, y)) for x in range(bar.width)) for y in range(bar.height)]
+    assert rows[:-1] == [{skin.PANEL_RGBA}] * (skin.ITEM_TITLE_HEIGHT - 1) and rows[-1] == {skin.TITLE_DIVIDER_RGBA}
+    # The close box in every state: clear rows, then the lettered Close button in that state's look.
+    assert set('Close') <= set(skin.LABEL_GLYPHS)
+    close = item.find('CloseBox')
+    assert [e.tag for e in close] == list(skin.BUTTON_STATES)
+    for state in close:
+        look = skin.BUTTON_ART[state.tag]
+        assert state.text == f'TUI_ItemClose{look}'
+        art = cut(atlas, anims[state.text])
+        assert art.size == (skin.CLOSE_WIDTH, skin.CLOSE_CLEAR + skin.BUTTON_HEIGHT)
+        assert {art.getpixel((x, y))[3] for x in range(art.width) for y in range(skin.CLOSE_CLEAR)} == {0}
+        button = skin.labeled_button_art(skin.CLOSE_WIDTH, skin.BUTTON_HEIGHT, 'Close', look)
+        assert pixels(art.crop((0, skin.CLOSE_CLEAR, art.width, art.height))) == pixels(as_image(button))
+    # The other windows keep the stock box, which none of them shows.
+    assert usual.findtext('CloseBox/Normal') == 'A_CloseBtnNormal'
+
+
+def test_item_window_follows_the_spacing_standard_where_the_game_lets_it():
+    # The game draws the close box at its art's size, its right edge CLOSE_BOX_INSET in from the inside's right
+    # edge and its top CLOSE_BOX_TOP under the title bar's, which starts at the inside's top (eqgame.exe, 0x57165a).
+    b = skin.BORDER
+    button_top = b + skin.CLOSE_BOX_TOP + skin.CLOSE_CLEAR  # the visible button, under its clear rows
+    assert button_top == skin.PADDING
+    # Forced: the game's inset leaves the button's right edge 11px from the window's (the user accepted it).
+    assert skin.ITEM_WIDTH - (skin.ITEM_WIDTH - b - skin.CLOSE_BOX_INSET) == 11
+    # A padding under the button, the divider (the bar's bottom row), then a padding to the icon.
+    divider = b + skin.ITEM_TITLE_HEIGHT - 1
+    assert divider - (button_top + skin.BUTTON_HEIGHT) == skin.PADDING
+    root, window = screen(skin.ITEM_FILE)
+    text, icon = direct_pieces(root, window)
+    top = b + skin.ITEM_TITLE_HEIGHT  # the controls' inside, in the window
+    ix, iy, iw, ih = anchored_rect(icon, item_inside())
+    assert (iw, ih) == drawn_size(icon) == (skin.ITEM_ICON, skin.ITEM_ICON)
+    assert b + ix == skin.PADDING and top + iy - (divider + 1) == skin.PADDING
+    # The text a padding after the icon, its box (the scrollbar in it too) a padding from the right and bottom
+    # edges, and its first line's ink level with the icon's top, if the box draws its first line at its top like a
+    # label.
+    tx, ty, tw, th = anchored_rect(text, item_inside())
+    assert tx - (ix + iw) == skin.PADDING and tx == skin.ITEM_TEXT_X
+    assert skin.ITEM_WIDTH - (b + tx + tw) == skin.PADDING and tx + tw == skin.ITEM_RIGHT
+    assert skin.ITEM_HEIGHT - (top + ty + th) == skin.PADDING
+    assert abs(ty + skin.TEXT_INK_TOP - iy) <= 0.5
+    assert th == skin.ITEM_TEXT_LINES * skin.TEXT_HEIGHT == 168
+    # Anchored like the stock skin's: at the old sizable window's 400x190, which the ini keeps, the text is only
+    # shorter.
+    assert anchored_rect(text, item_inside(190)) == (tx, ty, tw, th - (skin.ITEM_HEIGHT - 190))
+    assert anchored_rect(icon, item_inside(190)) == (ix, iy, iw, ih)
+
+
+def test_item_icon_and_text_take_what_the_game_puts_there():
+    root, window = screen(skin.ITEM_FILE)
+    text, icon = direct_pieces(root, window)
+    # The game makes an item's icon the button's own Normal and a spell's its decal, both 40px (A_DragItem and
+    # A_SpellIcons cells), so each draws at its own size. The XML's are the stock window's, never shown.
+    assert icon.findtext('ButtonDrawTemplate/Normal') == 'TUI_Clear'
+    assert icon.findtext('ButtonDrawTemplate/NormalDecal') == skin.BUFF_ICONS
+    assert (number(icon, 'DecalOffset/X', None), number(icon, 'DecalOffset/Y', None)) == (0, 0)
+    assert (number(icon, 'DecalSize/CX'), number(icon, 'DecalSize/CY')) == (skin.ITEM_ICON, skin.ITEM_ICON) == (40, 40)
+    assert icon.findtext('Style_Checkbox') == 'false' and icon.find('TooltipReference') is None
+    # The text straight on the panel with our slim scrollbar, like the raid lists; the game writes it, in its own
+    # colors (SIDL gives an STMLbox no text color).
+    assert text.findtext('Font') == str(skin.TEXT_FONT) and text.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+    assert text.findtext('Style_Transparent') == 'true' and text.findtext('Style_Border') == 'false'
+    assert text.findtext('Style_VScroll') == 'true' and text.findtext('Style_HScroll') == 'false'
+    assert text.find('Text') is None and text.find('TextColor') is None
 
 
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():

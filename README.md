@@ -4,9 +4,9 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · by 
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, effects, songs and player windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs and player windows, the spell bar and the confirmation dialog.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
-They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows. Drag a window by its background to move it, and a chat window by the thin strip along its top.
+They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with the item's name on the item window. Drag a window by its background to move it, and a chat or item window by the strip along its top.
 
 The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
 
@@ -89,6 +89,12 @@ All 80 of a merchant's slots at once, eight to a row on the hot button window's 
 
 When you select one of your own items with charges, Project Quarm's recharge shows beside it: its charges, the price of the next charge, and a **Recharge** button. Point at Recharge for the price per charge. The merchant's name isn't shown. Like the other TriageUI windows, it has a fixed size and you drag it by its background.
 
+## The item window
+
+What you see when you right-click an item, or a spell with Zeal's spell info on. The item's name is on a title bar along the top, with a **Close** button at its right end. Under it, the item's icon sits in the top left corner, with its details in a column beside it, straight on the panel. When the details don't all fit, they scroll with the chat windows' slim scrollbar, or with Page Up and Page Down. Zeal's extra item windows, which let you keep several open, look the same.
+
+The window has a fixed size, like the other TriageUI windows. **Drag it by its title bar.** EverQuest writes the name on the bar itself, in its own color, since the details never include it.
+
 ## The player window
 
 Just what you need at a glance, as wide as the hot button and actions windows. Your name, **Health** with your health % in the middle of the line, your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in the soft blue of the group window's names. The numbers are green, like the resists' values, with a white slash between them. Mana's current/max come from Zeal. Then, on one line, **XP/h** at the left and **AA/h** at the right, each followed by its %, from Zeal: the percent of a level, and of an AA point, you're gaining an hour, each averaged over up to the last two hours (both start over when you `/load` a skin; type `/resetexp` to start them over yourself). XP/h counts regular experience only, so it reads 0% while your AA experience is at 100%, and AA/h reads 0% while it's at 0%. Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white like your name. Health, Mana, the XP/h line and the resists are spaced evenly apart, so each reads on its own.
@@ -99,7 +105,7 @@ Your effects as a table, like the EQ Triage overlays: a row for each with the ti
 
 Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
 
-Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, nothing behind a helpful effect's icon and just the red bars beside a harmful one's, so the spellbook, item display and combat ability windows lose their bright blue and red behind icons too.
+Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, nothing behind a helpful effect's icon and just the red bars beside a harmful one's, so the spellbook and combat ability windows lose their bright blue and red behind icons too. The item window puts them behind a spell's icon too.
 
 ## The confirmation dialog
 
@@ -140,6 +146,7 @@ The box that asks before something happens, such as a resurrection, looting a no
 - **Colors that change:** a skin sets each text's color once, so names stay white (pets grey). The overlays color names yellow and red at low health, and Zeal colors target rings by con, but a skin can do neither.
 - **The red box around the player window while you auto-attack:** EverQuest draws it itself, a 1px red outline that flashes on top of the window, and no skin setting turns it off.
 - **The name of the item you're considering at a merchant:** EverQuest shows it only in chat. The merchant window gets the item's icon and nothing else, so no skin can show the name.
+- **The item window's title bar:** EverQuest writes the item's name in its own color and places the Close button itself, a little further from the window's edge than TriageUI's usual spacing. A skin sets neither.
 
 ## Troubleshooting
 
@@ -147,7 +154,7 @@ The box that asks before something happens, such as a resurrection, looting a no
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
-- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox` or `TUI_` are about TriageUI.
+- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 
