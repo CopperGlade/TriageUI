@@ -172,6 +172,15 @@ def button_text_mask(text, size, font_size):
     return mask
 
 
+def text_mask(text, font_size):
+    """A line of text as Preview.text draws it, as its ink's coverage on an L image its line's size: the builder
+    paints the quantity window's name from it (skin.QUANTITY_TITLE_INK), since the game would center it on the bar."""
+    face = font(font_size)
+    mask = Image.new('L', (round(face.getlength(text)), LINE_HEIGHT.get(font_size, 14)), 0)
+    ImageDraw.Draw(mask).text((0, INK_SHIFT.get(font_size, 0)), text, font=face, fill=255)
+    return mask
+
+
 def tinted(image, rgb):
     r, g, b, a = image.split()
     channels = [c.point(lambda v, t=t: v * t // 255) for c, t in zip((r, g, b), rgb)]
@@ -321,8 +330,9 @@ class Preview:
                                               top + skin.CLOSE_BOX_TOP))
         name = TITLES.get(window.get('item'), window.findtext('Text') or '')
         size = number(window, 'Font', 3)
-        # DrawTitleBar: at the bar's left, (bar height - font height) / 2 - 1 down.
-        self.text(image, (left, top + (middle.height - LINE_HEIGHT.get(size, 14)) // 2 - 1), name, size, TITLE_RGB)
+        # DrawTitleBar: centered across the bar, (bar height - font height) / 2 - 1 down.
+        self.text(image, (left, top + (middle.height - LINE_HEIGHT.get(size, 14)) // 2 - 1), name, size, TITLE_RGB,
+                  width=inside, align='center')
         return middle.height
 
     # The pieces

@@ -712,9 +712,8 @@ PLAYER_FILE = 'EQUI_PlayerWindow.xml'
 PLAYER_WIDTH = HOT_WIDTH
 PLAYER_RIGHT = PLAYER_WIDTH - 2 * BORDER - LEFT
 PLAYER_CONTENT_WIDTH = PLAYER_RIGHT - LEFT
-PLAYER_NAME_TYPE = 1  # your name, the first line (the user's request)
-PLAYER_NAME_TOP = 0  # at the top, like the other windows' first lines
-PLAYER_SECTIONS_TOP = PLAYER_NAME_TOP + TEXT_HEIGHT + PADDING  # the user asked for 6px more under the name
+# Health at the top, like the other windows' first lines. No line with your name (the user's request, to save it).
+PLAYER_SECTIONS_TOP = 0
 # Two paddings from a bar to the next caption's ink, as from XP/hour to the resists: the user asked for the
 # sections set apart, less cluttered.
 PLAYER_SECTION_PITCH = BAR_TOP + BAR_HEIGHT + math.ceil(2 * PADDING - PERCENT_INK_TOP - PERCENT_SUBPIXEL)
@@ -736,8 +735,8 @@ PLAYER_SLASH_WIDTH = 4 + 2 * SPACE_WIDTH
 RESISTS = (('DR', 13), ('PR', 12), ('MR', 16), ('FR', 14), ('CR', 15))  # (caption, label EQType)
 CAPTION_FONT = 2
 CAPTION_HEIGHT = 12
-# The captions (Health, Mana and the resists) in the text's color, like your name: the user didn't like
-# them in the overlay's subdued grey.
+# The captions (Health, Mana and the resists) in the text's color: the user didn't like them in the overlay's
+# subdued grey.
 CAPTION_RGB = TEXT_RGB
 # XP/hour (the user's request), on its own line under the mana bar like a section with no bar (the user's pick
 # from a mockup), two paddings under its tick like the sections: Zeal's label 81, the percent of a level you gain an
@@ -966,8 +965,9 @@ ITEM_TEXT_LINES = 12
 # The close box, from eqgame.exe (0x57165a): drawn at its art's size, its right edge CLOSE_BOX_INSET in from the
 # inside's right edge (the window within its border) and its top CLOSE_BOX_TOP under the title bar's. A minimize box
 # would sit at the bar's left, 8 in and 2 down. The bar is as tall as its pieces, and the game writes the window's
-# title on it in the window's Font, centered down the bar less a pixel, light grey (#c0c0c0), white while the window
-# is active (0x5729b0). So the Close button's right edge is 11px from the window's (the user accepted it, forced).
+# title on it in the window's Font, centered across the bar and down it less a pixel, light grey (#c0c0c0), white
+# while the window is active (0x5729b0). So the Close button's right edge is 11px from the window's (the user
+# accepted it, forced), and a narrow window's title runs under it (see QUANTITY_TITLE_INK).
 CLOSE_BOX_TOP = 1
 CLOSE_BOX_INSET = 7
 CLOSE_WIDTH = 72  # the quantity window's Accept's, which it sits over there
@@ -989,6 +989,12 @@ CLOSE_INK = (
     '1d612b7587a13e100188791000',
     '03cee80581aed505dfc20aee90',
 )
+# The chat windows' close box: an X (the user's pick: their bar is too thin for a Close button) in the soft white of
+# their scrollbar's arrows, brighter when hovered or pressed (SCROLL_LOOKS). The game places it like Close, so it is a
+# square as far above the divider as its top is under the bar's top, the X in its middle: centered down the bar above
+# the divider. The game clicks it only within its art, this small.
+CHAT_CLOSE_SIZE = TITLE_HEIGHT - DIVIDER_HEIGHT - 2 * CLOSE_BOX_TOP
+CHAT_CLOSE_REACH = 2.5  # the X's arms, each way from its middle: the arrows' width
 # The bar: the Close button, a padding under it, then the divider as the bar's bottom row.
 ITEM_TITLE_HEIGHT = CLOSE_BOX_TOP + CLOSE_CLEAR + TEXT_BUTTON_HEIGHT + PADDING + DIVIDER_HEIGHT
 ITEM_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + ITEM_TEXT_TOP + ITEM_TEXT_LINES * TEXT_HEIGHT + LEFT
@@ -1028,6 +1034,26 @@ QUANTITY_ACCEPT_X = QUANTITY_RIGHT - QUANTITY_ROW_WIDTHS[1]
 _size = (QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT)  # no label of ours: the button's text is its name
 BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('',)
 QUANTITY_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
+# The window's name. The game would center it across the bar, under Close in a window this narrow, so the window has
+# no title for it to write and its name is painted into the bar's left piece instead (QUANTITY_TEMPLATE), in the text's
+# color: the ink's coverage as tools/preview.py draws font 3 (see CLOSE_INK), its top left QUANTITY_TITLE_INK_AT in the
+# bar. That puts the ink a dialog padding from the window's left and top edges, level with the slider's left edge,
+# and its capitals (all but the y's two rows of tail) share Close's name's middle.
+QUANTITY_TEMPLATE = 'WDT_TriageQuantity'
+QUANTITY_TITLE_INK_AT = (DIALOG_LEFT, DIALOG_PADDING - BORDER)
+QUANTITY_TITLE_INK = (
+    '006cfd8100000000000000000000000d03d00d0000000',
+    '08d412bb00000000000000000000000f00000f0000000',
+    '1f30000d54c004c007dfd403caec30cff4d0cffa7005b',
+    '6c00000894c004c03d219b03f619b00f03d00f04c0096',
+    '7b000007b4c004c000004c03e003d00f03d00f00d20d1',
+    '6c00000994c004c0049bec03d003d00f03d00f00873b0',
+    '1f30271d53d005c05d645c03d003d00f03d00f002c860',
+    '07d42cec01f41cc08b12cd03d003d00f23d00f200ce10',
+    '006cfd6c807ed6c02cec5f13d003d00af5d00af208b00',
+    '00000001400000000000000000000000000000001d500',
+    '0000000000000000000000000000000000000004e9000',
+)
 # Coin boxes (the give and trade windows, see coin_box()): the buttons the game writes an amount of one coin on, as
 # its text, centered, in font 3. Money0 to 3 are platinum, gold, silver and copper in every window, as the stock
 # windows' coin decals show. Each box is the slots' wash with its coin's name a padding in from its left edge (the
@@ -1113,9 +1139,11 @@ TRADE_COINS_BOTTOM = TRADE_COINS_TOP + len(COIN_CAPTIONS) * (COIN_HEIGHT + BUTTO
 # The divider from the window's padding at the top down to the coins' bottom (see DIVIDER_TEMPLATE).
 TRADE_DIVIDER_TOP = LEFT
 TRADE_DIVIDER_HEIGHT = TRADE_COINS_BOTTOM - TRADE_DIVIDER_TOP
-# Trade and Cancel fill the row a padding under the coins and the divider: (ScreenID, name, column). The stock ones
-# have no tooltips. They're the confirmation dialog's buttons, as in the give window.
-TRADE_BUTTONS_TOP = TRADE_COINS_BOTTOM + BUTTON_ROW_GAP
+# The row divider across the content row a padding under the coins and the divider between the sides, and Trade and
+# Cancel a padding under it (the user's request), filling the row: (ScreenID, name, column). The stock ones have no
+# tooltips. They're the confirmation dialog's buttons, as in the give window.
+TRADE_ROW_DIVIDER_TOP = TRADE_COINS_BOTTOM + PADDING
+TRADE_BUTTONS_TOP = TRADE_ROW_DIVIDER_TOP + DIVIDER_HEIGHT + BUTTON_ROW_GAP
 TRADE_BUTTON_WIDTHS = ((TRADE_CONTENT_WIDTH - BUTTON_GAP) // 2,
                        TRADE_CONTENT_WIDTH - BUTTON_GAP - (TRADE_CONTENT_WIDTH - BUTTON_GAP) // 2)
 TRADE_BUTTONS = (('TRDW_Trade_Button', 'Trade', 0), ('TRDW_Cancel_Button', 'Cancel', 1))
@@ -1348,6 +1376,18 @@ def chevron(up, alpha):
                    segment_distance(x, y, points[1], points[2])) <= GLYPH_STROKE / 2
 
     return ink(clear_texture(SCROLL_WIDTH, SCROLL_BUTTON_HEIGHT), SCROLL_WIDTH, SCROLL_BUTTON_HEIGHT, inside, alpha)
+
+
+def chat_close_art(alpha):
+    """The chat windows' close box: an X drawn like the scrollbar's arrows in the middle of a clear square (see
+    CHAT_CLOSE_SIZE)."""
+    low, high = CHAT_CLOSE_SIZE / 2 - CHAT_CLOSE_REACH, CHAT_CLOSE_SIZE / 2 + CHAT_CLOSE_REACH
+
+    def inside(x, y):
+        return min(segment_distance(x, y, (low, low), (high, high)),
+                   segment_distance(x, y, (low, high), (high, low))) <= GLYPH_STROKE / 2
+
+    return ink(clear_texture(CHAT_CLOSE_SIZE, CHAT_CLOSE_SIZE), CHAT_CLOSE_SIZE, CHAT_CLOSE_SIZE, inside, alpha)
 
 
 def thumb_pieces():
@@ -1753,24 +1793,37 @@ def slider_track(width):
     return track
 
 
-def title_piece(height=TITLE_HEIGHT):
+def title_piece(height=TITLE_HEIGHT, width=TITLE_PIECE_WIDTH):
     """A title bar: the panel's color with a row divider along its bottom, height tall (a chat window's
     TITLE_HEIGHT unless given). The one piece serves as the bar's left, middle and right, repeated across."""
-    piece = Texture(TITLE_PIECE_WIDTH, height, PANEL_RGBA)
-    piece.rows[-1] = [TITLE_DIVIDER_RGBA] * TITLE_PIECE_WIDTH
+    piece = Texture(width, height, PANEL_RGBA)
+    piece.rows[-1] = [TITLE_DIVIDER_RGBA] * width
     return piece
+
+
+def painted(texture, ink, at, color):
+    """texture with ink (rows of hex digits, a pixel's coverage each, 0 to f) painted on in color, its top left at."""
+    left, top = at
+    for y, row in enumerate(ink):
+        for x, digit in enumerate(row):
+            pixel = texture.rows[top + y][left + x]
+            texture.rows[top + y][left + x] = over(color, int(digit, 16) / 15, pixel)
+    return texture
+
+
+def quantity_title_piece():
+    """The quantity window's title bar's left piece: the item window's bar reaching past the window's name, which is
+    painted on in the text's color (see QUANTITY_TITLE_INK)."""
+    left, top = QUANTITY_TITLE_INK_AT
+    piece = title_piece(ITEM_TITLE_HEIGHT, left + len(QUANTITY_TITLE_INK[0]))
+    return snapped_art(painted(piece, QUANTITY_TITLE_INK, QUANTITY_TITLE_INK_AT, (*TEXT_RGB, 255)))
 
 
 def close_box_art(state):
     """The item and quantity windows' close box in one state: the Close button under CLOSE_CLEAR clear rows, the
     dialogs' plain wash with its name painted on in the text's color (see CLOSE_INK)."""
-    button = labeled_button_art(CLOSE_WIDTH, TEXT_BUTTON_HEIGHT, '', state)
-    color = (*TEXT_RGB, LABEL_ALPHA[state])
-    left, top = CLOSE_INK_AT
-    for y, row in enumerate(CLOSE_INK):
-        for x, digit in enumerate(row):
-            pixel = button.rows[top + y][left + x]
-            button.rows[top + y][left + x] = over(color, int(digit, 16) / 15, pixel)
+    button = painted(labeled_button_art(CLOSE_WIDTH, TEXT_BUTTON_HEIGHT, '', state), CLOSE_INK, CLOSE_INK_AT,
+                     (*TEXT_RGB, LABEL_ALPHA[state]))
     art = clear_texture(CLOSE_WIDTH, CLOSE_CLEAR + TEXT_BUTTON_HEIGHT)
     art.rows[CLOSE_CLEAR:] = snapped_art(button).rows
     return art
@@ -1848,6 +1901,7 @@ def pieces():
            for (width, height), labels in BUTTON_LABELS.items() for label in labels for state in BUTTON_LOOKS},
         **{f'Scroll{way}{state}': chevron(way == 'Up', alpha)
            for way in ('Up', 'Down') for state, alpha in SCROLL_LOOKS.items()},
+        **{f'ChatClose{state}': chat_close_art(alpha) for state, alpha in SCROLL_LOOKS.items()},
         **thumb_pieces(),
         **{f'Toggle{name}{state}': toggle_art(coverage, state, width, height)
            for name, (coverage, width, height) in icons.items() for state in ICON_LOOKS},
@@ -1856,6 +1910,7 @@ def pieces():
         'ActionsDivider': Texture(ACTIONS_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the Actions window's width
         'MerchantDivider': Texture(MERCHANT_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the merchant window's
         'GiveDivider': Texture(GIVE_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the give window's
+        'TradeDivider': Texture(TRADE_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the trade window's
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
         'GemSlot': clear_texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT),  # a spell gem's row, clear (see spell_gem())
@@ -1879,6 +1934,7 @@ def pieces():
         **{f'Coin{state}': solid(labeled_button_art(COIN_WIDTH, COIN_HEIGHT, '', state)) for state in BUTTON_LOOKS},
         'TitleBar': title_piece(),
         'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
+        'QuantityTitle': quantity_title_piece(),
         **{f'ItemClose{state}': close_box_art(state) for state in BUTTON_LOOKS},
         'ListHeaderWash': Texture(PIECE_LENGTH, RAID_HEADER_HEIGHT, HEADER_RGBA),  # see LIST_HEADER
         'FieldEdge': Texture(1, 1, EDGE_FADED),
@@ -2018,15 +2074,19 @@ def scrollbar():
     ])
 
 
-def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None, title=None, close=None):
+def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None, title=None, close=None,
+                   title_left=None):
     """The overlay's panel as a window frame, with our slim scrollbar. The horizontal scrollbar and title
     boxes, which no TriageUI window shows, keep the base skin's look. edge, when given, is the animation
     for every side and corner of the border instead of the panel's rounded one. title, when given, is
     the animation for the title bar's left, middle and right (the chat windows' thin bar); otherwise the
-    stock rounded title bar, which no other TriageUI window shows. close, when given, is the close box's
-    animation for each of BUTTON_STATES (the item and quantity windows' Close button); otherwise the stock box."""
+    stock rounded title bar, which no other TriageUI window shows. title_left, when given, is the bar's left
+    piece instead (the quantity window's name). close, when given, is the close box's animation for each of
+    BUTTON_STATES (the item and quantity windows' Close button, the chat windows' X); otherwise the stock box."""
     border = {side: edge or f'TUI_Frame{piece}' for side, piece in BORDER_PIECES.items()}
     title_bar = {side: title or f'A_RoundedFrameTitle{side}' for side in ('Right', 'Left', 'Middle')}
+    if title_left:
+        title_bar['Left'] = title_left
     close_box = (node('CloseBox', [node(state, close[state]) for state in BUTTON_STATES]) if close
                  else stock_buttons('CloseBox', 'A_CloseBtn'))
     return node('WindowDrawTemplate', [
@@ -2044,6 +2104,7 @@ def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None
 
 def shared_definitions(rects):
     """What every TriageUI window uses: the textures, every piece's animation and the frame template."""
+    item_close = {state: f'TUI_ItemClose{BUTTON_ART[state]}' for state in BUTTON_STATES}
     return [
         texture_info(PIECES_TEXTURE, ATLAS_WIDTH, ATLAS_HEIGHT),
         texture_info(BACKGROUND_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
@@ -2062,12 +2123,15 @@ def shared_definitions(rects):
         # The slider's left end cap, with no width (see SLIDER_TEMPLATE): the client draws one, so it must be there.
         animation('TUI_SliderCapLeft', PIECES_TEXTURE, (*rects['SliderCapRight'][:2], 0, SLIDER_HEIGHT)),
         frame_template(),
-        # The chat windows' frame: the same, with the thin title bar to drag them by (see TITLE_HEIGHT).
-        frame_template(CHAT_TEMPLATE, title='TUI_TitleBar'),
+        # The chat windows' frame: the same, with the thin title bar to drag them by (see TITLE_HEIGHT) and its X (see
+        # CHAT_CLOSE_SIZE).
+        frame_template(CHAT_TEMPLATE, title='TUI_TitleBar',
+                       close={state: f'TUI_ChatClose{BUTTON_ART[state]}' for state in BUTTON_STATES}),
         # The item and quantity windows': the same with a title bar tall enough for their Close button, the close box
         # (see ITEM_FILE).
-        frame_template(ITEM_TEMPLATE, title='TUI_ItemTitleBar',
-                       close={state: f'TUI_ItemClose{BUTTON_ART[state]}' for state in BUTTON_STATES}),
+        frame_template(ITEM_TEMPLATE, title='TUI_ItemTitleBar', close=item_close),
+        # The quantity window's: the item window's with its name painted on the bar's left (see QUANTITY_TITLE_INK).
+        frame_template(QUANTITY_TEMPLATE, title='TUI_ItemTitleBar', close=item_close, title_left='TUI_QuantityTitle'),
         # The chat input's field: a plain strip darker than the panel, outlined by a 1px line in the
         # window edge's color, a faint light line against both the field and the panel around it.
         frame_template(FIELD_TEMPLATE, FIELD_TEXTURE, edge='TUI_FieldEdge'),
@@ -2347,7 +2411,7 @@ def window(item, title, height, parts, tooltip=None, width=WINDOW_WIDTH, inner=(
     title None leaves the window's name to the client, as for chat windows. inner are defined first but
     aren't pieces of the window: they belong to clips or tab pages among the parts. title_bar draws template's title
     bar (the chat windows' thin one); font is the window's own, for the name the client writes on it. close_box
-    puts template's close box on the bar (the item and quantity windows' Close button).
+    puts template's close box on the bar (the item and quantity windows' Close button, the chat windows' X).
     """
     children = [node('ScreenID')]
     if font is not None:
@@ -2539,9 +2603,9 @@ def chat_window():
                       (strip_left + FIELD_PADDING, LEFT + INPUT_HEIGHT, strip_right + FIELD_PADDING, LEFT), True,
                       [node('Style_Border', False), node('Style_Transparent', True)])
     width, height = CHAT_SIZE
-    # The thin title bar (see TITLE_HEIGHT) with the client's name for the window in a small font.
+    # The thin title bar (see TITLE_HEIGHT) with the client's name for the window in a small font, and its X.
     return window('ChatWindow', None, height, [output, strip, field], width=width, sizable=True,
-                  template=CHAT_TEMPLATE, title_bar=True, font=TITLE_FONT)
+                  template=CHAT_TEMPLATE, title_bar=True, font=TITLE_FONT, close_box=True)
 
 
 def selector_window():
@@ -2720,10 +2784,9 @@ def listbox(name, screen_id, rect, tooltip, columns):
 
 
 def player_window():
-    """Your name, then Health and Mana, each a line with its %, its "current/max" and a bar under it, Zeal's
-    server tick under the mana bar, a line with your XP and AA rates, and the resists under them as a small
-    table."""
-    parts = [label('TUI_PW_Name', PLAYER_NAME_TYPE, (LEFT, PLAYER_NAME_TOP, PLAYER_CONTENT_WIDTH, TEXT_HEIGHT), '')]
+    """Health and Mana, each a line with its %, its "current/max" and a bar under it, Zeal's server tick under the
+    mana bar, a line with your XP and AA rates, and the resists under them as a small table."""
+    parts = []
     max_x = PLAYER_RIGHT - PLAYER_NUMBER_WIDTH
     slash_x = max_x - PLAYER_SLASH_WIDTH
     current_x = slash_x - PLAYER_NUMBER_WIDTH
@@ -3063,8 +3126,9 @@ def item_display_window():
 
 
 def quantity_window():
-    """How many of a stack to take: the item window's title bar with Close, the slider across the window, and under it
-    the number field and Accept side by side, with a dialog's room inside (see QUANTITY_FILE)."""
+    """How many of a stack to take: the item window's title bar with the window's name on its left and Close, the
+    slider across the window, and under it the number field and Accept side by side, with a dialog's room inside (see
+    QUANTITY_FILE)."""
     slider = node('Slider', [
         node('ScreenID', 'QTYW_Slider'),
         node('RelativePosition', True),
@@ -3097,8 +3161,9 @@ def quantity_window():
     # The confirmation dialog's button: its name its own text, in the Actions window's font.
     accept = button('TUI_QTYW_Accept_Button', 'QTYW_Accept_Button', '', QUANTITY_ACCEPT_X, QUANTITY_ROW_TOP,
                     QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Accept')
-    return window('QuantityWnd', 'Quantity', QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH,
-                  template=ITEM_TEMPLATE, title_bar=True, font=TEXT_FONT, close_box=True)
+    # No title for the game to write: the name is in the bar's art (see QUANTITY_TITLE_INK).
+    return window('QuantityWnd', None, QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH,
+                  template=QUANTITY_TEMPLATE, title_bar=True, close_box=True)
 
 
 def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True):
@@ -3165,7 +3230,7 @@ def give_window():
 
 def trade_window():
     """Their side on the left and yours on the right with a divider between them, each its name, then its eight slots
-    two across and its coin boxes under them; Trade and Cancel across the bottom (see TRADE_FILE)."""
+    two across and its coin boxes under them; a divider across, and Trade and Cancel under it (see TRADE_FILE)."""
     parts = [vertical_divider('TUI_TRDW_Divider', TRADE_DIVIDER_X, TRADE_DIVIDER_TOP, TRADE_DIVIDER_HEIGHT)]
     for prefix, x, first in TRADE_SIDES:
         # The game writes the name, centered over its side like the stock window's.
@@ -3181,6 +3246,9 @@ def trade_window():
                   for part in coin_box(f'TUI_TRDW_{prefix}Money{n}', f'TRDW_{prefix}Money{n}', caption, x,
                                        TRADE_COINS_TOP + n * (COIN_HEIGHT + BUTTON_ROW_GAP),
                                        tooltip=COIN_TOOLTIP if yours else None, lit=yours)]
+    # The give window's divider, at this content row's width.
+    parts.append(picture('TUI_TRDW_RowDivider', 'TUI_TradeDivider',
+                         (LEFT, TRADE_ROW_DIVIDER_TOP, TRADE_CONTENT_WIDTH, DIVIDER_HEIGHT)))
     parts += [button(f'TUI_TRDW_{screen_id}', screen_id, '',
                      LEFT + sum(TRADE_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP, TRADE_BUTTONS_TOP,
                      TRADE_BUTTON_WIDTHS[column], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)

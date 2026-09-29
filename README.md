@@ -6,7 +6,7 @@ TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](htt
 
 It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give, trade and loot windows, the spell bar, the confirmation dialog and the compass.** Everything else keeps the look of the skin you already use (duxaUI by default).
 
-They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with the item's name on the item window. Drag a window by its background to move it, and a chat or item window by the strip along its top.
+They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with a **Close** button on the item and quantity windows. Drag a window by its background to move it, and a chat, item or quantity window by the strip along its top.
 
 The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
 
@@ -52,7 +52,7 @@ In a row of its own under the gems, a wide button with a book, across the whole 
 
 ## The chat windows
 
-Every chat window is the same: a thin strip along the top with the window's name in small text (EverQuest writes the name there; a skin can't leave it off), the chat straight on the panel with a slim scrollbar of small arrows and a thin thumb, and the line you type on a plain strip along the bottom, a little darker than the window, with a faint outline.
+Every chat window is the same: a thin strip along the top with the window's name in small text in the middle (EverQuest writes the name there; a skin can't leave it off) and a small **X** at the right end that closes the window, the chat straight on the panel with a slim scrollbar of small arrows and a thin thumb, and the line you type on a plain strip along the bottom, a little darker than the window, with a faint outline.
 
 **To move a chat window, drag the thin strip along its top.** Resize it from its edges. The strip is there because EverQuest won't let you drag a resizable window that has no title bar.
 
@@ -97,7 +97,7 @@ The window has a fixed size, like the other TriageUI windows. **Drag it by its t
 
 ## The player window
 
-Just what you need at a glance, as wide as the hot button and actions windows. Your name, **Health** with your health % in the middle of the line, your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in the soft blue of the group window's names. Just under the mana bar, a thin white line shows the server tick (from Zeal): it drains to empty at each tick, the moment your mana and health come in, so you can stand up to cast right after one. Type `/tickreverse` to have it fill up to the tick instead. The numbers are green, like the resists' values, with a white slash between them. Mana's current/max come from Zeal. Then, on one line, **XP/h** at the left and **AA/h** at the right, each followed by its %, from Zeal: the percent of a level, and of an AA point, you're gaining an hour, each averaged over up to the last two hours (both start over when you `/load` a skin; type `/resetexp` to start them over yourself). XP/h counts regular experience only, so it reads 0% while your AA experience is at 100%, and AA/h reads 0% while it's at 0%. Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white like your name. Health, Mana, the XP/h line and the resists are spaced evenly apart, so each reads on its own.
+Just what you need at a glance, as wide as the hot button and actions windows. **Health** at the top, with your health % in the middle of the line, your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in the soft blue of the group window's names. Just under the mana bar, a thin white line shows the server tick (from Zeal): it drains to empty at each tick, the moment your mana and health come in, so you can stand up to cast right after one. Type `/tickreverse` to have it fill up to the tick instead. The numbers are green, like the resists' values, with a white slash between them. Mana's current/max come from Zeal. Then, on one line, **XP/h** at the left and **AA/h** at the right, each followed by its %, from Zeal: the percent of a level, and of an AA point, you're gaining an hour, each averaged over up to the last two hours (both start over when you `/load` a skin; type `/resetexp` to start them over yourself). XP/h counts regular experience only, so it reads 0% while your AA experience is at 100%, and AA/h reads 0% while it's at 0%. Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white. Health, Mana, the XP/h line and the resists are spaced evenly apart, so each reads on its own.
 
 ## The effects and songs windows
 
@@ -123,7 +123,7 @@ What opens when you hand an NPC an item or some coins. The NPC's name is along t
 
 ## The trade window
 
-What opens when you trade with another player. What they offer is on the left, under their name, and what you offer is on the right, under yours, with a thin line between the two sides. Each side has its eight item slots, two to a row, and under them its coin boxes, one to a row, marked **pp**, **gp**, **sp** and **cp** as in the give window. An amount of 100,000 or more of one coin runs into its name. To offer coins, pick them up from your inventory and drop them on one of your boxes; the other side's boxes only show what they offer. **Trade** and **Cancel** are along the bottom. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
+What opens when you trade with another player. What they offer is on the left, under their name, and what you offer is on the right, under yours, with a thin line between the two sides. Each side has its eight item slots, two to a row, and under them its coin boxes, one to a row, marked **pp**, **gp**, **sp** and **cp** as in the give window. An amount of 100,000 or more of one coin runs into its name. To offer coins, pick them up from your inventory and drop them on one of your boxes; the other side's boxes only show what they offer. **Trade** and **Cancel** are along the bottom, under a thin line across the window, as in the give window. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
 
 ## The loot window
 

@@ -483,7 +483,8 @@ def test_every_reference_resolves():
     # Everything a window, its clips or its tab pages show is defined earlier in the window's own file.
     for name in skin.WINDOW_FILES:
         file_root, window = screen(name)
-        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.ITEM_TEMPLATE)
+        assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.ITEM_TEMPLATE,
+                                                    skin.QUANTITY_TEMPLATE)
         defined = set()
         for element in file_root:
             for piece in element.findall('Pieces') + element.findall('Pages'):
@@ -509,7 +510,8 @@ def test_our_names_never_clash_with_the_stock_skin():
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
-                               skin.ITEM_TEMPLATE, skin.DIVIDER_TEMPLATE, *skin.REPLACED_ANIMATIONS}
+                               skin.ITEM_TEMPLATE, skin.QUANTITY_TEMPLATE, skin.DIVIDER_TEMPLATE,
+                               *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
 
@@ -1020,12 +1022,12 @@ def anchors(element):
 def test_chat_window_has_a_thin_title_bar_to_drag_by_and_resizes():
     # A sizable window with no title bar can't be dragged in this client (the corner grip never moved it;
     # poweroftwo's readme says the same of its title-less chat window), so the user asked for a really
-    # thin header, with no name on it (everyone knows which window they chat in) and no boxes.
+    # thin header, with no name on it (everyone knows which window they chat in) and no minimize box. Its only
+    # box is the close box, the X (the user's pick), as the stock chat windows have one.
     root, window = screen(skin.CHAT_FILE)
     assert window.get('item') == 'ChatWindow'
     assert window.find('Style_Titlebar').text == 'true'
-    for style in ('Style_Closebox', 'Style_Minimizebox'):
-        assert window.find(style).text == 'false'
+    assert window.find('Style_Closebox').text == 'true' and window.find('Style_Minimizebox').text == 'false'
     assert window.find('Style_Sizable').text == 'true' and window.find('Style_Border').text == 'true'
     assert window.find('DrawTemplate').text == skin.CHAT_TEMPLATE
     # The client names each chat window itself and writes the name on the bar in its own color: neither a
@@ -1100,6 +1102,34 @@ def test_chat_title_bar_is_a_thin_strip_of_the_panel_with_a_divider_under_it():
     assert rows[:-1] == [{skin.PANEL_RGBA}] * (skin.TITLE_HEIGHT - 1)
     assert rows[-1] == {skin.TITLE_DIVIDER_RGBA} == {skin.snapped(skin.over(skin.ROW_DIVIDER_RGBA, 1, skin.PANEL_RGBA))}
     assert skin.TITLE_DIVIDER_RGBA[3] == 255 and skin.TITLE_DIVIDER_RGBA != skin.PANEL_RGBA
+
+
+def test_chat_close_box_is_an_x_like_the_scrollbar_arrows():
+    # The user's pick: an X, the bar being too thin for the Close button of the item and quantity windows. In the
+    # arrows' soft white at their alpha per state, brighter hovered and pressed, pressed-and-hovered looking pressed.
+    chat = items(everything(), 'WindowDrawTemplate')[skin.CHAT_TEMPLATE]
+    close = chat.find('CloseBox')
+    assert [(e.tag, e.text) for e in close] == [(state, f'TUI_ChatClose{skin.BUTTON_ART[state]}')
+                                                for state in skin.BUTTON_STATES]
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    # The game draws it at its art's size, its top CLOSE_BOX_TOP under the bar's (see the item window): a square
+    # as far above the divider, so the X is centered down the bar above it.
+    size = skin.CHAT_CLOSE_SIZE
+    assert skin.CLOSE_BOX_TOP + size + skin.CLOSE_BOX_TOP + skin.DIVIDER_HEIGHT == skin.TITLE_HEIGHT and size == 7
+    for look, alpha in skin.SCROLL_LOOKS.items():
+        art = cut(atlas, anims[f'TUI_ChatClose{look}'])
+        assert art.size == (size, size)
+        assert {p[:3] for p in pixels(art) if p[3]} == {(255, 255, 255)}
+        assert max(p[3] for p in pixels(art)) == alpha
+        # An X: both diagonals through the middle, the same mirrored either way, and clear between its arms.
+        middle = size // 2
+        assert art.getpixel((middle, middle))[3] == alpha
+        for x in range(size):
+            for y in range(size):
+                assert art.getpixel((x, y)) == art.getpixel((size - 1 - x, y)) == art.getpixel((x, size - 1 - y))
+        assert art.getpixel((middle, 0))[3] == art.getpixel((0, middle))[3] == 0
+
 
 def test_input_field_is_a_plain_strip_darker_than_the_panel_with_a_faint_outline():
     # The user wanted it simple, darker than the window rather than lighter, tall enough for letters, and
@@ -2008,9 +2038,8 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         top = skin.PLAYER_SECTIONS_TOP + n * skin.PLAYER_SECTION_PITCH
         head = labels[f'TUI_PW_{screen_id}Caption']
         assert head.findtext('Text') == caption and head.findtext('AlignLeft') == 'true'
-        # In the name's color: the user didn't like the subdued grey the captions had.
-        name_color = rgb(labels['TUI_PW_Name'], 'TextColor')
-        assert box(head)[:2] == (skin.LEFT, top) and rgb(head, 'TextColor') == skin.CAPTION_RGB == name_color
+        # In the text's color: the user didn't like the subdued grey the captions had.
+        assert box(head)[:2] == (skin.LEFT, top) and rgb(head, 'TextColor') == skin.CAPTION_RGB == skin.TEXT_RGB
         # Both numbers in the game's green: it colors the max HP itself, so the user had all the values
         # match it. The slash between them in the text color (the user's request). The max ends at the
         # window's padding.
@@ -2062,11 +2091,11 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         assert colors(anims[template.findtext('Fill')]) == {fill}
         assert template.findtext('Background') == 'TUI_PlayerTrack'
     assert skin.MANA_RGB == skin.GROUP_RGB
-    # The resists: a caption in the name's color over each number, in five columns across the window.
+    # The resists: a caption in the text's color over each number, in five columns across the window.
     columns = []
     for caption, eq_type in skin.RESISTS:
         head, number_label = labels[f'TUI_PW_{caption}Caption'], labels[f'TUI_PW_{caption}']
-        assert head.findtext('Text') == caption and rgb(head, 'TextColor') == rgb(labels['TUI_PW_Name'], 'TextColor')
+        assert head.findtext('Text') == caption and rgb(head, 'TextColor') == skin.CAPTION_RGB
         assert head.findtext('Font') == '2' and head.findtext('AlignCenter') == 'true'
         assert number_label.findtext('EQType') == str(eq_type) and number_label.findtext('AlignCenter') == 'true'
         assert rgb(number_label, 'TextColor') == skin.VALUE_RGB  # the values' green (the user's call)
@@ -2118,17 +2147,13 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     numbers = box(labels['TUI_PW_DR'])
     ink_bottom = skin.BORDER + numbers[1] + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
     assert box(window)[3] - ink_bottom == skin.PADDING
-    # Your name on the first line (the user's request), the rest straight under it.
-    name = labels['TUI_PW_Name']
-    assert name.findtext('EQType') == '1' and box(name)[0::2] == (skin.LEFT, skin.PLAYER_CONTENT_WIDTH)
-    assert rgb(name, 'TextColor') == skin.TEXT_RGB and name.findtext('AlignLeft') == 'true'
-    # 6px more under the name (the user's request).
-    assert box(labels['TUI_PW_PlayerHPCaption'])[1] == box(name)[1] + skin.TEXT_HEIGHT + skin.PADDING
-    # The name at the top like the other windows' first lines.
-    assert box(name)[1] == 0
-    # Nothing else: no stamina, experience bar or other stats. The name, Health's and Mana's five labels each,
-    # the XP and AA rates' two each, and the resists'.
-    assert len(labels) == 1 + 2 * 5 + 2 * 2 + 2 * len(skin.RESISTS)
+    # Health at the top like the other windows' first lines, with no line for your name (the user's request): no
+    # label shows your name (EQType 1), and the client looks none up.
+    assert box(labels['TUI_PW_PlayerHPCaption'])[1] == skin.PLAYER_SECTIONS_TOP == 0
+    assert all(e.findtext('EQType') != '1' for e in labels.values())
+    # Nothing else: no stamina, experience bar or other stats. Health's and Mana's five labels each, the XP and AA
+    # rates' two each, and the resists'.
+    assert len(labels) == 2 * 5 + 2 * 2 + 2 * len(skin.RESISTS)
 
 
 # Every control of the stock raid window, which the client looks up by ScreenID (eqgame.exe's string table lists
@@ -2569,12 +2594,14 @@ def test_quantity_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the slider, the number field and Accept, and uses the first two unchecked: a missing one
     # would crash the game. The field's strip is ours, with no ScreenID. As wide as the hot button window, with the
     # item window's title bar and Close (the user's pick): the close box is the only button the game lets close it,
-    # and Esc closes it too. The game writes nothing over its title.
+    # and Esc closes it too. No title for the game to write, which it would center under Close: the name is in the
+    # bar's art (see the next test), so the window needs no font either.
     root, window = check_inside_frame(skin.QUANTITY_FILE, skin.QUANTITY_WIDTH, bar=skin.ITEM_TITLE_HEIGHT)
-    assert window.get('item') == 'QuantityWnd' and window.findtext('Text') == 'Quantity'
+    assert window.get('item') == 'QuantityWnd'
+    assert window.find('Text') is None and window.find('Font') is None
     assert window.findtext('Style_Titlebar') == window.findtext('Style_Closebox') == 'true'
     assert window.findtext('Style_Minimizebox') == window.findtext('Style_Sizable') == 'false'
-    assert window.findtext('DrawTemplate') == skin.ITEM_TEMPLATE and window.findtext('Font') == str(skin.TEXT_FONT)
+    assert window.findtext('DrawTemplate') == skin.QUANTITY_TEMPLATE
     assert box(window)[2:] == (skin.HOT_WIDTH, skin.QUANTITY_HEIGHT) == (174, 104)
     _, _, pieces = quantity_parts()
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
@@ -2601,6 +2628,41 @@ def test_quantity_window_has_a_dialogs_room_around_the_slider_and_the_row_under_
     width = box(window)[2]
     close_right = width - edge - skin.CLOSE_BOX_INSET
     assert skin.CLOSE_WIDTH == aw and close_right - (edge + ax + aw) == 1
+
+
+def test_quantity_title_bar_is_the_item_windows_with_the_name_painted_at_its_left():
+    # The game centers a window's title across its bar, so in this narrow window it ran under Close. The template is
+    # the item window's but for the bar's left piece, which has the name painted on in the text's color.
+    templates = items(everything(), 'WindowDrawTemplate')
+    quantity, item = templates[skin.QUANTITY_TEMPLATE], templates[skin.ITEM_TEMPLATE]
+    for part in ('Border', 'CloseBox'):
+        assert [(e.tag, e.text) for e in quantity.find(part)] == [(e.tag, e.text) for e in item.find(part)], part
+    assert quantity.findtext('Background') == item.findtext('Background')
+    assert [(e.tag, e.text) for e in quantity.find('Titlebar')] == [
+        (e.tag, 'TUI_QuantityTitle' if e.tag == 'Left' else e.text) for e in item.find('Titlebar')]
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    bar, piece = cut(atlas, anims['TUI_ItemTitleBar']), cut(atlas, anims['TUI_QuantityTitle'])
+    left, top = skin.QUANTITY_TITLE_INK_AT
+    ink_width, ink_height = len(skin.QUANTITY_TITLE_INK[0]), len(skin.QUANTITY_TITLE_INK)
+    assert {len(row) for row in skin.QUANTITY_TITLE_INK} == {ink_width}
+    assert piece.size == (left + ink_width, skin.ITEM_TITLE_HEIGHT)
+    for y in range(piece.height):
+        for x in range(piece.width):
+            inked = 0 <= y - top < ink_height and 0 <= x - left < ink_width
+            coverage = int(skin.QUANTITY_TITLE_INK[y - top][x - left], 16) / 15 if inked else 0
+            under = bar.getpixel((x % bar.width, y))
+            assert piece.getpixel((x, y)) == skin.snapped(skin.over((*skin.TEXT_RGB, 255), coverage, under)), (x, y)
+    # The ink a dialog padding from the window's left and top edges, level with the slider's left edge.
+    b = skin.BORDER
+    _, window, (slider, *_) = quantity_parts()
+    assert b + left == b + top == skin.DIALOG_PADDING and left == box(slider)[0]
+    # Its capitals (all but the y's two rows of tail) share Close's name's middle, down the bar.
+    close_ink_top = skin.CLOSE_BOX_TOP + skin.CLOSE_CLEAR + skin.CLOSE_INK_AT[1]
+    assert top + (ink_height - 2) / 2 == close_ink_top + len(skin.CLOSE_INK) / 2
+    # Well clear of Close, whose left edge is its art's width in from its right.
+    close_left = box(window)[2] - b - skin.CLOSE_BOX_INSET - skin.CLOSE_WIDTH
+    assert close_left - (b + left + ink_width) >= skin.DIALOG_PADDING
 
 
 def test_quantity_slider_is_a_knob_on_the_bars_faint_track():
@@ -2815,13 +2877,13 @@ def trade_parts():
 def test_trade_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the two names, the 16 slots (0 to 7 yours, 8 to 15 theirs), each side's four coin buttons,
     # Trade and Cancel, and nothing else: all of the stock window's controls, every one shown, in its order, over the
-    # divider, each coin box followed by its name. With no title bar or close box: it drags by its background, and
-    # Cancel closes it.
+    # divider, each coin box followed by its name, and a divider of ours across over the buttons. With no title bar or
+    # close box: it drags by its background, and Cancel closes it.
     root, window = check_inside_frame(skin.TRADE_FILE, skin.TRADE_WIDTH)
     assert window.get('item') == 'TradeWnd' and window.findtext('Text') == 'Trade'
     assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
     assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.TRADE_WIDTH, skin.TRADE_HEIGHT) == (181, 321)
+    assert box(window)[2:] == (skin.TRADE_WIDTH, skin.TRADE_HEIGHT) == (181, 328)
     pieces = direct_pieces(root, window)
 
     def side(prefix, first):
@@ -2829,8 +2891,8 @@ def test_trade_window_keeps_every_control_the_client_looks_for():
                 *(piece for n in range(4) for piece in (('Button', f'TRDW_{prefix}Money{n}'), ('Label', None)))]
 
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
-        ('Screen', None), *side('His', 8), *side('My', 0), ('Button', 'TRDW_Trade_Button'),
-        ('Button', 'TRDW_Cancel_Button')]
+        ('Screen', None), *side('His', 8), *side('My', 0), ('StaticAnimation', None),
+        ('Button', 'TRDW_Trade_Button'), ('Button', 'TRDW_Cancel_Button')]
     assert [number(e, 'EQType') for e in pieces if e.tag == 'InvSlot'] == [*range(3008, 3016), *range(3000, 3008)]
     assert all(box(e)[2:] != (0, 0) for e in pieces)
 
@@ -2889,10 +2951,17 @@ def test_trade_window_follows_the_spacing_standard():
     bottom = coins[-1][1] + coins[-1][3]
     # The divider from the window's padding at the top down to the coins' bottom.
     assert b + divider[1] == skin.PADDING and divider[1] + divider[3] == bottom
-    # Trade and Cancel fill the row a padding under the coins and the divider, a padding apart, and the window's edge
-    # is a padding under them.
+    # The row divider across the content row a padding under the coins and the divider between the sides (the user's
+    # request), as in the give window.
+    row_divider = found['TUI_TRDW_RowDivider']
+    line_box = box(row_divider)
+    assert line_box == (skin.LEFT, bottom + skin.PADDING, skin.TRADE_CONTENT_WIDTH, skin.DIVIDER_HEIGHT)
+    line = cut(decode(files()[skin.PIECES_TEXTURE]),
+               items(everything(), 'Ui2DAnimation')[row_divider.findtext('Animation')])
+    assert line.size == line_box[2:] and set(pixels(line)) == {skin.ROW_DIVIDER_RGBA}
+    # Trade and Cancel fill the row a padding under it, a padding apart, and the window's edge is a padding under them.
     trade, cancel = box(found['TRDW_Trade_Button']), box(found['TRDW_Cancel_Button'])
-    assert trade[1] == cancel[1] == bottom + skin.BUTTON_ROW_GAP
+    assert trade[1] == cancel[1] == line_box[1] + line_box[3] + skin.BUTTON_ROW_GAP
     assert trade[0] == skin.LEFT and trade[0] + trade[2] + skin.BUTTON_GAP == cancel[0]
     assert cancel[0] + cancel[2] == skin.TRADE_RIGHT and cancel[2] - trade[2] in (0, 1)
     assert trade[3] == cancel[3] == skin.TEXT_BUTTON_HEIGHT
@@ -3420,6 +3489,43 @@ def test_preview_saves_each_window_scaled_on_a_backdrop(tmp_path):
     assert path.name == 'EQUI_QuantityWnd.png'
     assert image.size == (2 * (width + 2 * preview.MARGIN), 2 * (height + 2 * preview.MARGIN))
     assert image.convert('RGBA').getpixel((0, 0)) == preview.BACKDROP
+
+
+def test_quantity_title_is_painted_as_the_preview_draws_a_line_of_text():
+    # The game would center the window's title under Close, so the name is painted into the bar's art in font 3's look
+    # (see QUANTITY_TITLE_INK): the ink's coverage as this tool draws a line of font 3, at the 16 alpha steps.
+    preview = preview_module()
+    if not any(Path(path).is_file() for path in preview.ARIAL):
+        pytest.skip('no Arial to draw font 3 with')
+    steps = preview.text_mask('Quantity', skin.TEXT_FONT).point(lambda v: round(v / skin.STEP))
+    left, top, right, bottom = steps.getbbox()
+    assert skin.QUANTITY_TITLE_INK == tuple(''.join(f'{steps.getpixel((x, y)):x}' for x in range(left, right))
+                                            for y in range(top, bottom))
+
+
+def title_ink_columns(image, bar_height, close_left):
+    """The columns of a drawn window's title bar, left of its close box, where anything is drawn over the bar (as it
+    is at the inside's right edge, past the close box)."""
+    b = skin.BORDER
+    bare = image.width - b - 1
+    return [x for x in range(b, close_left)
+            if any(image.getpixel((x, y)) != image.getpixel((bare, y)) for y in range(b, b + bar_height - 1))]
+
+
+def test_preview_centers_a_title_across_its_bar_as_the_game_does(tmp_path):
+    # DrawTitleBar centers the window's name across the bar (the quantity window's ran under its Close in game). The
+    # quantity window has no title, so its bar shows only its painted name there.
+    preview = preview_module()
+    b = skin.BORDER
+    [item] = preview.Preview(files(), eq_dir=tmp_path).render(skin.ITEM_FILE)
+    close_left = skin.ITEM_WIDTH - b - skin.CLOSE_BOX_INSET - skin.CLOSE_WIDTH
+    columns = title_ink_columns(item, skin.ITEM_TITLE_HEIGHT, close_left)
+    assert columns and abs((columns[0] + columns[-1] + 1) / 2 - skin.ITEM_WIDTH / 2) <= 1
+    [quantity] = preview.Preview(files(), eq_dir=tmp_path).render(skin.QUANTITY_FILE)
+    close_left = skin.QUANTITY_WIDTH - b - skin.CLOSE_BOX_INSET - skin.CLOSE_WIDTH
+    columns = title_ink_columns(quantity, skin.ITEM_TITLE_HEIGHT, close_left)
+    left = b + skin.QUANTITY_TITLE_INK_AT[0]
+    assert columns[0] == left and columns[-1] < left + len(skin.QUANTITY_TITLE_INK[0])
 
 
 def test_close_is_painted_as_the_preview_draws_a_buttons_own_text():
