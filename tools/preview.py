@@ -72,16 +72,19 @@ TRADE_ITEMS = 1  # what the other side offers fills its slots from the first; yo
 LOOT_ITEMS = 3  # a corpse's items fill its slots from the first
 BANK_ITEMS = 7  # the first bank slots, down the first column and into the second
 SHARED_ITEMS = 2
-HELD_SLOTS = {13, 22}  # the primary hand and the first bag, on the hot bar's slots
+# The primary hand and the first bag, on the hot bar's slots; the head and chest too, in the inventory.
+HELD_SLOTS = {2, 13, 17, 22}
 LABELS = {
-    1: 'Sebik', 12: '60', 13: '45', 14: '38', 15: '41', 16: '52', 17: '4321', 18: '4970', 19: '87', 20: '64',
+    1: 'Sebik', 2: '60', 3: 'Shadow Knight', 4: 'Mithaniel Marr', 5: '185', 6: '210', 7: '110', 8: '95', 9: '80',
+    10: '75', 11: '60', 22: '1234', 23: '987', 24: '85', 25: '150', 26: '45', 27: '12',
+    12: '60', 13: '45', 14: '38', 15: '41', 16: '52', 17: '4321', 18: '4970', 19: '87', 20: '64',
     28: 'a gnoll pup', 29: '73', 35: '98', 36: '64', 37: '31', 38: '100', 39: '0', 69: '80', 81: '12', 86: '45',
     124: '2210', 125: '3450', 134: 'Complete Healing',
     **{45 + n: name for n, name in enumerate(BUFFS)},
     **{135 + n: name for n, name in enumerate(SONGS)},
     **{60 + n: name for n, name in enumerate(GEMS) if name},
 }
-GAUGES = {1: 0.87, 2: 0.64, 3: 0.5, 6: 0.73, 7: 0.45, 8: 0.6, 9: 0.4, 11: 0.98, 12: 0.64, 13: 0.31, 14: 1.0, 16: 0.8,
+GAUGES = {1: 0.87, 2: 0.64, 3: 0.5, 4: 0.45, 5: 0.12, 6: 0.73, 7: 0.45, 8: 0.6, 9: 0.4, 11: 0.98, 12: 0.64, 13: 0.31, 14: 1.0, 16: 0.8,
           17: 0.8, 18: 0.45, 24: 0.5, 25: 0.5, 27: 0.6, 32: 0.25}
 GAUGE_TEXT = {11: 'Sebik', 12: 'Warrior', 13: 'Cleric', 14: 'Enchanter', 16: 'Gobaner', 17: 'Kibartik', 18: 'Labn'}
 BUTTON_TEXT = {
@@ -97,6 +100,7 @@ BUTTON_TEXT = {
     'TRDW_HisMoney0': '120', 'TRDW_HisMoney1': '5', 'TRDW_HisMoney2': '0', 'TRDW_HisMoney3': '0',
     'TRDW_MyMoney0': '0', 'TRDW_MyMoney1': '0', 'TRDW_MyMoney2': '0', 'TRDW_MyMoney3': '0',
     'BW_Money0': '1234567', 'BW_Money1': '27', 'BW_Money2': '4', 'BW_Money3': '9',
+    'IW_Money0': '123456', 'IW_Money1': '12', 'IW_Money2': '3', 'IW_Money3': '4',
 }
 # Labels with no EQType whose text the client writes, by ScreenID. The other side of a trade is a placeholder, not a
 # character's name.

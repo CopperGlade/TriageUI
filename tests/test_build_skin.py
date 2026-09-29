@@ -31,7 +31,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
-              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE]
+              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE, skin.INVENTORY_FILE]
 
 
 @functools.cache
@@ -282,8 +282,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The target's bar and %, the casting bar, your pet's bar and %, each group member, pet and %, the Player
     # window's HP and mana with their %s, its server tick and its XP and AA rates' %s, the spell bar's recast
-    # bars and global recovery, the air bar, and the spell book's memorizing and scribing bars.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2
+    # bars and global recovery, the air bar, the spell book's memorizing and scribing bars, and the inventory's XP and
+    # AA bars with their %s.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2 + 4
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -508,7 +509,7 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
-                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd'}
+                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow'}
     # The slot backgrounds the client paints by name are redefined on purpose, and the base's own definitions taken
     # out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -655,13 +656,15 @@ def test_target_second_line_gaps_all_match_the_window_padding_at_100_percent():
 def test_bars_are_the_text_color_softened_to_70_percent():
     # The user found a solid bar in the text's color harsh next to the name.
     assert skin.BAR_FILL == (255, 255, 255, 170)  # about 70%, on a 16-bit step
-    # (The group window's drawn % is its soft blue: see the group window's test.)
+    # (The group window's drawn % is its soft blue: see the group window's test. The inventory's are the values' green,
+    # as the player window's.)
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
+    inventory_percents = tuple(f'TUI_IW_{gauge_id}PercentSign' for *_, gauge_id, _, _ in skin.INV_PROGRESS)
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
                                                   'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', 'TUI_SBW_Memorize',
-                                                  'TUI_SBW_Scribe', *group_percents))
+                                                  'TUI_SBW_Scribe', *group_percents, *inventory_percents))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
 
@@ -1850,7 +1853,8 @@ def test_hot_button_window_art_is_solid_and_empty_slots_show_dimmed_icons():
         assert sum(divider[:3]) > sum(plain.getpixel(fill_spot)[:3])
         art.paste((0, 0, 0, 0), icon_box)
         assert art.tobytes() == plain.tobytes(), name
-    assert len(drawn) == len(skin.SLOT_ICONS) == 4
+    # The four weapons', and the inventory window's other worn slots' (see its tests), each its own.
+    assert len(drawn) == len(skin.SLOT_ICONS) == 18
 
 
 def test_the_empty_slots_icons_fill_three_quarters_of_the_slot():
@@ -3660,9 +3664,229 @@ def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon()
     assert skin.with_definitions(base, []).count('SomethingElse') == 1
 
 
+# The inventory window
+
+# Every control of the stock window with a ScreenID. eqgame.exe looks up the slots (InvSlot%d), the coins (IW_Money%d),
+# IW_Skills, IW_AltAdvBtn, IW_Destroy, DoneButton, ClassAnim, IW_CharacterView, AltAdvLabel and AltAdvGauge; the rest
+# are kept like every stock control.
+STOCK_INVENTORY = [
+    *(f'InvSlot{n}' for n in range(1, 30)), 'NameLabel', 'LevelClassLabel', 'DeityLabel', 'HPLabel', 'HPNumberLabel',
+    'ACLabel', 'ACNumberLabel', 'ATKLabel', 'ATKNumberLabel', 'NextLevelLabel', 'ExpGauge',
+    *(f'{stat}{kind}' for stat in ('STR', 'STA', 'AGI', 'DEX', 'WIS', 'INT', 'CHA') for kind in ('Label', 'NumberLabel')),
+    *(f'{resist}{kind}' for resist in ('Poison', 'Magic', 'Disease', 'Fire', 'Cold') for kind in ('Label', 'NumberLabel')),
+    'WeightLabel', 'WeightNumberLabel', 'AltAdvLabel', 'AltAdvGauge', *(f'IW_Money{n}' for n in range(4)), 'IW_Skills',
+    'IW_AltAdvBtn', 'IW_Destroy', 'ClassAnim', 'IW_CharacterView', 'DoneButton',
+]
+# Where the stock window has each worn slot, by EQType, on its 40px grid from x 120.
+STOCK_WORN = {1: (120, 0), 2: (200, 0), 3: (240, 0), 4: (280, 0), 5: (160, 0), 6: (280, 80), 7: (120, 80),
+              8: (280, 40), 9: (120, 120), 10: (280, 120), 11: (220, 280), 12: (280, 160), 13: (140, 280),
+              14: (180, 280), 15: (120, 200), 16: (280, 200), 17: (120, 40), 18: (180, 240), 19: (220, 240),
+              20: (120, 160), 21: (260, 280)}
+
+
+def inventory_parts():
+    root, window = screen(skin.INVENTORY_FILE)
+    return root, window, {e.findtext('ScreenID') or e.get('item'): e for e in direct_pieces(root, window)}
+
+
+def test_inventory_window_keeps_every_control_the_stock_one_has():
+    # A fixed size with no title bar or close box (the user's pick, like the other windows), so it drags by its
+    # background and Done closes it. The drop area comes first, so the middle's text draws over it.
+    root, window = check_inside_frame(skin.INVENTORY_FILE, skin.INV_WIDTH)
+    assert window.get('item') == 'InventoryWindow' and window.findtext('Text') == 'Inventory'
+    assert window.findtext('TooltipReference') == 'Inventory'  # the stock window's
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.INV_WIDTH, skin.INV_HEIGHT) == (349, 326)
+    pieces = direct_pieces(root, window)
+    ids = [e.findtext('ScreenID') for e in pieces if e.findtext('ScreenID')]
+    assert sorted(ids) == sorted(STOCK_INVENTORY) and len(set(ids)) == len(ids)
+    assert pieces[0].findtext('ScreenID') == 'IW_CharacterView'
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / skin.INVENTORY_FILE
+        if folder and path.is_file():
+            stock = re.findall(r'<ScreenID>\s*(\w+)\s*</ScreenID>', path.read_text(encoding='latin-1'))
+            assert sorted(stock) == sorted(STOCK_INVENTORY)
+            break
+
+
+def test_inventory_worn_slots_keep_the_stock_arrangement():
+    # Each worn slot on the hot bar's squares, in the stock window's column and row, but for Legs and Feet, centered
+    # between the rings a row higher, and the weapons under them. The bag slots stay with no size: the hot button window
+    # has them (the user).
+    _, _, found = inventory_parts()
+    assert [eq_type for eq_type, *_ in skin.INV_WORN] == list(range(1, 22))
+    raised = {18, 19, 11, 13, 14, 21}
+    for eq_type, icon, half, row in skin.INV_WORN:
+        slot = found[f'InvSlot{eq_type}']
+        assert slot.tag == 'InvSlot' and number(slot, 'EQType') == eq_type
+        assert box(slot) == (skin.LEFT + half * skin.HOT_PITCH // 2, skin.LEFT + row * skin.HOT_PITCH,
+                             skin.HOT_SIZE, skin.HOT_SIZE)
+        stock_x, stock_y = STOCK_WORN[eq_type]
+        assert half == (stock_x - 120) // 20 and row == stock_y // 40 - (eq_type in raised), eq_type
+        assert slot.findtext('Background') == f'TUI_HotSlot{icon}' and icon in skin.SLOT_ICONS
+    for eq_type in skin.INV_BAG_TYPES:
+        slot = found[f'InvSlot{eq_type}']
+        assert number(slot, 'EQType') == eq_type and box(slot) == (0, 0, 0, 0)
+        assert slot.findtext('Background') == 'TUI_Clear'
+    # Every icon is drawn somewhere: the weapons' in the hot button window too, the rest only here.
+    assert {icon for _, icon, _, _ in skin.INV_WORN} == set(skin.SLOT_ICONS)
+    # The worn slots are mirrored about the doll's middle, on the hot bar's pitch, a padding apart; the doll starts a
+    # padding from the window's edge. Legs and Feet, and the weapons, a padding apart and centered.
+    boxes = {box(found[f'InvSlot{eq_type}']) for eq_type in range(1, 22)}
+    doll_right = skin.LEFT + skin.INV_DOLL_WIDTH
+    assert {(skin.LEFT + doll_right - x - w, y, w, h) for x, y, w, h in boxes} == boxes
+    assert skin.BORDER + skin.LEFT == skin.PADDING and skin.HOT_PITCH == skin.HOT_SIZE + skin.PADDING
+    assert max(y + h for _, y, _, h in boxes) == skin.LEFT + skin.INV_DOLL_HEIGHT
+    assert max(x + w for x, _, w, _ in boxes) == doll_right
+    legs, feet = box(found['InvSlot18']), box(found['InvSlot19'])
+    assert feet[0] - (legs[0] + legs[2]) == skin.BUTTON_GAP
+    weapons = sorted(box(found[f'InvSlot{t}']) for t in (13, 14, 11, 21))
+    assert all(b[0] - (a[0] + a[2]) == skin.BUTTON_GAP for a, b in zip(weapons, weapons[1:]))
+    assert weapons[0][1] - (legs[1] + legs[3]) == skin.BUTTON_ROW_GAP
+
+
+def test_inventory_middle_is_where_a_dropped_item_is_equipped():
+    # The stock drop area, see-through, over the middle a padding from every slot around it.
+    _, _, found = inventory_parts()
+    view = found['IW_CharacterView']
+    assert view.tag == 'Screen' and view.findtext('TooltipReference') == 'Drop Item Here to Auto Equip'
+    assert view.findtext('DrawTemplate') == skin.EDIT_TEMPLATE and view.findtext('Style_Border') == 'false'
+    x, y, w, h = box(view)
+    assert (x, y, w, h) == (skin.INV_MIDDLE_X, skin.INV_MIDDLE_TOP, skin.INV_MIDDLE_WIDTH, skin.INV_MIDDLE_HEIGHT)
+    left, right, top, legs = (box(found[f'InvSlot{t}']) for t in (17, 8, 2, 18))
+    assert x - (left[0] + left[2]) == right[0] - (x + w) == skin.PADDING
+    assert y - (top[1] + top[3]) == legs[1] - (y + h) == skin.PADDING
+
+
+def test_inventory_middle_shows_who_you_are_and_your_progress():
+    # In the middle, the name, the level and class and the deity in the overlay's grey, lines stacked on their height,
+    # then XP and AA (the user moved them here), each a caption, its % in the game's green and its bar across the
+    # middle. The first ink a padding under the top row, each section two paddings under the digits or bar above, like
+    # the player window's sections. No HP: the player window has it (the user).
+    root, _, found = inventory_parts()
+    name, level, cls, deity = (found[k] for k in ('NameLabel', 'LevelClassLabel', 'TUI_IW_Class', 'DeityLabel'))
+    assert [number(e, 'EQType') for e in (name, level, cls, deity)] == [1, 2, 3, 4]
+    assert rgb(name, 'TextColor') == rgb(level, 'TextColor') == rgb(cls, 'TextColor') == skin.TEXT_RGB
+    assert rgb(deity, 'TextColor') == skin.PET_RGB
+    top_row_bottom = skin.LEFT + skin.HOT_SIZE
+    assert 0 <= box(name)[1] + skin.TEXT_INK_TOP - top_row_bottom - skin.PADDING < 1
+    assert [box(e)[1] for e in (name, level, deity)] == [skin.INV_WHO_TOP + n * skin.TEXT_HEIGHT for n in range(3)]
+    # The level right-aligned in two digits' room, the class a space after it.
+    assert level.findtext('AlignRight') == 'true' and box(level)[2] == 2 * skin.DIGIT_WIDTH
+    assert box(cls)[0] == box(level)[0] + box(level)[2] + skin.SPACE_WIDTH
+    digits = skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
+    assert 0 <= skin.INV_XP_TOP + skin.TEXT_INK_TOP - (box(deity)[1] + digits) - 2 * skin.PADDING < 1
+    bars = []
+    for caption_id, caption, percent_type, gauge_id, gauge_type, top in skin.INV_PROGRESS:
+        label, bar = found[caption_id], found[gauge_id]
+        assert label.findtext('Text') == caption and box(label)[:2] == (skin.INV_MIDDLE_X, top)
+        assert number(bar, 'EQType') == gauge_type
+        assert box(bar) == (skin.INV_MIDDLE_X, top + skin.BAR_TOP, skin.INV_MIDDLE_WIDTH, skin.BAR_HEIGHT)
+        template = bar.find('GaugeDrawTemplate')
+        assert (template.findtext('Fill'), template.findtext('Background')) == ('TUI_InvFill', 'TUI_InvTrack')
+        percent = [e for e in root.iter('Label') if e.findtext('EQType') == str(percent_type)]
+        assert len(percent) == 1 and rgb(percent[0], 'TextColor') == skin.VALUE_RGB
+        assert box(percent[0])[0] + box(percent[0])[2] + skin.PERCENT_WIDTH == skin.INV_MIDDLE_RIGHT
+        bars.append(box(bar))
+    assert [(c, t) for c, _, t, g, e, _ in skin.INV_PROGRESS] == [('NextLevelLabel', 26), ('AltAdvLabel', 27)]
+    assert [(g, e) for _, _, _, g, e, _ in skin.INV_PROGRESS] == [('ExpGauge', 4), ('AltAdvGauge', 5)]
+    assert 0 <= skin.INV_AA_TOP + skin.TEXT_INK_TOP - (bars[0][1] + bars[0][3]) - 2 * skin.PADDING < 1
+    # The AA bar a padding or more over Legs and Feet, inside the middle.
+    assert bars[1][1] + bars[1][3] <= skin.INV_MIDDLE_TOP + skin.INV_MIDDLE_HEIGHT
+    texts = [e for e in found.values() if e.tag == 'Label' and skin.INV_MIDDLE_X <= box(e)[0] < skin.INV_DIVIDER_X]
+    assert len(texts) == 8  # name, level, class, deity, and each bar's caption and %
+    assert all(box(e)[0] + box(e)[2] <= skin.INV_MIDDLE_RIGHT for e in texts)
+
+
+def test_inventory_column_has_your_stats_numbers_and_coins():
+    # Right of a divider a padding from the worn slots and from the column: the stats one to a line from the inside's
+    # top (their ink 7.5px under the edge, like the bank window's names), then AC and ATK, then the weight as the player
+    # window's current/max (the user moved them here), two paddings apart like the player window's sections, the values
+    # in the game's green ending at the column's right; and the coin boxes stacked with the last one level with the worn
+    # slots' bottom, as wide as the bank's so they share its art.
+    root, window, found = inventory_parts()
+    divider = box(found['TUI_IW_Divider'])
+    assert divider == (skin.LEFT + skin.INV_DOLL_WIDTH + skin.PADDING, skin.LEFT, skin.DIVIDER_HEIGHT,
+                       skin.INV_DOLL_HEIGHT)
+    assert skin.INV_COLUMN_X == divider[0] + divider[2] + skin.PADDING
+    assert box(window)[2] - 2 * skin.BORDER - skin.INV_RIGHT == skin.LEFT
+    assert skin.BORDER + skin.INV_STATS_TOP + skin.TEXT_INK_TOP == 7.5
+    lines = [(caption, eq_type, skin.INV_STATS_TOP + n * skin.TEXT_HEIGHT)
+             for n, (caption, eq_type) in enumerate(skin.INV_STATS)]
+    lines += [(caption, eq_type, skin.INV_NUMBERS_TOP + n * skin.TEXT_HEIGHT)
+              for n, (caption, eq_type) in enumerate(skin.INV_NUMBERS)]
+    for caption, eq_type, top in lines:
+        label, value = found[f'{caption}Label'], found[f'{caption}NumberLabel']
+        assert label.findtext('Text') == caption and box(label)[:2] == (skin.INV_COLUMN_X, top)
+        assert number(value, 'EQType') == eq_type and value.findtext('AlignRight') == 'true'
+        assert box(value)[1] == top and box(value)[0] + box(value)[2] == skin.INV_RIGHT
+        assert rgb(value, 'TextColor') == skin.VALUE_RGB
+    assert [eq_type for _, eq_type in skin.INV_STATS] == [5, 6, 8, 7, 9, 10, 11]  # STR STA AGI DEX WIS INT CHA
+    assert skin.INV_NUMBERS == (('AC', 22), ('ATK', 23))
+    weight = found['WeightLabel']
+    assert weight.findtext('Text') == 'Weight' and box(weight)[:2] == (skin.INV_COLUMN_X, skin.INV_WEIGHT_TOP)
+    current, slash, most = found['WeightNumberLabel'], found['TUI_IW_WeightSlash'], found['TUI_IW_WeightMax']
+    assert (number(current, 'EQType'), number(most, 'EQType')) == (24, 25)
+    assert box(current)[0] + box(current)[2] == box(slash)[0] and box(slash)[0] + box(slash)[2] == box(most)[0]
+    assert box(most)[0] + box(most)[2] == skin.INV_RIGHT and slash.findtext('Text') == '/'
+    assert rgb(current, 'TextColor') == rgb(most, 'TextColor') == skin.VALUE_RGB
+    assert len({box(e)[1] for e in (weight, current, slash, most)}) == 1
+    digits = skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
+    last_stat = lines[len(skin.INV_STATS) - 1][2]
+    assert 0 <= skin.INV_NUMBERS_TOP + skin.TEXT_INK_TOP - (last_stat + digits) - 2 * skin.PADDING < 1
+    assert 0 <= skin.INV_WEIGHT_TOP + skin.TEXT_INK_TOP - (lines[-1][2] + digits) - 2 * skin.PADDING < 1
+    coins = [found[f'IW_Money{n}'] for n in range(4)]
+    assert [box(c) for c in coins] == [
+        (skin.INV_COLUMN_X, skin.INV_COINS_TOP + n * (skin.COIN_HEIGHT + skin.BUTTON_ROW_GAP), skin.INV_COLUMN_WIDTH,
+         skin.COIN_HEIGHT) for n in range(4)]
+    assert box(coins[-1])[1] + skin.COIN_HEIGHT == skin.LEFT + skin.INV_DOLL_HEIGHT
+    assert box(coins[0])[1] - (skin.INV_WEIGHT_TOP + digits) >= skin.PADDING
+    assert skin.INV_COLUMN_WIDTH == skin.BANK_COIN_WIDTH
+    for coin, caption in zip(coins, skin.COIN_CAPTIONS):
+        # Platinum to copper, as the stock decals show; no tooltips, as in the stock window.
+        assert coin.find('TooltipReference') is None and coin.findtext('Text') == ''
+        assert [(e.tag, e.text) for e in coin.find('ButtonDrawTemplate')] == [
+            (state, f'TUI_BankCoin{skin.BUTTON_ART[state]}') for state in skin.BUTTON_STATES]
+        check_coin_caption(root, window, coin, caption)
+
+
+def test_inventory_buttons_fill_the_row_under_the_worn_slots():
+    # Skills, AA, Destroy and Done a padding under the worn slots, filling the row a padding apart, the confirmation
+    # dialog's kind with no tooltips (the stock ones have none), and the window's edge a padding under them.
+    _, window, found = inventory_parts()
+    buttons = [found[screen_id] for screen_id, _, _ in skin.INV_BUTTONS]
+    assert [(s, n) for s, n, _ in skin.INV_BUTTONS] == [('IW_Skills', 'Skills'), ('IW_AltAdvBtn', 'AA'),
+                                                        ('IW_Destroy', 'Destroy'), ('DoneButton', 'Done')]
+    for button, (_, button_name, _) in zip(buttons, skin.INV_BUTTONS):
+        check_confirmation_button(button, button_name)
+        assert box(button)[1] == skin.LEFT + skin.INV_DOLL_HEIGHT + skin.BUTTON_ROW_GAP
+    boxes = [box(b) for b in buttons]
+    assert boxes[0][0] == skin.LEFT and boxes[-1][0] + boxes[-1][2] == skin.INV_RIGHT
+    assert all(b[0] - (a[0] + a[2]) == skin.BUTTON_GAP for a, b in zip(boxes, boxes[1:]))
+    assert max(w for *_, w, _ in boxes) - min(w for *_, w, _ in boxes) <= 1
+    assert box(window)[3] - (skin.BORDER + boxes[0][1] + boxes[0][3]) == skin.PADDING
+
+
+def test_inventory_hides_the_class_picture_hp_and_the_resists():
+    # The client sets ClassAnim to the class's picture; with no size it shows nothing (the user didn't want it). HP and
+    # the resists are the player window's (the user); their stock labels stay, with no size and no text, and the max
+    # HP's, which has no stock ScreenID, is left out.
+    root, _, found = inventory_parts()
+    picture = found['ClassAnim']
+    assert picture.tag == 'StaticAnimation' and box(picture)[2:] == (0, 0)
+    for screen_id in skin.INV_HIDDEN_LABELS:
+        label = found[screen_id]
+        assert label.tag == 'Label' and box(label)[2:] == (0, 0) and label.findtext('Text') == ''
+        assert label.find('EQType') is None
+    assert len(skin.INV_HIDDEN_LABELS) == 12 and {'HPLabel', 'HPNumberLabel'} <= set(skin.INV_HIDDEN_LABELS)
+    assert not [e for e in root.iter('Label') if e.findtext('EQType') in ('17', '18')]
+
+
 # Building
 
 OTHER_SKIN = 'otherskin'  # a skin a player might build on instead, with --base
+KEPT_FILE = 'EQUI_CharacterSelect.xml'  # a window TriageUI leaves as it is (see PLAN.md)
 
 
 @pytest.fixture
@@ -3671,7 +3895,7 @@ def eq(tmp_path):
     for name in (skin.DEFAULT_BASE, OTHER_SKIN):
         base = tmp_path / 'uifiles' / name
         (base / 'Options').mkdir(parents=True)
-        (base / 'EQUI_Inventory.xml').write_text(f'{name} inventory')
+        (base / KEPT_FILE).write_text(f'{name} character select')
         (base / 'eqUI_targetwindow.xml').write_text(f'{name} target window')
         (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.encode())
         (base / 'window_pieces01.tga').write_bytes(f'{name} tga'.encode())
@@ -3693,8 +3917,8 @@ def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq, ba
         '  <Ui2DAnimation item="OnlyHere"><Cycle>true</Cycle></Ui2DAnimation>\r\n'
         '  <StaticAnimation item="PW_Box"><Animation>Blackbox</Animation></StaticAnimation>\r\n'
         '  <Screen item="PlayerWindow"><Pieces>PW_Box</Pieces></Screen>\r\n</XML>\r\n').encode())
-    (base / 'EQUI_Inventory.xml').write_text('<XML><StaticAnimation item="IW"><Animation>Blackbox</Animation>'
-                                            '</StaticAnimation></XML>')
+    (base / KEPT_FILE).write_text('<XML><StaticAnimation item="CS"><Animation>Blackbox</Animation>'
+                                  '</StaticAnimation></XML>')
     out = skin.build(eq, base_name)
     animations = (out / skin.ANIMATIONS_FILE).read_bytes().decode('latin-1')
     assert animations.count('item="Blackbox"') == 1 and 'OnlyHere' not in animations and 'PW_Box' not in animations
@@ -3744,8 +3968,8 @@ def test_a_build_on_another_skin_copies_it_and_adds_ours(eq):
     before = snapshot(base)
     out = skin.build(eq, OTHER_SKIN)
     names = {path.name for path in out.iterdir()}
-    assert names == {'EQUI_Inventory.xml', 'window_pieces01.tga', skin.MARKER_FILE, *files()}
-    assert (out / 'EQUI_Inventory.xml').read_text() == f'{OTHER_SKIN} inventory'
+    assert names == {KEPT_FILE, 'window_pieces01.tga', skin.MARKER_FILE, *files()}
+    assert (out / KEPT_FILE).read_text() == f'{OTHER_SKIN} character select'
     for name, data in files().items():
         assert (out / name).read_bytes() == data
     assert snapshot(base) == before
@@ -4113,6 +4337,47 @@ def test_preview_fills_in_the_spell_book(tmp_path):
     assert preview.text_mask('Transons Phantasmal Protection', skin.TEXT_FONT).getbbox()[2] <= skin.BOOK_NAME_WIDTH
 
 
+def test_preview_fills_in_the_inventory_window(tmp_path):
+    # Who you are and both bars, part filled, in the middle, the stats and numbers beside them, six digits of platinum
+    # clear of their coin's name, items in the held slots and each empty worn slot's own icon.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.INVENTORY_FILE)  # grey squares for items here
+    _, _, found = inventory_parts()
+    panel = image.getpixel((skin.BORDER + skin.INV_MIDDLE_X + 2, skin.BORDER + skin.INV_MIDDLE_TOP + 150))
+
+    def region(key, left=0, right=None):
+        x, y, width, height = box(found[key])
+        right = width if right is None else right
+        return image.crop((skin.BORDER + x + left, skin.BORDER + y, skin.BORDER + x + right, skin.BORDER + y + height))
+
+    def inked(part):
+        return sum(1 for p in pixels(part) if p != panel)
+
+    def bright(part):
+        return sum(1 for p in pixels(part) if min(p[:3]) > 150)
+
+    for key in ('NameLabel', 'LevelClassLabel', 'TUI_IW_Class', 'DeityLabel', 'ACNumberLabel', 'ATKNumberLabel',
+                'WeightNumberLabel', 'TUI_IW_WeightMax', 'STRNumberLabel', 'CHANumberLabel'):
+        assert inked(region(key)), key
+    assert preview.LABELS[3] == 'Shadow Knight' and preview.LABELS[4] == 'Mithaniel Marr'
+    for gauge_id, value in (('ExpGauge', 0.45), ('AltAdvGauge', 0.12)):
+        bar = region(gauge_id)
+        assert preview.GAUGES[number(found[gauge_id], 'EQType')] == value
+        assert bar.getpixel((0, 0)) != bar.getpixel((bar.width - 1, 0)), gauge_id
+    name_end = skin.PADDING + skin.COIN_CAPTION_WIDTH
+    assert preview.BUTTON_TEXT['IW_Money0'] == '123456'
+    assert not bright(region('IW_Money0', name_end, name_end + skin.PADDING))
+    for n in range(4):
+        assert bright(region(f'IW_Money{n}', right=name_end)) and bright(region(f'IW_Money{n}', name_end)), n
+    held = {eq_type for eq_type, *_ in skin.INV_WORN} & preview.HELD_SLOTS
+    assert held == {2, 13, 17}
+    slots = {eq_type: pixels(region(f'InvSlot{eq_type}')) for eq_type, *_ in skin.INV_WORN}
+    for eq_type in held:
+        assert set(slots[eq_type]) == {preview.PLACEHOLDER_RGBA}, eq_type
+    icons = {icon: tuple(slots[eq_type]) for eq_type, icon, _, _ in skin.INV_WORN if eq_type not in held}
+    assert len(set(icons.values())) == len(icons) == 15
+
+
 @pytest.mark.parametrize('heading, label', [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')])
 def test_preview_slides_the_compass_strip_to_the_heading(tmp_path, monkeypatch, heading, label):
     # The strips go where the stock art's line-up puts them, so the direction faced has its label centered over the
@@ -4263,6 +4528,6 @@ def test_the_release_zip_is_the_built_skin_in_a_triageui_folder(eq, tmp_path):
     with zipfile.ZipFile(out) as archive:
         assert archive.namelist() == sorted(f'TriageUI/{path.name}' for path in built.iterdir())
         assert {f'TriageUI/{skin.MARKER_FILE}', f'TriageUI/{skin.ANIMATIONS_FILE}'} <= set(archive.namelist())
-        assert not {'TriageUI/EQUI_Inventory.xml', 'TriageUI/window_pieces01.tga'} & set(archive.namelist())
+        assert not {f'TriageUI/{KEPT_FILE}', 'TriageUI/window_pieces01.tga'} & set(archive.namelist())
         for path in built.iterdir():
             assert archive.read(f'TriageUI/{path.name}') == path.read_bytes()

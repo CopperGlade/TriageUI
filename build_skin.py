@@ -1309,6 +1309,85 @@ BOOK_ARROWS = (('SBW_PageDown_Button', 'Previous Page', 'Left'), ('SBW_PageUp_Bu
 BOOK_DONE_WIDTH = COIN_WIDTH
 add_text_buttons((BOOK_DONE_WIDTH,))
 SPELLBOOK_HEIGHT = 2 * BORDER + BOOK_BAND_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
+# The inventory window: what you wear, your stats and your coins. eqgame.exe looks up the worn and bag slots
+# (InvSlot%d, EQTypes 1 to 29), the coin boxes (IW_Money0 to 3, see COIN_CAPTIONS), IW_Skills, IW_AltAdvBtn,
+# IW_Destroy and DoneButton, the class picture (ClassAnim, which it sets to A_ClassAnim%02d), the area a dropped item
+# is equipped from (IW_CharacterView), and the AA caption and bar (AltAdvLabel, AltAdvGauge); every other text is a
+# label the client fills by its EQType. The user's picks (2026-09-29, from mockups): EverQuest's arrangement, the worn
+# slots around a middle showing who you are and your XP and AA, your stats, AC, ATK and weight and your coins in a
+# column on the right, and the buttons along the bottom; the deity, but no HP or resists (the player window has them),
+# no class picture and no bag slots, which the hot button window has.
+INVENTORY_FILE = 'EQUI_Inventory.xml'
+# The worn slots on the hot button window's squares, five columns and seven rows: (EQType, the empty slot's icon,
+# half-column, row), in EQType order. Each is in the stock window's column, and its row but for Legs and Feet, which sit
+# centered between the rings, a row higher than there, and the weapons centered under them; so on half-columns.
+INV_WORN = (
+    (1, 'Ear', 0, 0), (2, 'Head', 4, 0), (3, 'Face', 6, 0), (4, 'Ear', 8, 0), (5, 'Neck', 2, 0),
+    (6, 'Shoulders', 8, 2), (7, 'Arms', 0, 2), (8, 'Back', 8, 1), (9, 'Wrist', 0, 3), (10, 'Wrist', 8, 3),
+    (11, 'Range', 5, 6), (12, 'Hands', 8, 4), (13, 'Primary', 1, 6), (14, 'Secondary', 3, 6), (15, 'Fingers', 0, 5),
+    (16, 'Fingers', 8, 5), (17, 'Chest', 0, 1), (18, 'Legs', 3, 5), (19, 'Feet', 5, 5), (20, 'Waist', 0, 4),
+    (21, 'Ammo', 7, 6),
+)
+INV_BAG_TYPES = range(22, 30)  # the bag slots, which the client looks up: kept with no size
+INV_COLUMNS = 5
+INV_ROWS = 7
+INV_DOLL_WIDTH = INV_COLUMNS * HOT_SIZE + (INV_COLUMNS - 1) * BUTTON_GAP
+INV_DOLL_HEIGHT = INV_ROWS * HOT_SIZE + (INV_ROWS - 1) * BUTTON_ROW_GAP
+# The middle: the three columns between the side ones, over the four rows between the top row and Legs and Feet.
+# IW_CharacterView covers it, see-through, so an item dropped anywhere on it is equipped, and the text lies over it.
+INV_MIDDLE_X = LEFT + HOT_PITCH
+INV_MIDDLE_TOP = LEFT + HOT_PITCH
+INV_MIDDLE_WIDTH = 3 * HOT_SIZE + 2 * BUTTON_GAP
+INV_MIDDLE_HEIGHT = 4 * HOT_SIZE + 3 * BUTTON_ROW_GAP
+INV_MIDDLE_RIGHT = INV_MIDDLE_X + INV_MIDDLE_WIDTH
+INV_DROP_TOOLTIP = 'Drop Item Here to Auto Equip'  # the stock window's
+# The middle in sections: who you are (the name, the level and class, the deity in the overlay's grey), lines stacked on
+# their height, then XP and AA (the user moved them here from the column), like the player window's health and mana: a
+# caption with the % at the line's end and the bar under it, across the middle. The first line's ink a padding under the
+# top row, each section two paddings under the digits or bar of the one above, like the player window's sections.
+# Labels 26 and 27 are the XP and AA %, gauges 4 and 5 their bars.
+INV_SECTION_STEP = math.ceil(PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + 2 * PADDING - TEXT_INK_TOP)
+INV_WHO_TOP = math.ceil(LEFT + HOT_SIZE + PADDING - TEXT_INK_TOP)
+INV_XP_TOP = INV_WHO_TOP + 2 * TEXT_HEIGHT + INV_SECTION_STEP
+INV_AA_TOP = INV_XP_TOP + PLAYER_SECTION_PITCH
+# (caption's ScreenID, caption, % label, gauge's ScreenID, gauge EQType, top)
+INV_PROGRESS = (('NextLevelLabel', 'XP', 26, 'ExpGauge', 4, INV_XP_TOP),
+                ('AltAdvLabel', 'AA', 27, 'AltAdvGauge', 5, INV_AA_TOP))
+INV_LEVEL_WIDTH = 2 * DIGIT_WIDTH  # the level, right-aligned against the class a space after it
+# The column on the right, three slots wide, the row divider standing between it and the worn slots a padding from each.
+INV_DIVIDER_X = LEFT + INV_DOLL_WIDTH + PADDING
+INV_COLUMN_X = INV_DIVIDER_X + DIVIDER_HEIGHT + PADDING
+INV_COLUMN_WIDTH = 3 * HOT_SIZE + 2 * BUTTON_GAP
+INV_RIGHT = INV_COLUMN_X + INV_COLUMN_WIDTH
+INV_WIDTH = INV_RIGHT + LEFT + 2 * BORDER
+INV_CONTENT_WIDTH = INV_RIGHT - LEFT
+# Your stats, one to a line from the inside's top, their ink 7.5px under the window's edge like the bank window's names
+# (a label placed into the frame isn't drawn): (caption, label EQType), in the stock order. Each caption and number
+# keeps its stock ScreenID, the caption's and 'NumberLabel'.
+INV_STATS = (('STR', 5), ('STA', 6), ('AGI', 8), ('DEX', 7), ('WIS', 9), ('INT', 10), ('CHA', 11))
+INV_STATS_TOP = 0
+# Under the stats (the user moved them here from the middle), each a section two paddings under the digits above: AC
+# and ATK, as the stats (caption, label EQType), then the weight as the player window's current/max (labels 24 and 25).
+INV_NUMBERS_TOP = INV_STATS_TOP + (len(INV_STATS) - 1) * TEXT_HEIGHT + INV_SECTION_STEP
+INV_NUMBERS = (('AC', 22), ('ATK', 23))
+INV_WEIGHT_TOP = INV_NUMBERS_TOP + (len(INV_NUMBERS) - 1) * TEXT_HEIGHT + INV_SECTION_STEP
+# The coin boxes stacked at the column's foot, the last level with the worn slots' bottom. The column is as wide as the
+# bank's coin boxes, so they share its art.
+INV_COIN_PITCH = COIN_HEIGHT + BUTTON_ROW_GAP
+INV_COINS_TOP = LEFT + INV_DOLL_HEIGHT - len(COIN_CAPTIONS) * INV_COIN_PITCH + BUTTON_ROW_GAP
+# The stock window's HP and resists, which the player window shows instead (the user): kept as labels, hidden.
+INV_HIDDEN_LABELS = tuple(f'{shown}{kind}' for shown in ('HP', 'Poison', 'Magic', 'Disease', 'Fire', 'Cold')
+                          for kind in ('Label', 'NumberLabel'))
+# Along the bottom a padding under the worn slots, filling the row: (ScreenID, name, column), the confirmation dialog's
+# buttons, with no tooltips (the stock ones have none).
+INV_BUTTONS_TOP = LEFT + INV_DOLL_HEIGHT + BUTTON_ROW_GAP
+INV_BUTTONS = (('IW_Skills', 'Skills', 0), ('IW_AltAdvBtn', 'AA', 1), ('IW_Destroy', 'Destroy', 2),
+               ('DoneButton', 'Done', 3))
+_INV_SPAN = INV_CONTENT_WIDTH - (len(INV_BUTTONS) - 1) * BUTTON_GAP
+INV_BUTTON_WIDTHS = tuple(_INV_SPAN * (c + 1) // len(INV_BUTTONS) - _INV_SPAN * c // len(INV_BUTTONS)
+                          for c in range(len(INV_BUTTONS)))
+add_text_buttons(INV_BUTTON_WIDTHS)
+INV_HEIGHT = 2 * BORDER + INV_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1713,7 +1792,124 @@ def ammo_icon(x, y):
     return min(head, stroke(min(shaft, vanes)))
 
 
-SLOT_ICONS = {'Primary': primary_icon, 'Secondary': secondary_icon, 'Range': range_icon, 'Ammo': ammo_icon}
+# The inventory window's other worn slots (see INV_WORN), each drawn like the weapons' for what goes in it.
+
+def ear_icon(x, y):
+    # A right ear from the side: the rim arching over and down the back to the lobe, the lobe's curve up to the
+    # front, and the fold inside.
+    rim = min(arc_distance(x, y, 8, 6.5, 5.25, 200, 45), segment_distance(x, y, (11.71, 10.21), (10.1, 13.2)),
+              arc_distance(x, y, 8.4, 13, 1.75, 0, 180), segment_distance(x, y, (6.65, 13), (6.4, 11)))
+    fold = min(arc_distance(x, y, 8.1, 6.9, 2.3, 190, 40), segment_distance(x, y, (9.86, 8.38), (8.6, 10.5)))
+    return stroke(min(rim, fold))
+
+
+def head_icon(x, y):
+    # A helm: a dome down to a closed rim, and a T of eye slit and nose slit across its face.
+    shell = min(arc_distance(x, y, 8, 7.5, 6, 180, 360),
+                polyline_distance(x, y, ((2, 7.5), (2, 14.5), (14, 14.5), (14, 7.5))))
+    slits = min(segment_distance(x, y, (4.5, 9), (11.5, 9)), segment_distance(x, y, (8, 9), (8, 12.5)))
+    return stroke(min(shell, slits))
+
+
+def face_icon(x, y):
+    # A mask: an oval face, two solid eyes and a line of a mouth.
+    eyes = min(ellipse_signed(x, y, ex, 7, 1.5, 1) for ex in (5.6, 10.4))
+    outline = ellipse_distance(x, y, 8, 8, 5.5, 6.75)
+    return min(stroke(min(outline, segment_distance(x, y, (6.5, 11.25), (9.5, 11.25)))), eyes)
+
+
+def neck_icon(x, y):
+    # A necklace: the chain hanging in a curve, and a solid pendant under its lowest point.
+    chain = arc_distance(x, y, 8, 2.5, 6.25, 10, 170)
+    pendant = polygon_signed(x, y, [(8, 9.75), (10, 12.25), (8, 14.75), (6, 12.25)]) - 0.2
+    return min(stroke(chain), pendant)
+
+
+def shoulders_icon(x, y):
+    # A pauldron: a domed plate with two lames overlapping under it.
+    plate = min(arc_distance(x, y, 8, 8.5, 6.5, 180, 360), segment_distance(x, y, (1.5, 8.5), (14.5, 8.5)))
+    lames = min(arc_distance(x, y, 8, 11.5, 6, 195, 345), arc_distance(x, y, 8, 14.75, 5.5, 205, 335))
+    return stroke(min(plate, lames))
+
+
+def arms_icon(x, y):
+    # A sleeved arm bent at the elbow: the upper arm down from the shoulder, the forearm out to the right, the
+    # elbow's outer corner rounded, and a band at the shoulder and the cuff.
+    inner = polyline_distance(x, y, ((7.5, 1.5), (7.5, 9.5), (14.5, 9.5)))
+    outer = min(segment_distance(x, y, (2.5, 1.5), (2.5, 10.5)), arc_distance(x, y, 6.5, 10.5, 4, 90, 180),
+                segment_distance(x, y, (6.5, 14.5), (14.5, 14.5)))
+    ends = min(segment_distance(x, y, (2.5, 1.5), (7.5, 1.5)), segment_distance(x, y, (14.5, 9.5), (14.5, 14.5)))
+    bands = min(segment_distance(x, y, (2.5, 4.25), (7.5, 4.25)), segment_distance(x, y, (11.75, 9.5), (11.75, 14.5)))
+    return stroke(min(inner, outer, ends, bands))
+
+
+def back_icon(x, y):
+    # A cloak: hanging from a narrow collar and flaring out to the hem, with a clasp at the collar and two folds.
+    # Rounded over the shoulders, it read as a bell.
+    cloak = polyline_distance(x, y, ((5.5, 1.75), (10.5, 1.75), (14, 14.5), (2, 14.5)), closed=True)
+    folds = min(segment_distance(x, y, (7, 4), (5.75, 14.5)), segment_distance(x, y, (9, 4), (10.25, 14.5)))
+    return min(stroke(min(cloak, folds)), math.hypot(x - 8, y - 2.5) - 1.4)
+
+
+def wrist_icon(x, y):
+    # A bracelet seen from a little above: a band's top ring, its lower edge and its sides.
+    top = ellipse_distance(x, y, 8, 6.25, 6, 2.75)
+    lower = ellipse_distance(x, y, 8, 9.75, 6, 2.75) if y > 9.75 else math.inf
+    sides = min(segment_distance(x, y, (2, 6.25), (2, 9.75)), segment_distance(x, y, (14, 6.25), (14, 9.75)))
+    return stroke(min(top, lower, sides))
+
+
+def hands_icon(x, y):
+    # A glove: the fingers' rounded top with two lines between them, the thumb out to the left, and the cuff.
+    hand = abs(rounded_rect_distance(x, y, 4.75, 1.5, 12.25, 10.5, 2.5))
+    thumb = segment_distance(x, y, (4.75, 9.25), (1.75, 6.25))
+    cuff = polyline_distance(x, y, ((5.25, 10.5), (5.25, 14.5), (11.75, 14.5), (11.75, 10.5)), closed=True)
+    fingers = min(segment_distance(x, y, (7.25, 1.75), (7.25, 6)), segment_distance(x, y, (9.75, 1.75), (9.75, 6)))
+    return stroke(min(hand, thumb, cuff, fingers))
+
+
+def fingers_icon(x, y):
+    # A ring: the band, and a solid stone set on top of it.
+    stone = polygon_signed(x, y, [(8, 1.25), (10.5, 3.75), (8, 6.25), (5.5, 3.75)]) - 0.2
+    return min(stroke(abs(math.hypot(x - 8, y - 10.25) - 4.5)), stone)
+
+
+def chest_icon(x, y):
+    # A breastplate: shoulders, the neck's curve and the arm holes, narrowing to the waist, with a ridge down its
+    # middle.
+    neck = arc_distance(x, y, 8, 1.5, 2.5, 0, 180)
+    body = polyline_distance(x, y, ((5.5, 1.5), (2, 3), (3.5, 7.5), (3.75, 14.5), (12.25, 14.5), (12.5, 7.5), (14, 3),
+                                    (10.5, 1.5)))
+    return stroke(min(neck, body, segment_distance(x, y, (8, 4), (8, 14.5))))
+
+
+def legs_icon(x, y):
+    # Leggings: the waistband, both legs down to their cuffs and the seam between them.
+    legs = polyline_distance(x, y, ((3.5, 1.5), (12.5, 1.5), (13.75, 14.5), (9.5, 14.5), (8, 6.5), (6.5, 14.5),
+                                    (2.25, 14.5)), closed=True)
+    return stroke(min(legs, segment_distance(x, y, (3.6, 3.75), (12.4, 3.75))))
+
+
+def feet_icon(x, y):
+    # A boot from the side, toe to the right: the shaft with its cuff, the heel and the foot.
+    boot = polyline_distance(x, y, ((4.5, 1.5), (10, 1.5), (10, 8.5), (13.5, 10.5), (14.5, 12.5), (14.5, 14.5),
+                                    (3.5, 14.5), (4, 8)), closed=True)
+    return stroke(min(boot, segment_distance(x, y, (4.35, 4), (10, 4))))
+
+
+def waist_icon(x, y):
+    # A belt: the strap across, a buckle in its middle with the prong, and the holes past it.
+    strap = min(segment_distance(x, y, (1, 6), (5.25, 6)), segment_distance(x, y, (1, 10), (5.25, 10)),
+                segment_distance(x, y, (10.75, 6), (15, 6)), segment_distance(x, y, (10.75, 10), (15, 10)))
+    buckle = abs(rounded_rect_distance(x, y, 5.25, 3.75, 10.75, 12.25, 1.5))
+    holes = min(math.hypot(x - hx, y - 8) - 0.8 for hx in (12.5, 14.75))
+    return min(stroke(min(strap, buckle, segment_distance(x, y, (8, 8), (10.75, 8)))), holes)
+
+
+SLOT_ICONS = {'Primary': primary_icon, 'Secondary': secondary_icon, 'Range': range_icon, 'Ammo': ammo_icon,
+              'Ear': ear_icon, 'Head': head_icon, 'Face': face_icon, 'Neck': neck_icon, 'Shoulders': shoulders_icon,
+              'Arms': arms_icon, 'Back': back_icon, 'Wrist': wrist_icon, 'Hands': hands_icon, 'Fingers': fingers_icon,
+              'Chest': chest_icon, 'Legs': legs_icon, 'Feet': feet_icon, 'Waist': waist_icon}
 # They're drawn big, strokes and all: each icon's ink fills a box SLOT_ICON_SHARE of the slot's side at its
 # longer side, centered on the slot, so the sword and arrow, running corner to corner, take about that much of
 # its diagonal. The user asked for about 75% of the diagonal for all four; by the diagonal alone, the upright
@@ -1998,6 +2194,8 @@ def pieces():
         'PlayerFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, BAR_FILL),
         'PlayerSolidFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, WHITE),
         'TickFill': Texture(PLAYER_CONTENT_WIDTH, TICK_HEIGHT, WHITE),
+        'InvTrack': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, EDGE_FADED),  # the inventory's XP and AA bars
+        'InvFill': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, BAR_FILL),
         **{button_art(width, height, label, state): labeled_button_art(width, height, label, state)
            for (width, height), labels in BUTTON_LABELS.items() for label in labels for state in BUTTON_LOOKS},
         **{f'Scroll{way}{state}': chevron(way == 'Up', alpha)
@@ -3034,13 +3232,14 @@ def hot_spot(column, row):
     return LEFT + column * HOT_PITCH, LEFT + row * HOT_PITCH
 
 
-def inv_slot(name, screen_id, eq_type, spot, background):
-    """An item slot at spot, HOT_SIZE square, showing background while it's empty."""
+def inv_slot(name, screen_id, eq_type, spot, background, side=HOT_SIZE):
+    """An item slot at spot, side square, showing background while it's empty. side 0 hides one the client looks
+    up."""
     return node('InvSlot', [
         node('ScreenID', screen_id),
         node('RelativePosition', True),
         point('Location', *spot),
-        size(HOT_SIZE, HOT_SIZE),
+        size(side, side),
         node('Background', background),
         node('EQType', eq_type),
         node('Style_VScroll', False),
@@ -3510,6 +3709,90 @@ def spellbook_window():
                   width=SPELLBOOK_WIDTH)
 
 
+def inventory_window():
+    """The worn slots around a middle showing who you are and your XP and AA, where a dropped item is equipped; your
+    stats, AC, ATK and weight and your coins in a column on the right, a divider between; the buttons along the bottom
+    (see INVENTORY_FILE). The bag slots, the class picture, HP and the resists are there, hidden."""
+    # First, so the middle's text draws over it: labels let clicks through, so a drop on the text reaches it too.
+    parts = [node('Screen', [
+        node('ScreenID', 'IW_CharacterView'),
+        node('RelativePosition', True),
+        point('Location', INV_MIDDLE_X, INV_MIDDLE_TOP),
+        size(INV_MIDDLE_WIDTH, INV_MIDDLE_HEIGHT),
+        node('Style_VScroll', False),
+        node('Style_HScroll', False),
+        node('Style_Transparent', False),
+        node('TooltipReference', INV_DROP_TOOLTIP),
+        node('DrawTemplate', EDIT_TEMPLATE),
+        node('Style_Border', False),
+    ], 'TUI_IW_CharacterView')]
+    parts += [inv_slot(f'TUI_IW_InvSlot{eq_type}', f'InvSlot{eq_type}', eq_type,
+                       (LEFT + half * HOT_PITCH // 2, LEFT + row * HOT_PITCH), f'TUI_HotSlot{icon}')
+              for eq_type, icon, half, row in INV_WORN]
+    parts += [inv_slot(f'TUI_IW_InvSlot{eq_type}', f'InvSlot{eq_type}', eq_type, (0, 0), 'TUI_Clear', side=0)
+              for eq_type in INV_BAG_TYPES]
+    # The middle: the level right-aligned against the class; XP and AA each a caption, its % in the values' green and
+    # the bar under it. The drawn % needs a gauge above 0 to show: your own health, so it always shows, 0% too.
+    x, right = INV_MIDDLE_X, INV_MIDDLE_RIGHT
+    class_x = x + INV_LEVEL_WIDTH + SPACE_WIDTH
+    parts += [
+        label('TUI_IW_Name', 1, (x, INV_WHO_TOP, INV_MIDDLE_WIDTH, TEXT_HEIGHT), '', screen_id='NameLabel'),
+        label('TUI_IW_Level', 2, (x, INV_WHO_TOP + TEXT_HEIGHT, INV_LEVEL_WIDTH, TEXT_HEIGHT), '', align_right=True,
+              screen_id='LevelClassLabel'),
+        label('TUI_IW_Class', 3, (class_x, INV_WHO_TOP + TEXT_HEIGHT, right - class_x, TEXT_HEIGHT), ''),
+        label('TUI_IW_Deity', 4, (x, INV_WHO_TOP + 2 * TEXT_HEIGHT, INV_MIDDLE_WIDTH, TEXT_HEIGHT), '',
+              screen_id='DeityLabel', rgb=PET_RGB),
+    ]
+    percents = []
+    readout_x = right - PERCENT_WIDTH - NUMBER_WIDTH
+    for caption_id, caption, percent_type, gauge_id, gauge_type, top in INV_PROGRESS:
+        percent, readout = percent_readout(f'TUI_IW_{gauge_id}Percent', f'TUI_IW_{gauge_id}PercentSign', percent_type,
+                                           1, top, right, rgb=VALUE_RGB)
+        percents.append(percent)
+        parts += [
+            label(f'TUI_IW_{caption_id}', None, (x, top, readout_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
+            *readout,
+            gauge(f'TUI_IW_{gauge_id}', gauge_id, gauge_type, (x, top + BAR_TOP, INV_MIDDLE_WIDTH, BAR_HEIGHT),
+                  'TUI_InvFill', TEXT_RGB, track='TUI_InvTrack'),
+        ]
+    # The column: the stats, then AC and ATK, then the weight as the player window's current/max, every value in the
+    # game's green ending at the column's right; the coins at its foot.
+    parts.append(vertical_divider('TUI_IW_Divider', INV_DIVIDER_X, LEFT, INV_DOLL_HEIGHT))
+    max_x = INV_RIGHT - PLAYER_NUMBER_WIDTH
+    slash_x = max_x - PLAYER_SLASH_WIDTH
+    current_x = slash_x - PLAYER_NUMBER_WIDTH
+    lines = [(caption, eq_type, INV_STATS_TOP + n * TEXT_HEIGHT) for n, (caption, eq_type) in enumerate(INV_STATS)]
+    lines += [(caption, eq_type, INV_NUMBERS_TOP + n * TEXT_HEIGHT) for n, (caption, eq_type) in enumerate(INV_NUMBERS)]
+    for caption, eq_type, top in lines:
+        parts += [
+            label(f'TUI_IW_{caption}', None, (INV_COLUMN_X, top, max_x - INV_COLUMN_X, TEXT_HEIGHT), caption,
+                  screen_id=f'{caption}Label'),
+            label(f'TUI_IW_{caption}Number', eq_type, (max_x, top, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '',
+                  align_right=True, screen_id=f'{caption}NumberLabel', rgb=VALUE_RGB),
+        ]
+    parts += [
+        label('TUI_IW_Weight', None, (INV_COLUMN_X, INV_WEIGHT_TOP, current_x - INV_COLUMN_X, TEXT_HEIGHT), 'Weight',
+              screen_id='WeightLabel'),
+        label('TUI_IW_WeightCurrent', 24, (current_x, INV_WEIGHT_TOP, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '',
+              align_right=True, screen_id='WeightNumberLabel', rgb=VALUE_RGB),
+        label('TUI_IW_WeightSlash', None, (slash_x, INV_WEIGHT_TOP, PLAYER_SLASH_WIDTH, TEXT_HEIGHT), '/',
+              align_center=True),
+        label('TUI_IW_WeightMax', 25, (max_x, INV_WEIGHT_TOP, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '', rgb=VALUE_RGB),
+    ]
+    parts += [part for n, caption in enumerate(COIN_CAPTIONS)
+              for part in coin_box(f'TUI_IW_Money{n}', f'IW_Money{n}', caption, INV_COLUMN_X,
+                                   INV_COINS_TOP + n * INV_COIN_PITCH, tooltip=None, width=INV_COLUMN_WIDTH,
+                                   art='BankCoin')]
+    parts += [button(f'TUI_IW_{screen_id}', screen_id, '', LEFT + sum(INV_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP,
+                     INV_BUTTONS_TOP, INV_BUTTON_WIDTHS[column], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
+              for screen_id, button_name, column in INV_BUTTONS]
+    parts += [hidden_label(f'TUI_IW_{screen_id}', screen_id) for screen_id in INV_HIDDEN_LABELS]
+    # The client sets the picture to the class's (A_ClassAnim%02d); with no size it shows nothing.
+    parts.append(picture('TUI_IW_ClassAnim', 'TUI_Clear', (0, 0, 0, 0), screen_id='ClassAnim'))
+    return window('InventoryWindow', 'Inventory', INV_HEIGHT, parts, tooltip='Inventory', width=INV_WIDTH,
+                  inner=percents)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
@@ -3518,7 +3801,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
                 LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window,
-                SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window}
+                SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window, INVENTORY_FILE: inventory_window}
 
 
 def stranded_definitions(skin_xml):
