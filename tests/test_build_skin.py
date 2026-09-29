@@ -2182,10 +2182,11 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
 
 
 def test_every_player_window_value_is_the_green_the_game_gives_a_raised_value():
-    # The game's label function colors a value above its base 0xff00ff00 (its color helper, 0x4365e9), as it does
-    # the max HP label whatever the skin sets. Every value the client fills in the player window, and every drawn
-    # %, is that green, so none mixes colors (the percentages in gold were tried): Health's and Mana's %, current
-    # and max, the XP and AA rates and the resists.
+    # The game's label function colors a value above its base 0xff00ff00 (its color helper, 0x4365e9). It paints
+    # max HP and the resists itself, whatever the skin sets: that green while raised, grey at their base, red below.
+    # Every value the client fills in the player window, and every drawn %, is that green, so the rest match raised
+    # stats (the user's pick over the game's grey; the percentages in gold were tried): Health's and Mana's %,
+    # current and max, the XP and AA rates and the resists.
     root, _ = check_inside_frame(skin.PLAYER_FILE, skin.PLAYER_WIDTH)
     values = [e for e in root.iter('Label') if e.findtext('EQType')]
     assert len(values) == 2 * 3 + 2 + len(skin.RESISTS)

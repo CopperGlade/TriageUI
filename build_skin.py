@@ -729,8 +729,10 @@ HP_RGB = (143, 209, 158)
 # The values: the current number, "/" and the max, as separate labels (the current right-aligned against
 # the slash, the max left-aligned after it in a spot for 4 digits), the health and mana %, the XP and AA rates and
 # the resists' values, each % drawn in the same color. Every one is the green the game gives a value above its base
-# (0xff00ff00, as it colors the max HP label, 18, whatever the skin sets), so no value mixes colors (a softer green,
-# white, and the percentages in gold were tried). The slash is in the text color (the user's request).
+# (0xff00ff00). The game colors max HP (label 18) and the resists (12 to 16) itself, whatever a skin sets, and no
+# skin can stop it: this green while buffs or gear raise them, grey (0xffc0c0c0) at their base, red below it. The
+# rest stay this green, so they match raised stats (the user's pick over the game's grey; a softer green, white, and
+# the percentages in gold were tried). The slash is in the text color (the user's request).
 VALUE_RGB = (0, 255, 0)
 # The inventory's XP and AA percentages, with their drawn %s and bars, in EverQuest's classic golden yellow (the
 # user's request).
