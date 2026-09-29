@@ -35,6 +35,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Skills | `EQUI_SkillsWindow.xml` |
 | Spell Book | `EQUI_SpellBookWnd.xml` |
 | Inventory | `EQUI_Inventory.xml` |
+| Tracking | `EQUI_TrackingWnd.xml` |
 
 ## To do: everyday
 
@@ -43,7 +44,6 @@ Roughly in order of how much a player sees them.
 | Window | File |
 |---|---|
 | Inspect | `EQUI_InspectWnd.xml` |
-| Tracking | `EQUI_TrackingWnd.xml` |
 | Raid Options | `EQUI_RaidOptionsWindow.xml` |
 | Friends | `EQUI_FriendsWnd.xml` |
 | Alternate Advancement | `EQUI_AAWindow.xml` |

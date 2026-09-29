@@ -10,7 +10,7 @@ folder is found (EQ_DIR, C:\\QUARM or the Mac mount), grey squares otherwise.
 
 It draws what the XML says the way the client does: the frame, title bar and close box from the window's template,
 then each piece in order, clipped to the window's inside. A child Screen clips what it holds, anchored controls take
-their place from their anchors, and a TabBox is drawn once per page, stacked. The bag window is sized as the game
+their place from their anchors, a TabBox is drawn once per page, stacked, and a Combobox closed, showing its choice. The bag window is sized as the game
 sizes it, for the sample bag (BAG), and the compass's strips slid to the sample heading (HEADING). Fonts are Arial stand-ins (12px for font 3, 10 for 2, 9 for 1). The samples show one state of each
 window: edit them at the top of this file to check another (the OK-only dialog, a smaller bag).
 
@@ -136,7 +136,23 @@ LIST_ROWS = {
         ('Brewing', 'Feeble', 18), ('Alcohol Tolerance', 'Below Avg', 55), ('Begging', 'Awful', 10),
         ('Jewelry Making', 'Awful', 4), ('Pottery', 'Awful', 2), ('Percussion Instruments', 'Excellent', 195))],
 }
-TITLES = {'ItemDisplayWindow': 'Fine Steel Long Sword', 'ChatWindow': 'Main'}  # names the client writes
+# What a tracker sees in range, each with its con (an index into the tracking filters, red first), more than the list
+# shows so it scrolls.
+TRACKED = [
+    ('a gnoll pup', 5), ('a large rat', 5), ('a fire beetle', 4), ('a decaying skeleton', 5), ('a moss snake', 5),
+    ('a gnoll', 3), ('a black wolf', 3), ('a grizzly bear', 2), ('Sebik', 2), ('a young kodiak', 4),
+    ('a gnoll scout', 3), ('a mountain lion', 1), ('Fippy Darkpaw', 3), ('a Sabertooth gnoll guardian', 0),
+    ('a giant bat', 4), ('a gnoll watcher', 3), ('an orc pawn', 4), ('a zombie', 4), ('a skeleton', 5),
+    ('a spiderling', 5), ('a will-o-wisp', 1), ('a bat', 5), ('a garter snake', 5), ('a wolf', 4), ('a rat', 5),
+    ('a bloodgill goblin', 0), ('a timber wolf', 4), ('a brown bear', 3), ('a Sabertooth gnoll', 2),
+    ('a highpass guard', 0),
+]
+LIST_ROWS['TRW_TrackingList'] = [[name] for name, _ in TRACKED]
+# Each row's color, where the client colors the rows itself: a tracked name's is its con's.
+LIST_RGB = {'TRW_TrackingList': [skin.TRACK_FILTERS[con][3] for _, con in TRACKED]}
+COMBO_TEXT = {'TRW_TrackSortCombobox': 'Distance', 'TRW_TrackPlayersCombobox': 'On'}  # the choice each shows
+COMBO_TEXT_INSET = skin.FIELD_PADDING  # a guess, like the chat input's text: the client's own is unknown
+TITLES ={'ItemDisplayWindow': 'Fine Steel Long Sword', 'ChatWindow': 'Main'}  # names the client writes
 SLIDER = (12, 20)  # value, most
 ITEM_DECALS = {'IconButton', 'MW_SelectedItem'}  # decals the client fills with an item's icon, not a spell's
 HIDDEN = {'OK_Button'}  # what the client hides in the sample state: a Yes/No question shows no OK
@@ -246,8 +262,9 @@ class Preview:
         self.files = files
         root = xml_root(files[skin.ANIMATIONS_FILE])
         self.animations = {e.get('item'): e for e in root.iter('Ui2DAnimation')}
-        self.templates = {e.get('item'): e for tag in ('WindowDrawTemplate', 'FrameTemplate', 'SliderDrawTemplate')
-                          for e in root.iter(tag)}
+        self.templates = {e.get('item'): e for tag in ('WindowDrawTemplate', 'FrameTemplate', 'SliderDrawTemplate',
+                                                       'ButtonDrawTemplate')
+                          for e in root.iter(tag) if e.get('item')}
         self.textures = {}
         self.fonts = {}
         self.icon_sheets = self.stock_icons(eq_dir)
@@ -585,16 +602,32 @@ class Preview:
             x += width
         line = LINE_HEIGHT.get(size_n, 14)
         rows = LIST_ROWS.get(element.findtext('ScreenID') or '', [])
+        row_colors = LIST_RGB.get(element.findtext('ScreenID') or '', [])
         for r, cells in enumerate(rows):
             x = 0
             for (_, width, _), text in zip(columns, cells):
                 if width:
                     cell = Image.new('RGBA', (width, line), (0, 0, 0, 0))
-                    self.text(cell, (0, 0), text, size_n, rgb)
+                    self.text(cell, (0, 0), text, size_n, row_colors[r] if r < len(row_colors) else rgb)
                     clip.alpha_composite(cell, (x, header + r * line))
                 x += width
         if flag(element, 'Style_VScroll'):
             self.scrollbar(clip, element.findtext('DrawTemplate'), header + len(rows) * line)
+        layer.alpha_composite(clip, at)
+
+    def draw_combobox(self, layer, element, at, size, *_):
+        """A closed dropdown: its template's box, the chosen choice (COMBO_TEXT) and its arrow at the right inside the
+        border. Where the client puts the text and the arrow isn't known: the text COMBO_TEXT_INSET in and centered down
+        like an edit box's, the arrow at its art's size, centered down."""
+        clip, (_, _, right, _) = self.frame(element.findtext('DrawTemplate') or '', *size,
+                                           border=flag(element, 'Style_Border'))
+        size_n = number(element, 'Font', 3)
+        self.text(clip, (COMBO_TEXT_INSET, (size[1] - LINE_HEIGHT.get(size_n, 14)) // 2),
+                  COMBO_TEXT.get(element.findtext('ScreenID') or '', ''), size_n, color(element, 'TextColor'))
+        button = self.templates.get(element.findtext('Button') or '')
+        arrow = self.art(button.findtext('Normal') or '') if button is not None else None
+        if arrow is not None:
+            clip.alpha_composite(arrow, (size[0] - right - arrow.width, (size[1] - arrow.height) // 2))
         layer.alpha_composite(clip, at)
 
     def draw_slider(self, layer, element, at, size, _defined, state, _page):

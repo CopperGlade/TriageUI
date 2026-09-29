@@ -31,7 +31,8 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
-              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE, skin.INVENTORY_FILE]
+              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE, skin.INVENTORY_FILE,
+              skin.TRACKING_FILE]
 
 
 @functools.cache
@@ -150,6 +151,11 @@ def screen(name):
     root = parse(name)
     assert root[-1].tag == 'Screen'
     return root, root[-1]
+
+
+def button_controls(root):
+    """Every Button control under root: not a Combobox's Button, which only names its arrow's template."""
+    return [e for e in root.iter('Button') if len(e)]
 
 
 def parts(root):
@@ -313,7 +319,7 @@ def test_button_art_is_the_button_size_in_every_state():
     anims = items(root, 'Ui2DAnimation')
     # Not the hidden ones, nor the effect slots, which the client paints (see the effects tests). An anchored button
     # is drawn at its anchors' size (the bag window's: see its tests).
-    buttons = [b for b in root.iter('Button')
+    buttons = [b for b in button_controls(root)
                if drawn_size(b) != (0, 0) and b.find('ButtonDrawTemplate/NormalDecal') is None]
     assert buttons
     for b in buttons:
@@ -345,7 +351,7 @@ def test_button_labels_are_our_own_lettering_centered_in_the_art():
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
     # (The Actions window's buttons carry their names in font 3 instead: see its tests.)
-    labeled = [b for b in root.iter('Button')
+    labeled = [b for b in button_controls(root)
                if b.find('Text') is not None and box(b)[2:] != (0, 0) and b.find('Font') is None]
     assert {b.findtext('Text') for b in labeled} == {''}
     assert skin.LETTER_SPACING == 2
@@ -388,7 +394,7 @@ def test_every_button_color_is_one_a_16_bit_texture_holds_exactly():
     root = everything()
     atlas = decode(files()[skin.PIECES_TEXTURE])
     anims = items(root, 'Ui2DAnimation')
-    art = {state.text for b in root.iter('Button') for state in b.find('ButtonDrawTemplate')} - {
+    art = {state.text for b in button_controls(root) for state in b.find('ButtonDrawTemplate')} - {
         'TUI_Clear', skin.BUFF_ICONS, skin.ITEM_ICONS}
     assert len(art) > 20
     for name in art:
@@ -509,11 +515,11 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
-                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow'}
+                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow', 'TrackingWnd'}
     # The slot backgrounds the client paints by name are redefined on purpose, and the base's own definitions taken
     # out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
-                               skin.ITEM_TEMPLATE, skin.QUANTITY_TEMPLATE, skin.DIVIDER_TEMPLATE,
+                               skin.ITEM_TEMPLATE, skin.QUANTITY_TEMPLATE, skin.DIVIDER_TEMPLATE, skin.COMBO_TEMPLATE,
                                *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
@@ -524,6 +530,16 @@ def stock_animations():
         path = Path(folder) / 'uifiles' / 'default' / 'EQUI_Animations.xml'
         if folder and path.is_file():
             return set(re.findall(r'<Ui2DAnimation item\s*=\s*"([^"]+)"', path.read_text(encoding='latin-1')))
+    pytest.skip('no EverQuest folder with uifiles/default here')
+
+
+def stock_sidl():
+    """The stock SIDL.xml's element types, {name: its definition's text}."""
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / 'SIDL.xml'
+        if folder and path.is_file():
+            return dict(re.findall(r'<ElementType name="(\w+)">(.*?)</ElementType>', path.read_text(encoding='latin-1'),
+                                   re.S))
     pytest.skip('no EverQuest folder with uifiles/default here')
 
 
@@ -2068,11 +2084,11 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         # Your % in the middle of the line (the user's pick, so the layout stays): the game's label 19 or 20,
         # right-aligned with the drawn % after it, two paddings and a digit before the current number (at one
         # padding they ran together, then the user asked for the % nearer the caption, then one more
-        # character), in the percentages' gold (the user's pick over the values' green). The % shows while your own
-        # health is above 0, so always. The caption ends before it.
+        # character), in the values' green (gold was tried). The % shows while your own health is above 0, so
+        # always. The caption ends before it.
         percent_number = labels[f'TUI_PW_{screen_id}Percent']
         assert percent_number.findtext('EQType') == percent_type and percent_number.findtext('AlignRight') == 'true'
-        assert rgb(percent_number, 'TextColor') == skin.GOLD_RGB and not percent_number.findtext('Text')
+        assert rgb(percent_number, 'TextColor') == skin.VALUE_RGB and not percent_number.findtext('Text')
         px, py, pw, ph = box(percent_number)
         assert py == top and box(head)[0] + box(head)[2] <= px
         percent_clip = items(root, 'Screen')[f'TUI_PW_{screen_id}PercentSign_Clip']
@@ -2083,7 +2099,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         # Even "100" (the number box's whole width) stays more than a padding after "Health" (36px in Arial 12).
         assert px - skin.LEFT - 36 > skin.PADDING
         percent_sign = items(root, 'Gauge')[percent_clip.find('Pieces').text]
-        assert percent_sign.findtext('EQType') == '1' and rgb(percent_sign, 'FillTint') == skin.GOLD_RGB
+        assert percent_sign.findtext('EQType') == '1' and rgb(percent_sign, 'FillTint') == skin.VALUE_RGB
         bar = box(by_id[screen_id])
         assert bar == (skin.LEFT, top + skin.BAR_TOP, skin.PLAYER_CONTENT_WIDTH, skin.BAR_HEIGHT)
         if n:
@@ -2121,7 +2137,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     # user had the AA rate (label 86) share the line. Each rate is a pair, its caption a padding before its
     # number (for 3 digits) and its %: "XP/h" at the line's start, "AA/h" ending at the window's padding. Lined
     # up with the columns above, XP's value sat nearer "AA/h" than its own caption ("spacing is weird"). The
-    # numbers and %s in the percentages' gold; the % shows while your own health is above 0, so always.
+    # numbers and %s in the values' green; the % shows while your own health is above 0, so always.
     tick = box(by_id['ZealTick'])
     xp_top = skin.PLAYER_XP_TOP
     assert 2 * skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (tick[1] + tick[3]) < 2 * skin.PADDING + 1
@@ -2135,7 +2151,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         assert head.findtext('Text') == caption and rgb(head, 'TextColor') == skin.CAPTION_RGB
         assert box(head)[:2] == (left, xp_top)
         assert rate.findtext('EQType') == eq_type and rate.findtext('AlignRight') == 'true'
-        assert rgb(rate, 'TextColor') == skin.GOLD_RGB and not rate.findtext('Text')
+        assert rgb(rate, 'TextColor') == skin.VALUE_RGB and not rate.findtext('Text')
         nx, ny, nw, nh = box(rate)
         assert ny == xp_top and box(head)[0] + box(head)[2] == nx
         assert nx - left == skin.RATE_CAPTION_WIDTH + skin.PADDING
@@ -2143,7 +2159,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         assert box(clip) == (nx + nw, xp_top + skin.PERCENT_INK_TOP, skin.PERCENT_WIDTH, skin.PERCENT_GLYPH_HEIGHT)
         assert box(clip)[0] + box(clip)[2] == right
         percent = items(root, 'Gauge')[clip.find('Pieces').text]
-        assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.GOLD_RGB
+        assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.VALUE_RGB
         pairs.append((left, right))
     # The pairs read apart, the line's middle open between them.
     assert pairs[0][0] == skin.LEFT and pairs[1][1] == skin.PLAYER_RIGHT
@@ -2163,6 +2179,21 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     # Nothing else: no stamina, experience bar or other stats. Health's and Mana's five labels each, the XP and AA
     # rates' two each, and the resists'.
     assert len(labels) == 2 * 5 + 2 * 2 + 2 * len(skin.RESISTS)
+
+
+def test_every_player_window_value_is_the_green_the_game_gives_a_raised_value():
+    # The game's label function colors a value above its base 0xff00ff00 (its color helper, 0x4365e9), as it does
+    # the max HP label whatever the skin sets. Every value the client fills in the player window, and every drawn
+    # %, is that green, so none mixes colors (the percentages in gold were tried): Health's and Mana's %, current
+    # and max, the XP and AA rates and the resists.
+    root, _ = check_inside_frame(skin.PLAYER_FILE, skin.PLAYER_WIDTH)
+    values = [e for e in root.iter('Label') if e.findtext('EQType')]
+    assert len(values) == 2 * 3 + 2 + len(skin.RESISTS)
+    assert all(rgb(e, 'TextColor') == skin.VALUE_RGB == (0, 255, 0) for e in values)
+    gauges = items(root, 'Gauge')
+    signs = [gauges[clip.find('Pieces').text] for name, clip in items(root, 'Screen').items()
+             if name.endswith('_Clip')]
+    assert len(signs) == 4 and all(rgb(sign, 'FillTint') == skin.VALUE_RGB for sign in signs)
 
 
 # Every control of the stock raid window, which the client looks up by ScreenID (eqgame.exe's string table lists
@@ -3524,14 +3555,8 @@ def test_spellbook_pages_are_the_spell_bars_rows():
 def test_spellbook_text_has_only_what_the_stock_schema_gives_static_text():
     # SIDL.xml makes StaticText a static piece (a ScreenPiece, then a StaticScreenPiece): no EQType, AlignLeft or
     # Style_ flags, which label() writes.
-    for folder in EQ_DIRS:
-        path = Path(folder) / 'uifiles' / 'default' / 'SIDL.xml'
-        if folder and path.is_file():
-            break
-    else:
-        pytest.skip('no EverQuest folder with uifiles/default here')
-    types = dict(re.findall(r'<ElementType name="(\w+)">(.*?)</ElementType>', path.read_text(encoding='latin-1'), re.S))
-    allowed = {name for kind in ('ScreenPiece', 'StaticScreenPiece', 'StaticText')
+    types = stock_sidl()
+    allowed ={name for kind in ('ScreenPiece', 'StaticScreenPiece', 'StaticText')
                for name in re.findall(r'<element name="(\w+)"', types[kind])}
     assert set(STATIC_TEXT_ELEMENTS) <= allowed and not {'EQType', 'AlignLeft', 'Style_Transparent'} & allowed
 
@@ -3910,6 +3935,202 @@ def test_inventory_hides_the_class_picture_hp_and_the_resists():
         assert label.find('EQType') is None
     assert len(skin.INV_HIDDEN_LABELS) == 12 and {'HPLabel', 'HPNumberLabel'} <= set(skin.INV_HIDDEN_LABELS)
     assert not [e for e in root.iter('Label') if e.findtext('EQType') in ('17', '18')]
+
+
+# The tracking window
+
+# Every control of the stock window, (tag, ScreenID), in the order ours draws them.
+STOCK_TRACKING = [
+    ('Button', 'TRW_FilterRedButton'), ('Button', 'TRW_FilterYellowButton'), ('Button', 'TRW_FilterWhiteButton'),
+    ('Button', 'TRW_FilterBlueButton'), ('Button', 'TRW_FilterLightBlueButton'), ('Button', 'TRW_FilterGreenButton'),
+    ('Listbox', 'TRW_TrackingList'), ('Label', 'TRW_TrackSortLabel'), ('Label', 'TRW_TrackPlayersLabel'),
+    ('Button', 'TRW_TrackButton'), ('Button', 'DoneButton'), ('Combobox', 'TRW_TrackPlayersCombobox'),
+    ('Combobox', 'TRW_TrackSortCombobox'), ('Label', 'TRW_FiltersLabel'),
+]
+
+
+def tracking_parts():
+    root, window = screen(skin.TRACKING_FILE)
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+
+
+def test_tracking_window_keeps_every_control_the_stock_one_has():
+    # A fixed size with no title bar or close box (the user's pick), so it drags by its background and Cancel closes it;
+    # as wide as the hot button window. The dropdowns come last, as in the stock window, so an open one lies over the
+    # rest, Sort's over the Players box.
+    root, window = check_inside_frame(skin.TRACKING_FILE, skin.TRACK_WIDTH)
+    assert window.get('item') == 'TrackingWnd' and window.findtext('Text') == 'Tracking'
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.TRACK_WIDTH, skin.TRACK_HEIGHT) == (skin.HOT_WIDTH, 451)
+    assert [(e.tag, e.findtext('ScreenID')) for e in direct_pieces(root, window)] == STOCK_TRACKING
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / skin.TRACKING_FILE
+        if folder and path.is_file():
+            stock = re.findall(r'<(\w+) item\s*=\s*"[^"]*">\s*<ScreenID>(\w+)</ScreenID>',
+                               path.read_text(encoding='latin-1'))
+            assert sorted(stock) == sorted(STOCK_TRACKING)
+            break
+
+
+def test_tracking_filters_are_con_color_squares_filling_the_top_row():
+    # Six checkboxes a padding apart filling the content row in the stock order, each showing a square of its con color
+    # (the user's pick), the stock letters' colors, and naming it in its tooltip in eqstr_en.txt's words for
+    # /trackfilter ("You will see %1 NPCs when tracking").
+    _, _, found = tracking_parts()
+    assert [rgb_ for *_, rgb_ in skin.TRACK_FILTERS] == [(240, 0, 0), (240, 240, 0), (240, 240, 240), (0, 0, 240),
+                                                         (0, 240, 240), (0, 240, 0)]
+    boxes = []
+    for screen_id, color_name, tooltip, _ in skin.TRACK_FILTERS:
+        button = found[screen_id]
+        assert button.findtext('Style_Checkbox') == 'true' and button.findtext('TooltipReference') == tooltip
+        assert tooltip.endswith(' NPCs')
+        assert {state: button.findtext(f'ButtonDrawTemplate/{state}') for state in skin.BUTTON_STATES} == {
+            state: f'TUI_Filter{color_name}{skin.TOGGLE_ART[state]}' for state in skin.BUTTON_STATES}
+        boxes.append(box(button))
+    assert all(b[1] == skin.FILTER_TOP and b[2:] == (skin.FILTER_SIZE, skin.FILTER_SIZE) == (22, 22) for b in boxes)
+    assert boxes[0][0] == skin.LEFT and boxes[-1][0] + boxes[-1][2] == skin.TRACK_RIGHT
+    assert all(b[0] - (a[0] + a[2]) == skin.BUTTON_GAP for a, b in zip(boxes, boxes[1:]))
+
+
+def test_tracking_filter_squares_are_bright_while_listed_and_dim_while_filtered_out():
+    # Each state's art is the selector toggle's look at the filter's size, with the con color's square in its middle:
+    # the color itself while pressed, faint while not.
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    size, low = skin.FILTER_SIZE, (skin.FILTER_SIZE - skin.FILTER_SWATCH) // 2
+    middle = size // 2
+    for _, color_name, _, con in skin.TRACK_FILTERS:
+        for state, (fill, edge, _) in skin.TOGGLE_LOOKS.items():
+            art = cut(atlas, anims[f'TUI_Filter{color_name}{state}'])
+            toggle = as_image(skin.snapped_art(skin.panel_texture(size, size, fill, edge)))
+            assert art.size == toggle.size == (size, size)
+            outside = [(x, y) for x in range(size) for y in range(size)
+                       if not (low - 1 <= x <= low + skin.FILTER_SWATCH and low - 1 <= y <= low + skin.FILTER_SWATCH)]
+            assert all(art.getpixel(spot) == toggle.getpixel(spot) for spot in outside), (color_name, state)
+            center = art.getpixel((middle, middle))
+            if state.startswith('Pressed'):
+                assert center == skin.snapped((*con, 255))
+                # The square's middle row is the color edge to edge, FILTER_SWATCH wide.
+                row = [x for x in range(size) if art.getpixel((x, middle)) == center]
+                assert row == list(range(low, low + skin.FILTER_SWATCH))
+            elif state == 'Normal':
+                assert center[3] < 128 and center != skin.snapped((*con, 255))
+
+
+def test_tracking_dropdowns_sit_by_their_captions():
+    # Sort and Players, the stock controls, each box from a padding after its caption to the window's padding, filled
+    # by the client with /tracksort's five choices and /trackplayers' three (eqstr_en.txt 13140-13154): the open list
+    # is as tall as they are, and the file gives it no choices of its own.
+    _, _, found = tracking_parts()
+    assert [(caption, choices) for _, caption, _, _, choices in skin.TRACK_COMBOS] == [('Sort', 5), ('Players', 3)]
+    for caption_id, caption, combo_id, top, choices in skin.TRACK_COMBOS:
+        combo, label = found[combo_id], found[caption_id]
+        assert box(combo) == (skin.TRACK_COMBO_X, top, skin.TRACK_COMBO_WIDTH, skin.COMBO_HEIGHT)
+        assert skin.TRACK_COMBO_X + skin.TRACK_COMBO_WIDTH == skin.TRACK_RIGHT
+        assert combo.findtext('DrawTemplate') == skin.COMBO_TEMPLATE and combo.findtext('Button') == skin.COMBO_BUTTON
+        assert combo.findtext('Style_Border') == 'true' and combo.find('Choices') is None
+        assert number(combo, 'ListHeight') == choices * skin.COMBO_ROW_HEIGHT + 2
+        assert combo.findtext('Font') == str(skin.TEXT_FONT) and rgb(combo, 'TextColor') == skin.TEXT_RGB
+        assert label.findtext('Text') == caption and label.findtext('Font') == str(skin.TEXT_FONT)
+        assert rgb(label, 'TextColor') == skin.CAPTION_RGB and label.find('EQType') is None
+        assert box(label) == (skin.LEFT, top + skin.TRACK_CAPTION_DROP, skin.TRACK_CAPTION_WIDTH, skin.TEXT_HEIGHT)
+
+
+def test_tracking_dropdowns_have_only_what_the_stock_schema_gives_a_combobox():
+    types = stock_sidl()
+    allowed = {name for kind in ('ScreenPiece', 'Control', 'Combobox')
+               for name in re.findall(r'<element name\s*=\s*"(\w+)"', types[kind])}
+    assert {'Button', 'ListHeight', 'DrawTemplate', 'TextColor'} <= allowed
+    _, _, found = tracking_parts()
+    for _, _, combo_id, _, _ in skin.TRACK_COMBOS:
+        assert {child.tag for child in found[combo_id]} <= allowed
+
+
+def test_dropdowns_are_the_panel_in_a_thin_outline_with_the_scrollbars_chevron():
+    # The box and its open list: the panel's own background, opaque so an open list covers the list under it, in a 1px
+    # outline of the window edge's color, like the chat input's. The arrow is the scrollbar's down chevron, centered
+    # down the box's inside.
+    root = parse(skin.ANIMATIONS_FILE)
+    anims = items(root, 'Ui2DAnimation')
+    template = items(root, 'WindowDrawTemplate')[skin.COMBO_TEMPLATE]
+    assert template.findtext('Background') == skin.BACKGROUND_TEXTURE
+    assert set(pixels(decode(files()[skin.BACKGROUND_TEXTURE]))) == {skin.PANEL_RGBA} and skin.PANEL_RGBA[3] == 255
+    sides = {side.text for side in template.find('Border') if not side.tag.startswith('Overlap')}
+    assert sides == {'TUI_FieldEdge'} and colors(anims['TUI_FieldEdge']) == {skin.EDGE_FADED}
+    assert rect_of(anims['TUI_FieldEdge'])[2:] == (1, 1)
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    arrow = items(root, 'ButtonDrawTemplate')[skin.COMBO_BUTTON]
+    assert skin.COMBO_ARROW_HEIGHT == skin.COMBO_HEIGHT - 2
+    shift = (skin.COMBO_ARROW_HEIGHT - skin.SCROLL_BUTTON_HEIGHT) // 2
+    for state in skin.BUTTON_STATES:
+        look = skin.BUTTON_ART[state]
+        assert arrow.findtext(state) == f'TUI_ComboDown{look}'
+        art = cut(atlas, anims[f'TUI_ComboDown{look}'])
+        scroll = cut(atlas, anims[f'TUI_ScrollDown{look}'])
+        assert art.size == (skin.SCROLL_WIDTH, skin.COMBO_ARROW_HEIGHT)
+        assert pixels(art.crop((0, shift, skin.SCROLL_WIDTH, shift + skin.SCROLL_BUTTON_HEIGHT))) == pixels(scroll)
+        rest = pixels(art.crop((0, 0, skin.SCROLL_WIDTH, shift))) + pixels(
+            art.crop((0, shift + skin.SCROLL_BUTTON_HEIGHT, skin.SCROLL_WIDTH, skin.COMBO_ARROW_HEIGHT)))
+        assert all(p[3] == 0 for p in rest)
+
+
+def test_tracking_list_is_one_column_of_names_with_no_heading():
+    # The stock list's one column, 150px, and our scrollbar fill the content row, 24 names tall (the user's pick). Like
+    # the stock list it has no heading, so no heading strip either.
+    _, _, found = tracking_parts()
+    listbox = found['TRW_TrackingList']
+    [column] = listbox.findall('Columns')
+    assert column.find('Header') is None and not column.findtext('Heading')
+    assert number(column, 'Width') == 150 == skin.TRACK_CONTENT_WIDTH - skin.SCROLL_WIDTH
+    x, y, width, height = box(listbox)
+    assert (x, width) == (skin.LEFT, skin.TRACK_CONTENT_WIDTH)
+    assert height == skin.TRACK_ROWS * skin.TEXT_HEIGHT and skin.TRACK_ROWS == 24
+    assert listbox.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+    assert listbox.findtext('Style_VScroll') == 'true' and listbox.findtext('Style_Border') == 'false'
+    assert listbox.findtext('Font') == str(skin.TEXT_FONT) and rgb(listbox, 'TextColor') == skin.TEXT_RGB
+    assert listbox.find('TooltipReference') is None
+
+
+def test_tracking_window_follows_the_spacing_standard():
+    _, window, found = tracking_parts()
+    b, width = skin.BORDER, box(window)[2]
+    filters = [box(found[screen_id]) for screen_id, *_ in skin.TRACK_FILTERS]
+    sort, players = box(found['TRW_TrackSortCombobox']), box(found['TRW_TrackPlayersCombobox'])
+    names = box(found['TRW_TrackingList'])
+    track, cancel = box(found['TRW_TrackButton']), box(found['DoneButton'])
+    # The filters a padding from the window's edge, across and down, the row ending a padding from the right edge.
+    assert b + filters[0][0] == b + filters[0][1] == skin.PADDING
+    assert width - (b + filters[-1][0] + filters[-1][2]) == skin.PADDING
+    # Each dropdown a padding under what's above it, ending a padding from the window's edge.
+    assert sort[1] - (filters[0][1] + filters[0][3]) == skin.PADDING
+    assert players[1] - (sort[1] + sort[3]) == skin.PADDING
+    assert all(width - (b + combo[0] + combo[2]) == skin.PADDING for combo in (sort, players))
+    # Each caption a padding from the window's edge and from its box ("Players" fills its label: 41px in Arial 12), its
+    # ink's middle level with the box's, as the Actions window's page number between its arrows.
+    for caption_id, _, combo_id, _, _ in skin.TRACK_COMBOS:
+        caption, combo = box(found[caption_id]), box(found[combo_id])
+        assert b + caption[0] == skin.PADDING and combo[0] - (caption[0] + caption[2]) == skin.PADDING
+        assert abs(caption[1] + skin.DIGITS_INK_MIDDLE - (combo[1] + combo[3] / 2)) <= 0.5
+    # The list has no heading row, so its first name's ink, TEXT_INK_TOP into its line, a padding under the Players box
+    # (rounded up to a whole pixel).
+    gap = names[1] - (players[1] + players[3])
+    assert gap == skin.DIVIDER_TO_NAME and gap - 1 < skin.PADDING - skin.TEXT_INK_TOP <= gap
+    # Track and Cancel a padding under the list, filling the row a padding apart, and the window's edge a padding under.
+    assert track[1] == cancel[1] == names[1] + names[3] + skin.BUTTON_ROW_GAP
+    assert track[0] == skin.LEFT and cancel[0] - (track[0] + track[2]) == skin.BUTTON_GAP
+    assert cancel[0] + cancel[2] == skin.TRACK_RIGHT and track[2] == cancel[2]
+    assert box(window)[3] - (b + track[1] + track[3]) == skin.PADDING
+
+
+def test_tracking_buttons_are_the_confirmation_dialogs_kind_with_the_stock_words():
+    # Cancel is the stock DoneButton, which closes the window; neither has a tooltip (the stock ones have none). The
+    # "Filters" caption is there for the client, with no size and no text.
+    _, _, found = tracking_parts()
+    check_confirmation_button(found['TRW_TrackButton'], 'Track')
+    check_confirmation_button(found['DoneButton'], 'Cancel')
+    hidden = found['TRW_FiltersLabel']
+    assert box(hidden)[2:] == (0, 0) and hidden.findtext('Text') == ''
 
 
 # Building
@@ -4435,6 +4656,40 @@ def test_preview_slides_the_compass_strip_to_the_heading(tmp_path, monkeypatch, 
     border = [(x, y) for x in range(width) for y in range(height)
               if not (b <= x < width - b and b <= y < height - b)]
     assert all(image.getpixel(spot) == frame.getpixel(spot) for spot in border)
+
+
+def test_preview_draws_the_tracking_window_with_its_dropdowns_and_con_colored_names(tmp_path):
+    # More names than rows, each in its con's color, from the list's top (it has no heading row); each dropdown its
+    # outline, the choice it shows and its arrow at the right; each filter its square.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.TRACKING_FILE)
+    _, _, found = tracking_parts()
+
+    def region(key, left=0, top=0, width=None, height=None):
+        x, y, w, h = box(found[key])
+        x, y = skin.BORDER + x + left, skin.BORDER + y + top
+        return image.crop((x, y, x + (w if width is None else width), y + (h if height is None else height)))
+
+    assert len(preview.TRACKED) > skin.TRACK_ROWS and len(preview.LIST_RGB['TRW_TrackingList']) == len(preview.TRACKED)
+    column = skin.TRACK_COLUMNS[0][1]
+    for row, (_, con) in enumerate(preview.TRACKED[:skin.TRACK_ROWS]):
+        line = pixels(region('TRW_TrackingList', 0, row * skin.TEXT_HEIGHT, column, skin.TEXT_HEIGHT))
+        red, green, blue = skin.TRACK_FILTERS[con][3]
+        # Its ink leans the con's way: the brightest pixel is brightest in the con color's channels.
+        brightest = max(line, key=lambda p: sum(p[:3]))
+        assert all((brightest[c] > 100) == (value > 0) for c, value in enumerate((red, green, blue))), row
+    for _, _, combo_id, _, _ in skin.TRACK_COMBOS:
+        text = region(combo_id, 1, 1, skin.TRACK_COMBO_WIDTH - 2 - skin.SCROLL_WIDTH, skin.COMBO_HEIGHT - 2)
+        arrow = region(combo_id, skin.TRACK_COMBO_WIDTH - 1 - skin.SCROLL_WIDTH, 1, skin.SCROLL_WIDTH,
+                       skin.COMBO_ARROW_HEIGHT)
+        assert any(min(p[:3]) > 150 for p in pixels(text)), combo_id
+        assert len(set(pixels(arrow))) > 1, combo_id
+        edge = region(combo_id, 0, 0, None, 1)
+        assert len(set(pixels(edge))) == 1 and pixels(edge)[0] != image.getpixel((skin.BORDER, skin.BORDER + 200))
+    assert preview.COMBO_TEXT == {'TRW_TrackSortCombobox': 'Distance', 'TRW_TrackPlayersCombobox': 'On'}
+    for screen_id, *_ in skin.TRACK_FILTERS:
+        middle = skin.FILTER_SIZE // 2
+        assert region(screen_id).getpixel((middle, middle)) != region(screen_id).getpixel((2, middle)), screen_id
 
 
 def test_preview_picks_windows_by_words_from_their_file_names():

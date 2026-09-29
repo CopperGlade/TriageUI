@@ -105,7 +105,9 @@ BUTTON_ART = {'Normal': 'Normal', 'Pressed': 'Pressed', 'Flyby': 'Flyby', 'Disab
 BORDER = 4
 SUPERSAMPLE = 16
 PIECE_LENGTH = 4  # the length of the frame's straight pieces, which the client repeats along each side
-ATLAS_WIDTH = 512  # 256 ran out of room with the raid window's buttons; both sides stay powers of two
+# Both sides stay powers of two, and no side longer than 1024, the height the game has shown. 256 wide ran out of room
+# with the raid window's buttons, 512 with the tracking window's filters.
+ATLAS_WIDTH = 1024
 ATLAS_HEIGHT = 1024  # room for every button's art with its label drawn in, and every icon's in each state
 BACKGROUND_SIZE = 16
 
@@ -725,13 +727,13 @@ MANA_TICK_TOP = BAR_TOP + BAR_HEIGHT + TICK_GAP
 # The health bar: '#8fd19e', the soft green the current HP number had at first (the user's pick).
 HP_RGB = (143, 209, 158)
 # The values: the current number, "/" and the max, as separate labels (the current right-aligned against
-# the slash, the max left-aligned after it in a spot for 4 digits), and the resists' values. The numbers
-# are the game's pure green: the game colors the max HP label (18) itself, green in game whatever the skin
-# sets, so the user had every value match it rather than mix greens (a softer green and white were tried).
-# The slash is in the text color (the user's request).
+# the slash, the max left-aligned after it in a spot for 4 digits), the health and mana %, the XP and AA rates and
+# the resists' values, each % drawn in the same color. Every one is the green the game gives a value above its base
+# (0xff00ff00, as it colors the max HP label, 18, whatever the skin sets), so no value mixes colors (a softer green,
+# white, and the percentages in gold were tried). The slash is in the text color (the user's request).
 VALUE_RGB = (0, 255, 0)
-# Every percentage, with its drawn %, in EverQuest's classic golden yellow (the user's request, the green didn't suit
-# them): the player window's health, mana, XP/h and AA/h, and the inventory's XP and AA with their bars.
+# The inventory's XP and AA percentages, with their drawn %s and bars, in EverQuest's classic golden yellow (the
+# user's request).
 GOLD_RGB = (230, 184, 46)
 PLAYER_NUMBER_WIDTH = 28  # "8888" in font 3 (Arial 12px)
 SPACE_WIDTH = 3  # a space in font 3 (Arial 12px)
@@ -1359,7 +1361,7 @@ INV_AA_TOP = INV_XP_TOP + PLAYER_SECTION_PITCH
 INV_PROGRESS = (('NextLevelLabel', 'XP', 26, 'ExpGauge', 4, INV_XP_TOP),
                 (None, 'AA', 27, None, 5, INV_AA_TOP))
 INV_HIDDEN_AA = ('AltAdvLabel', 'AltAdvGauge')
-# Both bars in the percentages' golden yellow (GOLD_RGB, the user's request), solid like the mana bar so they show it
+# Both bars in their percentages' golden yellow (GOLD_RGB, the user's request), solid like the mana bar so they show it
 # whole: at the other bars' 70% over the panel it would darken toward olive.
 INV_LEVEL_WIDTH = 2 * DIGIT_WIDTH  # the level, right-aligned against the class a space after it
 # The column on the right, three slots wide, the row divider standing between it and the worn slots a padding from each.
@@ -1402,6 +1404,68 @@ INV_BUTTON_WIDTHS = tuple(_INV_SPAN * (c + 1) // len(INV_BUTTONS) - _INV_SPAN * 
                           for c in range(len(INV_BUTTONS)))
 add_text_buttons(INV_BUTTON_WIDTHS)
 INV_HEIGHT = 2 * BORDER + INV_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
+# The tracking window: which con colors to list, how to sort and whether to list players, then what's in range to track,
+# then Track and Cancel. The stock window's every control is kept: the filters (six checkboxes), the list, the two
+# dropdowns (Combobox) and their captions, Track and DoneButton, and the "Filters" caption, hidden. The client fills
+# the list and the dropdowns' choices (the stock file gives none). The user's picks (2026-09-29, from mockups): the
+# settings above the list, each filter a square of its con color, 24 names in view, as wide as the hot button window,
+# a fixed size with no title bar, so it drags by its background.
+TRACKING_FILE = 'EQUI_TrackingWnd.xml'
+TRACK_WIDTH = HOT_WIDTH
+TRACK_RIGHT = TRACK_WIDTH - 2 * BORDER - LEFT
+TRACK_CONTENT_WIDTH = TRACK_RIGHT - LEFT
+# The filters, one row filling the content row: (ScreenID, color's name, tooltip, con color), in the stock order. The
+# colors are the stock buttons' letters'; the tooltips take eqstr_en.txt's words ("You will see %1 NPCs when tracking").
+TRACK_FILTERS = (
+    ('TRW_FilterRedButton', 'Red', 'Red NPCs', (240, 0, 0)),
+    ('TRW_FilterYellowButton', 'Yellow', 'Yellow NPCs', (240, 240, 0)),
+    ('TRW_FilterWhiteButton', 'White', 'White NPCs', (240, 240, 240)),
+    ('TRW_FilterBlueButton', 'Blue', 'Blue NPCs', (0, 0, 240)),
+    ('TRW_FilterLightBlueButton', 'LightBlue', 'Light blue NPCs', (0, 240, 240)),
+    ('TRW_FilterGreenButton', 'Green', 'Green NPCs', (0, 240, 0)),
+)
+FILTER_SIZE = (TRACK_CONTENT_WIDTH - (len(TRACK_FILTERS) - 1) * BUTTON_GAP) // len(TRACK_FILTERS)
+FILTER_TOP = LEFT
+# Each filter a selector toggle with a square of its color in the middle, bright while the color is listed (the
+# checkbox pressed, which is assumed) and dimmed while it's filtered out. Alphas on the steps.
+FILTER_SWATCH = 10
+SWATCH_RADIUS = 2
+SWATCH_ALPHA = {'Normal': 85, 'Flyby': 170, 'Pressed': 255, 'PressedFlyby': 255}  # TOGGLE_LOOKS' states
+# The dropdowns: as tall as the dialogs' buttons, on the panel with a 1px outline in the edge's color (COMBO_TEMPLATE,
+# opaque, since an open dropdown lies over the list), the scrollbar's chevron at the right. Each a padding under
+# what's above it, with its caption to its left, the captions' ink centered on the boxes like the Actions window's page
+# number on its arrows, and the boxes a padding after the wider caption, "Players" (41px in Arial 12).
+COMBO_TEMPLATE = 'WDT_TriageCombo'
+COMBO_BUTTON = 'TUI_Combo'
+COMBO_HEIGHT = TEXT_BUTTON_HEIGHT
+COMBO_ARROW_HEIGHT = COMBO_HEIGHT - 2  # inside the outline
+# How tall the open list is: its choices' rows and the outline. A row is assumed 16px: Zeal's options give four
+# choices ListHeight 70.
+COMBO_ROW_HEIGHT = 16
+TRACK_CAPTION_WIDTH = 41
+TRACK_COMBO_X = LEFT + TRACK_CAPTION_WIDTH + PADDING
+TRACK_COMBO_WIDTH = TRACK_RIGHT - TRACK_COMBO_X
+TRACK_CAPTION_DROP = round(COMBO_HEIGHT / 2 - DIGITS_INK_MIDDLE)
+TRACK_SORT_TOP = FILTER_TOP + FILTER_SIZE + BUTTON_ROW_GAP
+TRACK_PLAYERS_TOP = TRACK_SORT_TOP + COMBO_HEIGHT + BUTTON_ROW_GAP
+# (caption's ScreenID, caption, the box's ScreenID, top, the choices: /tracksort's five and /trackplayers' three)
+TRACK_COMBOS = (('TRW_TrackSortLabel', 'Sort', 'TRW_TrackSortCombobox', TRACK_SORT_TOP, 5),
+                ('TRW_TrackPlayersLabel', 'Players', 'TRW_TrackPlayersCombobox', TRACK_PLAYERS_TOP, 3))
+# The list: no heading, so its first name's ink (and the scrollbar's up arrow's) a padding under the Players box. One
+# column, the stock one's 150px, and the scrollbar fill the content row.
+TRACK_LIST_TOP = TRACK_PLAYERS_TOP + COMBO_HEIGHT + DIVIDER_TO_NAME
+TRACK_ROWS = 24
+TRACK_LIST_HEIGHT = TRACK_ROWS * TEXT_HEIGHT
+TRACK_COLUMNS = (('', TRACK_CONTENT_WIDTH - SCROLL_WIDTH),)
+# Track and Cancel (the stock words) a padding under the list, filling the row: the confirmation dialog's kind of
+# button, at the Actions window's widths, with no tooltips (the stock ones have none).
+TRACK_BUTTONS_TOP = TRACK_LIST_TOP + TRACK_LIST_HEIGHT + BUTTON_ROW_GAP
+TRACK_BUTTONS = (('TRW_TrackButton', 'Track'), ('DoneButton', 'Cancel'))
+_TRACK_SPAN = TRACK_CONTENT_WIDTH - (len(TRACK_BUTTONS) - 1) * BUTTON_GAP
+TRACK_BUTTON_WIDTHS = tuple(_TRACK_SPAN * (c + 1) // len(TRACK_BUTTONS) - _TRACK_SPAN * c // len(TRACK_BUTTONS)
+                            for c in range(len(TRACK_BUTTONS)))
+add_text_buttons(TRACK_BUTTON_WIDTHS)
+TRACK_HEIGHT = 2 * BORDER + TRACK_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1558,9 +1622,10 @@ def percent_glyph():
     return ink(clear_texture(BACKGROUND_SIZE, BACKGROUND_SIZE), PERCENT_WIDTH, PERCENT_GLYPH_HEIGHT, inside)
 
 
-def chevron(up, alpha):
-    """A scrollbar arrow button: a small chevron in the middle of a clear SCROLL_WIDTH-wide piece."""
-    middle, rise = SCROLL_BUTTON_HEIGHT / 2, 1.25
+def chevron(up, alpha, height=SCROLL_BUTTON_HEIGHT):
+    """A scrollbar arrow button: a small chevron in the middle of a clear SCROLL_WIDTH-wide piece, height tall (the
+    dropdowns' is taller, see COMBO_ARROW_HEIGHT)."""
+    middle, rise = height / 2, 1.25
     tip, arms = (middle - rise, middle + rise) if up else (middle + rise, middle - rise)
     center = SCROLL_WIDTH / 2
     points = ((center - 2.5, arms), (center, tip), (center + 2.5, arms))
@@ -1569,7 +1634,7 @@ def chevron(up, alpha):
         return min(segment_distance(x, y, points[0], points[1]),
                    segment_distance(x, y, points[1], points[2])) <= GLYPH_STROKE / 2
 
-    return ink(clear_texture(SCROLL_WIDTH, SCROLL_BUTTON_HEIGHT), SCROLL_WIDTH, SCROLL_BUTTON_HEIGHT, inside, alpha)
+    return ink(clear_texture(SCROLL_WIDTH, height), SCROLL_WIDTH, height, inside, alpha)
 
 
 def chat_close_art(alpha):
@@ -2024,6 +2089,22 @@ def tab_art(coverage, state, width):
     return art
 
 
+def swatch_art(rgb, state):
+    """A tracking filter in one state (see FILTER_SWATCH): a selector toggle's look, FILTER_SIZE square, with a
+    rounded square of rgb in its middle at SWATCH_ALPHA's, every pixel snapped()."""
+    fill, edge, _ = TOGGLE_LOOKS[state]
+    art = panel_texture(FILTER_SIZE, FILTER_SIZE, fill, edge)
+    low = (FILTER_SIZE - FILTER_SWATCH) / 2
+    high = low + FILTER_SWATCH
+    coverage = icon_coverage(lambda x, y: rounded_rect_distance(x, y, low, low, high, high, SWATCH_RADIUS),
+                             FILTER_SIZE)
+    for y, row in enumerate(coverage):
+        for x, amount in enumerate(row):
+            if amount:
+                art.rows[y][x] = over((*rgb, SWATCH_ALPHA[state]), amount, art.rows[y][x])
+    return snapped_art(art)
+
+
 def slot_icon_art(shape):
     """An empty item slot in the hot button window: the macros' plain button with shape's icon on it, big and
     in the dividers' color (see SLOT_ICON_SHARE), solid()."""
@@ -2301,6 +2382,11 @@ def pieces():
         # The compass's strip, which the game slides, and what it draws over it (see COMPASS_FILE).
         'CompassStrip': compass_strip(),
         'CompassOverlay': compass_overlay(),
+        # The tracking window's (see TRACKING_FILE): each filter in each toggle state, and the dropdowns' arrow, the
+        # scrollbar's down chevron in the middle of the box's inside height.
+        **{f'Filter{color_name}{state}': swatch_art(rgb, state)
+           for _, color_name, _, rgb in TRACK_FILTERS for state in TOGGLE_LOOKS},
+        **{f'ComboDown{state}': chevron(False, alpha, COMBO_ARROW_HEIGHT) for state, alpha in SCROLL_LOOKS.items()},
     }
 
 
@@ -2496,6 +2582,11 @@ def shared_definitions(rects):
         frame_template(EDIT_TEMPLATE, GUTTER_TEXTURE, edge='TUI_Clear'),
         # A divider standing up: only its background, the row divider's color (see DIVIDER_TEMPLATE).
         frame_template(DIVIDER_TEMPLATE, DIVIDER_TEXTURE, edge='TUI_Clear'),
+        # A dropdown's box and its open list: the panel, opaque, in a 1px outline like the chat input's (see
+        # COMBO_TEMPLATE), and its arrow.
+        frame_template(COMBO_TEMPLATE, edge='TUI_FieldEdge'),
+        node('ButtonDrawTemplate', [node(state, f'TUI_ComboDown{BUTTON_ART[state]}') for state in BUTTON_STATES],
+             COMBO_BUTTON),
         # The Actions window's tab and page borders: clear pieces that place the tabs and pages (see
         # TAB_BORDER), every one the stock templates have.
         node('FrameTemplate', [node(side, f'TUI_TabBorder{side}') for side in TAB_BORDER_PIECES] + overlaps(),
@@ -2737,9 +2828,9 @@ def anchored_button(name, screen_id, label, left, bottom, width, height, layout_
     ], name)
 
 
-def icon_square(name, screen_id, x, y, tooltip, icon, side, checkbox, art, height=None):
+def icon_square(name, screen_id, x, y, tooltip, icon, side, checkbox, art, height=None, prefix='Toggle'):
     """A square button, side wide (or height tall, when wider than it is tall), showing an icon in every state,
-    its name in its tooltip."""
+    its name in its tooltip. Its art is TUI_<prefix><icon><state>."""
     return node('Button', [
         node('ScreenID', screen_id),
         node('RelativePosition', True),
@@ -2748,7 +2839,7 @@ def icon_square(name, screen_id, x, y, tooltip, icon, side, checkbox, art, heigh
         node('Style_Transparent', False),
         node('TooltipReference', tooltip),
         node('Style_Checkbox', checkbox),
-        node('ButtonDrawTemplate', [node(state, f'TUI_Toggle{icon}{art[state]}') for state in BUTTON_STATES]),
+        node('ButtonDrawTemplate', [node(state, f'TUI_{prefix}{icon}{art[state]}') for state in BUTTON_STATES]),
     ], name)
 
 
@@ -2762,6 +2853,30 @@ def icon_button(name, screen_id, x, y, tooltip, icon, side=TOGGLE_SIZE):
     """A command's square button (the social page arrows), lit like an open toggle while pressed and dimmed
     while the client disables it."""
     return icon_square(name, screen_id, x, y, tooltip, icon, side, False, ICON_ART)
+
+
+def filter_toggle(name, screen_id, x, y, tooltip, color_name):
+    """A tracking filter: a FILTER_SIZE checkbox showing its con color's square, bright while pressed (see
+    FILTER_SWATCH)."""
+    return icon_square(name, screen_id, x, y, tooltip, color_name, FILTER_SIZE, True, TOGGLE_ART, prefix='Filter')
+
+
+def combobox(name, screen_id, rect, choices):
+    """A dropdown the client fills with its choices, drawn by COMBO_TEMPLATE with COMBO_BUTTON's arrow, in the windows'
+    font. Its open list is tall enough for choices rows (see COMBO_ROW_HEIGHT)."""
+    x, y, width, height = rect
+    return node('Combobox', [
+        node('ScreenID', screen_id),
+        node('Font', TEXT_FONT),
+        node('RelativePosition', True),
+        point('Location', x, y),
+        size(width, height),
+        color('TextColor', TEXT_RGB),
+        node('Style_Border', True),
+        node('DrawTemplate', COMBO_TEMPLATE),
+        node('Button', COMBO_BUTTON),
+        node('ListHeight', choices * COMBO_ROW_HEIGHT + 2),
+    ], name)
 
 
 def hidden_button(name, screen_id, x=0, y=0):
@@ -3140,8 +3255,9 @@ def hidden_label(name, screen_id, x=0, y=0):
 
 def listbox(name, screen_id, rect, tooltip, columns):
     """A list the client fills, on the window's own panel: only our slim scrollbar is drawn (see EDIT_TEMPLATE).
-    columns are (heading, width), in the client's order; each column with a width has the header strip (see
-    LIST_HEADER), and one with none is hidden. tooltip None gives the list none."""
+    columns are (heading, width), in the client's order; each column with a heading has the header strip (see
+    LIST_HEADER), one with no width is hidden, and a list whose columns have no headings has no heading row (the
+    tracking list, like the stock one). tooltip None gives the list none."""
     x, y, width, height = rect
     return node('Listbox', [
         node('ScreenID', screen_id),
@@ -3154,7 +3270,7 @@ def listbox(name, screen_id, rect, tooltip, columns):
         node('Style_Border', False),
         *([node('TooltipReference', tooltip)] if tooltip else []),
         node('DrawTemplate', EDIT_TEMPLATE),
-    ] + [node('Columns', ([node('Header', LIST_HEADER)] if column_width else [])
+    ] + [node('Columns', ([node('Header', LIST_HEADER)] if heading else [])
               + [node('Width', column_width), node('Heading', heading)])
          for heading, column_width in columns], name)
 
@@ -3167,8 +3283,8 @@ def player_window():
     slash_x = max_x - PLAYER_SLASH_WIDTH
     current_x = slash_x - PLAYER_NUMBER_WIDTH
     # The % two paddings and a digit before the current number, closer to the caption (at a padding they ran
-    # together, then the user asked for one more character), in the percentages' gold, shown by your own health,
-    # so always.
+    # together, then the user asked for one more character), in the values' green, shown by your own health, so
+    # always.
     percent_right = current_x - 2 * PADDING - DIGIT_WIDTH
     percent_number_x = percent_right - PERCENT_WIDTH - NUMBER_WIDTH
     percents = []
@@ -3180,7 +3296,7 @@ def player_window():
             ('PlayerMana', 2, 'Mana', 20, 124, 125, MANA_RGB, 'TUI_PlayerSolidFill'))):
         top = PLAYER_SECTIONS_TOP + n * PLAYER_SECTION_PITCH
         percent, readout = percent_readout(f'TUI_PW_{screen_id}Percent', f'TUI_PW_{screen_id}PercentSign',
-                                           percent_type, 1, top, percent_right, rgb=GOLD_RGB)
+                                           percent_type, 1, top, percent_right, rgb=VALUE_RGB)
         percents.append(percent)
         parts += [
             label(f'TUI_PW_{screen_id}Caption', None, (LEFT, top, percent_number_x - LEFT, TEXT_HEIGHT), caption,
@@ -3198,7 +3314,7 @@ def player_window():
                        (LEFT, PLAYER_SECTIONS_TOP + PLAYER_SECTION_PITCH + MANA_TICK_TOP, PLAYER_CONTENT_WIDTH,
                         TICK_HEIGHT), 'TUI_TickFill', TICK_RGB))
     # XP/h and its % at the line's start, AA/h and its % ending at its end (see RATE_PAIR_WIDTH). The numbers
-    # and their %s in the percentages' gold. The drawn % needs a gauge above 0 to show: your own health, so it
+    # and their %s in the values' green. The drawn % needs a gauge above 0 to show: your own health, so it
     # always shows, 0% too.
     rates = []
     for item, caption, eq_type, left in (
@@ -3206,7 +3322,7 @@ def player_window():
             ('AAPerHour', 'AA/h', AA_PER_HOUR_TYPE, PLAYER_RIGHT - RATE_PAIR_WIDTH)):
         right = left + RATE_PAIR_WIDTH
         rate, readout = percent_readout(f'TUI_PW_{item}', f'TUI_PW_{item}Percent', eq_type, 1, PLAYER_XP_TOP, right,
-                                        rgb=GOLD_RGB)
+                                        rgb=VALUE_RGB)
         rates.append(rate)
         number_x = right - PERCENT_WIDTH - NUMBER_WIDTH
         parts += [label(f'TUI_PW_{item}Caption', None, (left, PLAYER_XP_TOP, number_x - left, TEXT_HEIGHT),
@@ -3850,6 +3966,29 @@ def inventory_window():
                   inner=percents)
 
 
+def tracking_window():
+    """The con-color filters in a row, the Sort and Players dropdowns with their captions, the list of what's in range
+    and Track and Cancel under it (see TRACKING_FILE). The "Filters" caption is there, hidden."""
+    parts = [filter_toggle(f'TUI_{screen_id}', screen_id, LEFT + n * (FILTER_SIZE + BUTTON_GAP), FILTER_TOP, tooltip,
+                           color_name)
+             for n, (screen_id, color_name, tooltip, _) in enumerate(TRACK_FILTERS)]
+    parts.append(listbox('TUI_TRW_TrackingList', 'TRW_TrackingList',
+                         (LEFT, TRACK_LIST_TOP, TRACK_CONTENT_WIDTH, TRACK_LIST_HEIGHT), None, TRACK_COLUMNS))
+    parts += [label(f'TUI_{caption_id}', None, (LEFT, top + TRACK_CAPTION_DROP, TRACK_CAPTION_WIDTH, TEXT_HEIGHT),
+                    caption, screen_id=caption_id, rgb=CAPTION_RGB)
+              for caption_id, caption, _, top, _ in TRACK_COMBOS]
+    parts += [button(f'TUI_TRW_{screen_id.split("TRW_")[-1]}', screen_id, '',
+                     LEFT + sum(TRACK_BUTTON_WIDTHS[:n]) + n * BUTTON_GAP,
+                     TRACK_BUTTONS_TOP, TRACK_BUTTON_WIDTHS[n], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
+              for n, (screen_id, button_name) in enumerate(TRACK_BUTTONS)]
+    # The dropdowns last, Players then Sort, as in the stock window, so an open one lies over everything else: Sort's
+    # over the Players box, both over the list.
+    parts += [combobox(f'TUI_{combo_id}', combo_id, (TRACK_COMBO_X, top, TRACK_COMBO_WIDTH, COMBO_HEIGHT), choices)
+              for _, _, combo_id, top, choices in reversed(TRACK_COMBOS)]
+    parts.append(hidden_label('TUI_TRW_FiltersLabel', 'TRW_FiltersLabel'))
+    return window('TrackingWnd', 'Tracking', TRACK_HEIGHT, parts, width=TRACK_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
@@ -3858,7 +3997,8 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
                 LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window,
-                SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window, INVENTORY_FILE: inventory_window}
+                SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window, INVENTORY_FILE: inventory_window,
+                TRACKING_FILE: tracking_window}
 
 
 def stranded_definitions(skin_xml):
