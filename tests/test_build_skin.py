@@ -3286,25 +3286,31 @@ def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon()
 
 # Building
 
+OTHER_SKIN = 'otherskin'  # a skin a player might build on instead, with --base
+
+
 @pytest.fixture
 def eq(tmp_path):
-    base = tmp_path / 'uifiles' / 'duxaUI'
-    (base / 'Options').mkdir(parents=True)
-    (base / 'EQUI_Inventory.xml').write_text('inventory')
-    (base / 'eqUI_targetwindow.xml').write_text('their target window')
-    (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.encode())
-    (base / 'window_pieces01.tga').write_bytes(b'tga')
-    (base / 'Options' / 'EQUI_BuffWindow.xml').write_text('option')
+    """An EverQuest folder with the game's own UI files and another skin, each with the same kinds of files."""
+    for name in (skin.DEFAULT_BASE, OTHER_SKIN):
+        base = tmp_path / 'uifiles' / name
+        (base / 'Options').mkdir(parents=True)
+        (base / 'EQUI_Inventory.xml').write_text(f'{name} inventory')
+        (base / 'eqUI_targetwindow.xml').write_text(f'{name} target window')
+        (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.encode())
+        (base / 'window_pieces01.tga').write_bytes(f'{name} tga'.encode())
+        (base / 'Options' / 'EQUI_BuffWindow.xml').write_text('option')
     return tmp_path
 
 
-def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq):
+@pytest.mark.parametrize('base_name', [skin.DEFAULT_BASE, OTHER_SKIN])
+def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq, base_name):
     # duxaUI's player window defines the animation Blackbox, which its hot button window used: after our
     # player window replaced theirs, the client reported it missing. Such definitions move into our
-    # animations file; ones nothing else uses don't, nor the replaced window itself. Our hot button window
-    # has since replaced duxaUI's too, so a window we keep stands in for it here.
-    base = eq / 'uifiles' / 'duxaUI'
-    blackbox = ('<Ui2DAnimation item="Blackbox">\r\n    <Cycle>true</Cycle>\r\n'
+    # animations file, whichever skin the build is on; ones nothing else uses don't, nor the replaced window
+    # itself. Our hot button window has since replaced theirs too, so a window we keep stands in for it here.
+    base = eq / 'uifiles' / base_name
+    blackbox =('<Ui2DAnimation item="Blackbox">\r\n    <Cycle>true</Cycle>\r\n'
                 '    <Frames><Texture>window_pieces22.tga</Texture></Frames>\r\n  </Ui2DAnimation>')
     (base / 'EQUI_PlayerWindow.xml').write_bytes((
         '<XML>\r\n  ' + blackbox + '\r\n'
@@ -3313,7 +3319,7 @@ def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq):
         '  <Screen item="PlayerWindow"><Pieces>PW_Box</Pieces></Screen>\r\n</XML>\r\n').encode())
     (base / 'EQUI_Inventory.xml').write_text('<XML><StaticAnimation item="IW"><Animation>Blackbox</Animation>'
                                             '</StaticAnimation></XML>')
-    out = skin.build(eq)
+    out = skin.build(eq, base_name)
     animations = (out / skin.ANIMATIONS_FILE).read_bytes().decode('latin-1')
     assert animations.count('item="Blackbox"') == 1 and 'OnlyHere' not in animations and 'PW_Box' not in animations
     assert '\n' not in animations.replace('\r\n', '')
@@ -3323,18 +3329,18 @@ def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq):
     assert animations.index('item="Blackbox"') < animations.index(f'item="{skin.FRAME_TEMPLATE}"')
 
 
-def test_the_spell_bar_keeps_the_base_skins_gem_icons(eq):
-    # The client draws a gem's icon from A_SpellGems, by name. The user asked for duxaUI's gems, whose icons
-    # differ from the default skin's, so the base's definition and textures stay as they are.
-    base = eq / 'uifiles' / 'duxaUI'
+def test_the_spell_bar_keeps_the_stock_gem_icons(eq):
+    # The client draws a gem's icon from A_SpellGems, by name, so the icons are the base's: EverQuest's own,
+    # their definition kept as it is and their textures left to the client's fallback to default.
+    base = eq / 'uifiles' / skin.DEFAULT_BASE
     gems = '<Ui2DAnimation item="A_SpellGems"><Frames><Texture>gemicons01.tga</Texture></Frames></Ui2DAnimation>'
     (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.replace('</XML>', f'  {gems}\r\n</XML>').encode())
-    (base / 'gemicons01.tga').write_bytes(b'their gem icons')
+    (base / 'gemicons01.tga').write_bytes(b'the stock gem icons')
     (base / skin.CASTSPELL_FILE).write_text('<XML><Screen item="CastSpellWnd" /></XML>')
     out = skin.build(eq)
     animations = (out / skin.ANIMATIONS_FILE).read_bytes().decode('latin-1')
     assert animations.count('item="A_SpellGems"') == 1 and gems in animations
-    assert (out / 'gemicons01.tga').read_bytes() == b'their gem icons'
+    assert not (out / 'gemicons01.tga').exists()
     assert b'CSPW_Spell0' in (out / skin.CASTSPELL_FILE).read_bytes()
 
 
@@ -3342,32 +3348,49 @@ def snapshot(folder):
     return {path.relative_to(folder): path.read_bytes() for path in folder.rglob('*') if path.is_file()}
 
 
-def test_build_copies_the_base_skin_and_adds_ours(eq):
-    base = eq / 'uifiles' / 'duxaUI'
+def test_a_build_on_default_is_only_ours(eq):
+    # The client falls back to default file by file, so nothing is copied: every file in the skin is ours, and
+    # none is a copy of the game's or another skin's.
+    base = eq / 'uifiles' / skin.DEFAULT_BASE
     before = snapshot(base)
     out = skin.build(eq)
     assert out == eq / 'uifiles' / 'TriageUI'
+    assert {path.name for path in out.iterdir()} == {skin.MARKER_FILE, *files()}
+    for name, data in files().items():
+        assert (out / name).read_bytes() == data
+    theirs = {*snapshot(base).values(), *snapshot(eq / 'uifiles' / OTHER_SKIN).values()}
+    assert not set(snapshot(out).values()) & theirs
+    assert snapshot(base) == before
+
+
+def test_a_build_on_another_skin_copies_it_and_adds_ours(eq):
+    base = eq / 'uifiles' / OTHER_SKIN
+    before = snapshot(base)
+    out = skin.build(eq, OTHER_SKIN)
     names = {path.name for path in out.iterdir()}
     assert names == {'EQUI_Inventory.xml', 'window_pieces01.tga', skin.MARKER_FILE, *files()}
-    assert (out / 'EQUI_Inventory.xml').read_text() == 'inventory'
+    assert (out / 'EQUI_Inventory.xml').read_text() == f'{OTHER_SKIN} inventory'
     for name, data in files().items():
         assert (out / name).read_bytes() == data
     assert snapshot(base) == before
 
 
 def test_a_base_without_animations_extends_the_default_ones(eq):
-    (eq / 'uifiles' / 'duxaUI' / 'EQUI_Animations.xml').unlink()
-    default = eq / 'uifiles' / 'default'
-    default.mkdir()
+    (eq / 'uifiles' / OTHER_SKIN / 'EQUI_Animations.xml').unlink()
+    default = eq / 'uifiles' / skin.DEFAULT_BASE
+    (default / 'EQUI_Animations.xml').unlink()
     (default / 'equi_animations.xml').write_text('<XML>\n  <Ui2DAnimation item="A_Default" />\n</XML>\n')
-    out = skin.build(eq)
+    out = skin.build(eq, OTHER_SKIN)
     assert 'A_Default' in (out / skin.ANIMATIONS_FILE).read_text()
 
 
 def test_build_needs_some_animations_file(eq):
-    (eq / 'uifiles' / 'duxaUI' / 'EQUI_Animations.xml').unlink()
-    with pytest.raises(skin.BuildError, match='Neither duxaUI nor default'):
+    (eq / 'uifiles' / skin.DEFAULT_BASE / 'EQUI_Animations.xml').unlink()
+    with pytest.raises(skin.BuildError, match='default has no EQUI_Animations.xml'):
         skin.build(eq)
+    (eq / 'uifiles' / OTHER_SKIN / 'EQUI_Animations.xml').unlink()
+    with pytest.raises(skin.BuildError, match=f'Neither {OTHER_SKIN} nor default'):
+        skin.build(eq, OTHER_SKIN)
 
 
 def test_rebuild_replaces_only_its_own_output(eq):
@@ -3386,11 +3409,12 @@ def test_build_leaves_a_folder_it_did_not_build_alone(eq):
     assert snapshot(out) == {Path('mine.xml'): b'keep'}
 
 
-def test_build_never_writes_into_the_base_skin(eq):
-    base = eq / 'uifiles' / 'duxaUI'
+@pytest.mark.parametrize('base_name', [skin.DEFAULT_BASE, OTHER_SKIN])
+def test_build_never_writes_into_the_base_skin(eq, base_name):
+    base = eq / 'uifiles' / base_name
     before = snapshot(base)
     with pytest.raises(skin.BuildError, match='must not be the base'):
-        skin.build(eq, out=base)
+        skin.build(eq, base_name, out=base)
     assert snapshot(base) == before
 
 

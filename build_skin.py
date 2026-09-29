@@ -1,8 +1,9 @@
 """TriageUI: EverQuest windows for Project Quarm in the look of EQ Triage's overlays.
 
-The script builds a skin folder from your own copy of a base skin (duxaUI by default) and puts the
-TriageUI windows on top of it, so the rest of your UI stays as it is. It uses only the standard
-library, and it never changes the base skin.
+The script writes a skin folder of TriageUI's own windows and art. For everything else the game falls
+back to its own UI files (uifiles/default), so every window TriageUI hasn't redesigned keeps EverQuest's
+own look; --base builds it on another skin of yours instead. It uses only the standard library, and it
+never changes the skin it reads.
 """
 
 import argparse
@@ -19,7 +20,9 @@ SKIN_NAME = 'TriageUI'
 # against the git tags.
 VERSION = '1.0.0'
 DEFAULT_EQ_DIR = Path(r'C:\QUARM')
-DEFAULT_BASE = 'duxaUI'
+# The game's own UI files. The client falls back to them file by file, so a build on them copies nothing: the skin
+# is only TriageUI's files, and nothing in it comes from another skin.
+DEFAULT_BASE = 'default'
 # Written into every folder this script builds, so a rebuild only ever replaces its own output.
 MARKER_FILE = 'TriageUI.txt'
 
@@ -591,9 +594,9 @@ SPELL_BAR_WIDTH = 190  # narrower than the others (the user's call, after trying
 SPELL_BAR_RIGHT = SPELL_BAR_WIDTH - 2 * BORDER - LEFT
 SPELL_BAR_CONTENT_WIDTH = SPELL_BAR_RIGHT - LEFT
 GEM_ROW_WIDTH = SPELL_BAR_WIDTH - 2 * BORDER  # the window's inside
-# The client draws a gem's icon from A_SpellGems (24px cells), which the client names itself: the base skin's,
-# so duxaUI's own icons, kept in its animations file with their textures. It draws the gem's Holder and
-# Background under the icon (duxaUI's Holder is opaque button art, and its icons show), so both are a row in
+# The client draws a gem's icon from A_SpellGems (24px cells), which the client names itself: the base skin's
+# definition and textures, so EverQuest's own icons. It draws the gem's Holder and Background under the icon
+# (duxaUI's Holder is opaque button art, and its icons show), so both are a row in
 # the panel's color, solid so clicks land (see HELPFUL_RGBA). The rows are 32px, roomier than the Effects
 # table's, so there's no room for error when casting (the user's calls: 28, then 36, a padding over and under
 # each icon, a bit too large, then this).
@@ -3358,9 +3361,11 @@ def find_file(folder, name):
 
 
 def build(eq_dir, base=DEFAULT_BASE, out=None):
-    """Builds the skin into out (uifiles/TriageUI by default): the base skin's files plus TriageUI's."""
+    """Builds the skin into out (uifiles/TriageUI by default): TriageUI's files, over a copy of the base skin's
+    unless the base is default, which the client falls back to anyway."""
     uifiles = Path(eq_dir) / 'uifiles'
     base_dir = uifiles / base
+    on_default = base.lower() == DEFAULT_BASE.lower()
     out = Path(out) if out else uifiles / SKIN_NAME
     if not base_dir.is_dir():
         raise BuildError(f'There is no skin folder {base_dir}')
@@ -3371,7 +3376,8 @@ def build(eq_dir, base=DEFAULT_BASE, out=None):
     # A skin without its own animations uses default's, so ours extend whichever the client would load.
     animations = find_file(base_dir, ANIMATIONS_FILE) or find_file(uifiles / 'default', ANIMATIONS_FILE)
     if not animations:
-        raise BuildError(f'Neither {base} nor default has {ANIMATIONS_FILE}')
+        raise BuildError(f'{base} has no {ANIMATIONS_FILE}' if on_default else
+                         f'Neither {base} nor default has {ANIMATIONS_FILE}')
     # Every XML file the client would load with this skin: the base's, else default's, by name in any case.
     skin_xml = {}
     for folder in (uifiles / 'default', base_dir):
@@ -3388,7 +3394,7 @@ def build(eq_dir, base=DEFAULT_BASE, out=None):
         out.mkdir(parents=True)
         ours = {name.lower() for name in files}
         # Only the top level: the client never reads subfolders, which hold a skin's optional extras.
-        for source in base_dir.iterdir():
+        for source in [] if on_default else base_dir.iterdir():
             if source.is_file() and source.name.lower() not in ours:
                 shutil.copy2(source, out / source.name)
         for name, data in files.items():
@@ -3417,7 +3423,7 @@ def main(argv=None):
         return 1
     print(f'Built TriageUI {VERSION} into {out} from {args.base}.')
     # The 1 keeps the character's window layout; without it windows move to the skin's default spots.
-    print(f'In game, type /load {out.name} 1 to use it, or /load {args.base} 1 to go back.')
+    print(f'In game, type /load {out.name} 1 to use it, and /load <skin> 1 to go back to another.')
     return 0
 
 

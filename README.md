@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give, trade and loot windows, the spell bar, the confirmation dialog and the compass.** Everything else keeps the look of the skin you already use (duxaUI by default).
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, merchant, item, effects, songs, player, quantity, give, trade and loot windows, the spell bar, the confirmation dialog and the compass.** Everything else keeps EverQuest's own look.
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with a **Close** button on the item and quantity windows. Drag a window by its background to move it, and a chat, item or quantity window by the strip along its top.
 
@@ -44,7 +44,7 @@ Your air while you're underwater: **Air Remaining**, in a soft cyan, above a bar
 
 ## The spell bar
 
-Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. The gem icons are duxaUI's own (or those of the skin you build from). **Click anywhere on a row to cast that spell.**
+Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. The gem icons are EverQuest's own. **Click anywhere on a row to cast that spell.**
 
 A thin white bar under a spell's name shows how long until you can cast it again. A soft red bar along the top of the window, the red of the casting window, shows the short global cooldown after every cast. Both come from Zeal.
 
@@ -143,8 +143,8 @@ A strip of directions slides past a thin soft red line in the middle as you turn
    python build_skin.py
    ```
 
-   It reads your EverQuest folder at `C:\QUARM` and creates `C:\QUARM\uifiles\TriageUI`: a copy of your duxaUI skin with the TriageUI windows added. Your duxaUI folder is never changed.
-4. **Load it in game.** Type `/load TriageUI 1`. To go back, type `/load duxaUI 1`.
+   It reads your EverQuest folder at `C:\QUARM` and creates `C:\QUARM\uifiles\TriageUI`, holding only TriageUI's own windows and art: for every other window, EverQuest uses its own UI files. Your other skins are never changed.
+4. **Load it in game.** Type `/load TriageUI 1`. To go back, type `/load` with your old skin's name and the `1`, such as `/load duxaUI 1`.
 
    The `1` keeps your window layout. EverQuest saves where your windows are per character, not per skin (in `UI_Sebik_pq.proj.ini` for Sebik, in your EverQuest folder), so every skin can use the same layout. The **Load Skin** window does the same when **Keep Your Layout** is ticked.
 
@@ -156,11 +156,11 @@ A strip of directions slides past a thin soft red line in the middle as you turn
 | Option | Meaning |
 |---|---|
 | `--eq D:\Games\QUARM` | Your EverQuest folder, if it isn't `C:\QUARM`. |
-| `--base default` | The skin to start from, if you don't use duxaUI. It must be a folder in `uifiles`. |
+| `--base NAME` | Build on another skin, a folder in `uifiles`, so the windows TriageUI hasn't redesigned take its look instead of EverQuest's own. |
 | `--out PATH` | Where to build, instead of `uifiles\TriageUI`. |
 
 > [!NOTE]
-> **Build again after Project Quarm's patcher updates duxaUI**, so TriageUI picks up the new files. Building replaces the whole `TriageUI` folder, so don't edit files in it.
+> **Build again after Project Quarm's patcher updates EverQuest's own UI files** (`uifiles\default`), so TriageUI picks up the changes. Building replaces the whole `TriageUI` folder, so don't edit files in it.
 
 ### Updating
 
@@ -180,13 +180,17 @@ Your window layout is kept: EverQuest saves it per character in your EverQuest f
 
 ## Troubleshooting
 
-- **`There is no skin folder C:\QUARM\uifiles\duxaUI`:** your EverQuest folder is elsewhere (use `--eq`), or you use another skin (use `--base` with its folder name).
+- **`There is no skin folder C:\QUARM\uifiles\default`:** your EverQuest folder is elsewhere (use `--eq`). With `--base`, the skin you named isn't a folder in `uifiles`.
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
-- **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load duxaUI`, build again, then `/load TriageUI`.
-- **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=duxaUI`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
+- **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load default 1`, build again, then `/load TriageUI 1`.
+- **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=default`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
 - **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd`, `GiveWnd`, `TradeWnd` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
+
+## Credits
+
+A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, and the loot window's **Link All** and **Loot All**. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's.
 
 ## Development
 

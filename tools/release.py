@@ -9,7 +9,7 @@ appear in the repo. A match is reported by file and line, or by commit, never by
 (--no-tests skips them) and builds the skin from that folder into a temporary one.
 
 package cuts build_skin.py and README.md from the tag with git archive, in a TriageUI folder, so the zip holds exactly
-what was tagged and nothing else: never a built skin, which holds Daybreak's and duxaUI's files.
+what was tagged and nothing else: never a built skin, which holds Daybreak's animations file.
 """
 import argparse
 import os
@@ -241,7 +241,8 @@ def check(eq_dir=None, tests=True):
     problems += boxing_problems(texts)
     eq = find_eq(eq_dir)
     if eq is None:
-        problems.append('no EverQuest folder with uifiles/duxaUI found (--eq), so names and the build went unchecked')
+        problems.append(f'no EverQuest folder with uifiles/{skin.DEFAULT_BASE} found (--eq), so names and the build '
+                        'went unchecked')
     else:
         messages = {f'commit {commit.hash[:7]}': commit.message for commit in commits}
         problems += name_problems({**texts, **messages}, character_names(eq), second_player(CONFTEST.read_text()))

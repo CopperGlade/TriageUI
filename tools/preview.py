@@ -231,9 +231,7 @@ class Preview:
         folders = [Path(eq_dir)] if eq_dir else [Path(d) for d in EQ_DIRS if d]
         for folder in folders:
             default = folder / 'uifiles' / 'default'
-            items, spells = default / 'dragitem1.tga', folder / 'uifiles' / skin.DEFAULT_BASE / 'gemicons01.tga'
-            if not spells.is_file():
-                spells = default / 'gemicons01.tga'
+            items, spells = default / 'dragitem1.tga', default / 'gemicons01.tga'
             if items.is_file() and spells.is_file():
                 return {'item': (Image.open(items).convert('RGBA'), 40, 6),
                         'spell': (Image.open(spells).convert('RGBA'), 24, 10)}
