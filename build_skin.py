@@ -1356,6 +1356,9 @@ INV_AA_TOP = INV_XP_TOP + PLAYER_SECTION_PITCH
 INV_PROGRESS = (('NextLevelLabel', 'XP', 26, 'ExpGauge', 4, INV_XP_TOP),
                 (None, 'AA', 27, None, 5, INV_AA_TOP))
 INV_HIDDEN_AA = ('AltAdvLabel', 'AltAdvGauge')
+# Both bars in EverQuest's classic golden yellow (the user's request), solid like the mana bar so they show it whole: at
+# the other bars' 70% over the panel it would darken toward olive. Their %s too, in place of the values' green.
+PROGRESS_RGB = (230, 184, 46)
 INV_LEVEL_WIDTH = 2 * DIGIT_WIDTH  # the level, right-aligned against the class a space after it
 # The column on the right, three slots wide, the row divider standing between it and the worn slots a padding from each.
 INV_DIVIDER_X = LEFT + INV_DOLL_WIDTH + PADDING
@@ -2235,7 +2238,7 @@ def pieces():
         'PlayerSolidFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, WHITE),
         'TickFill': Texture(PLAYER_CONTENT_WIDTH, TICK_HEIGHT, WHITE),
         'InvTrack': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, EDGE_FADED),  # the inventory's XP and AA bars
-        'InvFill': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, BAR_FILL),
+        'InvFill': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, WHITE),  # solid (see PROGRESS_RGB)
         **{button_art(width, height, label, state): labeled_button_art(width, height, label, state)
            for (width, height), labels in BUTTON_LABELS.items() for label in labels for state in BUTTON_LOOKS},
         **{f'Scroll{way}{state}': chevron(way == 'Up', alpha)
@@ -3773,8 +3776,9 @@ def inventory_window():
               for eq_type, icon, half, row in INV_WORN]
     parts += [inv_slot(f'TUI_IW_InvSlot{eq_type}', f'InvSlot{eq_type}', eq_type, (0, 0), 'TUI_Clear', side=0)
               for eq_type in INV_BAG_TYPES]
-    # The middle: the level right-aligned against the class; XP and AA each a caption, its % in the values' green and
-    # the bar under it. The drawn % needs a gauge above 0 to show: your own health, so it always shows, 0% too.
+    # The middle: the level right-aligned against the class; XP and AA each a caption, its % in the bars' golden yellow
+    # (the user: the values' green didn't suit it) and the bar under it. The drawn % needs a gauge above 0 to show: your
+    # own health, so it always shows, 0% too.
     x, right = INV_MIDDLE_X, INV_MIDDLE_RIGHT
     class_x = x + INV_LEVEL_WIDTH + SPACE_WIDTH
     parts += [
@@ -3789,13 +3793,13 @@ def inventory_window():
     readout_x = right - PERCENT_WIDTH - NUMBER_WIDTH
     for caption_id, caption, percent_type, gauge_id, gauge_type, top in INV_PROGRESS:
         percent, readout = percent_readout(f'TUI_IW_{caption}Percent', f'TUI_IW_{caption}PercentSign', percent_type,
-                                           1, top, right, rgb=VALUE_RGB)
+                                           1, top, right, rgb=PROGRESS_RGB)
         percents.append(percent)
         parts += [
             label(f'TUI_IW_{caption}Caption', None, (x, top, readout_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
             *readout,
             gauge(f'TUI_IW_{caption}Bar', gauge_id, gauge_type, (x, top + BAR_TOP, INV_MIDDLE_WIDTH, BAR_HEIGHT),
-                  'TUI_InvFill', TEXT_RGB, track='TUI_InvTrack'),
+                  'TUI_InvFill', PROGRESS_RGB, track='TUI_InvTrack'),
         ]
     # The column: the stats, then AC and ATK, then the weight as the player window's current/max, a divider across over
     # each of the last two, every value in the game's green ending at the column's right; the coins at its foot.

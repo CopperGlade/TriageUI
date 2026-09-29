@@ -99,7 +99,7 @@ Your gear is laid out as in EverQuest's own inventory, on the hot button window'
 
 An empty slot shows a large, faint icon of what goes there, like the hot button window's weapon slots.
 
-The middle shows your name, your level and class, and your deity in grey. Under them are your **XP** and **AA**, each with the % of the way to your next level or AA point and a bar under it. Drop an item anywhere in the middle to equip it.
+The middle shows your name, your level and class, and your deity in grey. Under them are your **XP** and **AA**, each with the % of the way to your next level or AA point and a bar under it, both in EverQuest's classic golden yellow. Drop an item anywhere in the middle to equip it.
 
 On the right, past a thin line:
 - your stats, then your **AC** and **ATK**, then your **Weight**, each group under a thin line, with the numbers in green as in the player window;

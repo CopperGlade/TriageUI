@@ -295,9 +295,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
         if g.get('item').startswith('TUI_GW_PetGauge'):
             bar = (skin.GROUP_BAR_WIDTH - skin.PET_INDENT, bar[1])
         template = g.find('GaugeDrawTemplate')
-        # Solid, each exactly its tint: see the group and player window tests and the server tick test.
+        # Solid, each exactly its tint: see the group, player and inventory window tests and the server tick test.
         solid = (g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge'))
-                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick'))
+                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick', 'TUI_IW_XPBar', 'TUI_IW_AABar'))
         fill = skin.WHITE if solid else skin.BAR_FILL
         for part, color in (('Background', skin.EDGE_FADED), ('Fill', fill)):
             if template.find(part) is None:
@@ -656,15 +656,16 @@ def test_target_second_line_gaps_all_match_the_window_padding_at_100_percent():
 def test_bars_are_the_text_color_softened_to_70_percent():
     # The user found a solid bar in the text's color harsh next to the name.
     assert skin.BAR_FILL == (255, 255, 255, 170)  # about 70%, on a 16-bit step
-    # (The group window's drawn % is its soft blue: see the group window's test. The inventory's are the values' green,
-    # as the player window's.)
+    # (The group window's drawn % is its soft blue: see the group window's test. The inventory's XP and AA bars and
+    # their %s are its golden yellow: see its tests.)
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
-    inventory_percents = tuple(f'TUI_IW_{caption}PercentSign' for _, caption, *_ in skin.INV_PROGRESS)
+    inventory_progress = tuple(f'TUI_IW_{caption}{part}' for _, caption, *_ in skin.INV_PROGRESS
+                               for part in ('PercentSign', 'Bar'))
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
                                                   'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', 'TUI_SBW_Memorize',
-                                                  'TUI_SBW_Scribe', *group_percents, *inventory_percents))
+                                                  'TUI_SBW_Scribe', *group_percents, *inventory_progress))
                 and g.find('GaugeDrawTemplate/Fill') is not None
                 and box(g)[2:] != (0, 0)):  # not the hidden ones, which draw nothing
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
@@ -3762,9 +3763,10 @@ def test_inventory_middle_is_where_a_dropped_item_is_equipped():
 
 def test_inventory_middle_shows_who_you_are_and_your_progress():
     # In the middle, the name, the level and class and the deity in the overlay's grey, lines stacked on their height,
-    # then XP and AA (the user moved them here), each a caption, its % in the game's green and its bar across the
-    # middle. The first ink a padding under the top row, each section two paddings under the digits or bar above, like
-    # the player window's sections. No HP: the player window has it (the user).
+    # then XP and AA (the user moved them here), each a caption, its % and its bar across the middle, the bar solid and
+    # both in EverQuest's classic golden yellow (the user's picks). The first ink a padding under the top row, each
+    # section two paddings under the digits or bar above, like the player window's sections. No HP: the player window
+    # has it (the user).
     root, _, found = inventory_parts()
     name, level, cls, deity = (found[k] for k in ('NameLabel', 'LevelClassLabel', 'TUI_IW_Class', 'DeityLabel'))
     assert [number(e, 'EQType') for e in (name, level, cls, deity)] == [1, 2, 3, 4]
@@ -3786,8 +3788,11 @@ def test_inventory_middle_shows_who_you_are_and_your_progress():
         assert box(bar) == (skin.INV_MIDDLE_X, top + skin.BAR_TOP, skin.INV_MIDDLE_WIDTH, skin.BAR_HEIGHT)
         template = bar.find('GaugeDrawTemplate')
         assert (template.findtext('Fill'), template.findtext('Background')) == ('TUI_InvFill', 'TUI_InvTrack')
+        assert rgb(bar, 'FillTint') == skin.PROGRESS_RGB
         percent = [e for e in root.iter('Label') if e.findtext('EQType') == str(percent_type)]
-        assert len(percent) == 1 and rgb(percent[0], 'TextColor') == skin.VALUE_RGB
+        assert len(percent) == 1 and rgb(percent[0], 'TextColor') == skin.PROGRESS_RGB
+        sign = items(root, 'Gauge')[f'TUI_IW_{caption}PercentSign']
+        assert rgb(sign, 'FillTint') == skin.PROGRESS_RGB
         assert box(percent[0])[0] + box(percent[0])[2] + skin.PERCENT_WIDTH == skin.INV_MIDDLE_RIGHT
         bars.append(box(bar))
     # XP keeps the stock ScreenIDs, which nothing looks up. The client looks up AltAdvLabel and AltAdvGauge and hid
