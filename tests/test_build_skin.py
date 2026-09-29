@@ -30,7 +30,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
-              skin.COMPASS_FILE]
+              skin.COMPASS_FILE, skin.BANK_FILE]
 
 
 @functools.cache
@@ -320,9 +320,10 @@ def test_button_art_is_the_button_size_in_every_state():
         for state in template:
             assert cut(atlas, anims[state.text]).size == drawn_size(b)
     # Each labeled button size in use has its own art (the selector's icon toggles have theirs, and the hot button
-    # window's macros their own solid art: see its tests).
+    # window's macros and the coin boxes their own solid art: see their tests).
     buttons = [b for b in buttons if b.find('Text') is not None
-               and not b.findtext('ButtonDrawTemplate/Normal').startswith('TUI_HotButton')]
+               and not b.findtext('ButtonDrawTemplate/Normal').startswith(('TUI_HotButton', 'TUI_Coin',
+                                                                            'TUI_BankCoin'))]
     assert {drawn_size(b) for b in buttons} == set(skin.BUTTON_LABELS)
     art = {state: cut(atlas, anims[f'TUI_{skin.button_art(skin.BUTTON_WIDTH, skin.BUTTON_HEIGHT, "Invite", state)}'])
            for state in skin.BUTTON_LOOKS}
@@ -506,7 +507,7 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
-                     'CompassWindow'}
+                     'CompassWindow', 'BankWnd'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -3090,6 +3091,136 @@ def test_loot_name_and_buttons_take_what_the_game_and_zeal_put_there():
         ('LinkAllButton', 'Link All'), ('LootAllButton', 'Loot All'), ('DoneButton', 'Done')]
 
 
+def bank_parts():
+    root, window = screen(skin.BANK_FILE)
+    return root, window, {e.findtext('ScreenID') or e.get('item'): e for e in direct_pieces(root, window)}
+
+
+def test_bank_window_keeps_every_control_the_client_and_zeal_look_for():
+    # eqgame.exe looks up the banker's name, the bank's slots, its four coin buttons and Done; Zeal looks up Change. The
+    # stock window's shared slots and their caption stay too: the slots work by their EQType. Every one is shown, in the
+    # stock window's order with duxaUI's Change last, over the divider, each coin box followed by its name. With no
+    # title bar or close box: it drags by its background, and Done closes it.
+    root, window = check_inside_frame(skin.BANK_FILE, skin.BANK_WIDTH)
+    assert window.get('item') == 'BankWnd' and window.findtext('Text') == 'Bank'
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.BANK_WIDTH, skin.BANK_HEIGHT) == (349, 285)
+    pieces = direct_pieces(root, window)
+    assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
+        ('Screen', None), ('Label', 'BW_BankerName'), ('Label', 'BW_SharedBankLabel'),
+        *(('InvSlot', f'BW_SharedBankSlot{n}') for n in range(10)), *(('InvSlot', f'BW_BankSlot{n}') for n in range(30)),
+        *(piece for n in range(4) for piece in (('Button', f'BW_Money{n}'), ('Label', None))),
+        ('Button', 'DoneButton'), ('Button', 'ChangeButton')]
+    assert [number(e, 'EQType') for e in pieces if e.tag == 'InvSlot'] == [*range(2500, 2510), *range(2000, 2030)]
+    assert all(box(e)[2:] != (0, 0) for e in pieces)
+
+
+def test_bank_slots_keep_the_stock_order_down_each_column():
+    # The stock window's numbering: each grid five rows tall, down its first column and then the next, so an item sits
+    # where players saw it there. The shared bank's two columns on the left, the bank's six on the right, on the hot
+    # bar's squares a padding apart; empty ones are the plain square, as in the loot window.
+    _, _, found = bank_parts()
+    assert (skin.SHARED_COLUMNS, skin.BANK_COLUMNS, skin.BANK_ROWS) == (2, 6, 5)
+    for prefix, x, slots in (('SharedBank', skin.LEFT, 10), ('Bank', skin.BANK_X, 30)):
+        for n in range(slots):
+            slot = found[f'BW_{prefix}Slot{n}']
+            assert box(slot) == (x + n // 5 * skin.HOT_PITCH, skin.BANK_SLOTS_TOP + n % 5 * skin.HOT_PITCH,
+                                 skin.HOT_SIZE, skin.HOT_SIZE)
+            assert slot.findtext('Background') == 'TUI_HotButtonNormal'
+
+
+def test_bank_window_follows_the_spacing_standard():
+    _, window, found = bank_parts()
+    b = skin.BORDER
+    # The caption's and the name's line at the inside's top: their ink starts 7.5px under the window's edge, as in the
+    # trade window. The slots a padding under their capitals' ink.
+    caption, name = box(found['BW_SharedBankLabel']), box(found['BW_BankerName'])
+    assert caption == (skin.LEFT, 0, skin.SHARED_WIDTH, skin.TEXT_HEIGHT)
+    assert name == (skin.BANK_X, 0, skin.BANK_CONTENT_WIDTH, skin.TEXT_HEIGHT)
+    assert b + skin.BANK_NAME_TOP + skin.TEXT_INK_TOP == 7.5
+    top = skin.BANK_NAME_TOP + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT + skin.PADDING
+    assert box(found['BW_SharedBankSlot0'])[1] == box(found['BW_BankSlot0'])[1] == top
+    # Across: the shared slots from the window's padding, the divider a padding from them and from the bank's slots,
+    # and those to the window's padding.
+    divider = box(found['TUI_BW_Divider'])
+    shared_right = box(found['BW_SharedBankSlot9'])
+    assert b + skin.LEFT == skin.PADDING and shared_right[0] + shared_right[2] == skin.LEFT + skin.SHARED_WIDTH
+    assert divider[0] == skin.LEFT + skin.SHARED_WIDTH + skin.PADDING and divider[2] == skin.DIVIDER_HEIGHT == 1
+    assert skin.BANK_X == divider[0] + divider[2] + skin.PADDING
+    last = box(found['BW_BankSlot29'])
+    assert last[0] + last[2] == skin.BANK_RIGHT and skin.BANK_WIDTH - 2 * b - skin.BANK_RIGHT == skin.LEFT
+    # Down: the band a padding under the slots, two rows a padding apart. Change over Done at the shared column's width;
+    # the coins two across a padding apart, platinum to copper in reading order (pp gp, then sp cp, as in the give
+    # window), filling the bank's width.
+    band = last[1] + last[3] + skin.BUTTON_ROW_GAP
+    change, done = box(found['ChangeButton']), box(found['DoneButton'])
+    assert change == (skin.LEFT, band, skin.SHARED_WIDTH, skin.TEXT_BUTTON_HEIGHT) and skin.SHARED_WIDTH == 78
+    assert done == (skin.LEFT, change[1] + change[3] + skin.BUTTON_ROW_GAP, skin.SHARED_WIDTH, skin.TEXT_BUTTON_HEIGHT)
+    coins = [box(found[f'BW_Money{n}']) for n in range(4)]
+    pitch = skin.BANK_COIN_WIDTH + skin.BUTTON_GAP, skin.COIN_HEIGHT + skin.BUTTON_ROW_GAP
+    assert coins == [(skin.BANK_X + n % 2 * pitch[0], band + n // 2 * pitch[1], skin.BANK_COIN_WIDTH,
+                      skin.TEXT_BUTTON_HEIGHT) for n in range(4)]
+    assert coins[1][0] + coins[1][2] == skin.BANK_RIGHT and coins[3][1] == done[1]
+    # The divider from the window's padding at the top down to the band's bottom, and the window's edge a padding under
+    # the band.
+    bottom = done[1] + done[3]
+    assert b + divider[1] == skin.PADDING and divider[1] + divider[3] == bottom
+    assert box(window)[3] - (b + bottom) == skin.PADDING
+
+
+def test_bank_names_and_buttons_take_what_the_game_and_zeal_put_there():
+    _, _, found = bank_parts()
+    # The game writes the banker's name, in the text's color, on one line from the left, as the give window's NPC.
+    name = found['BW_BankerName']
+    assert name.findtext('Text') == '' and name.find('EQType') is None
+    assert name.findtext('Font') == str(skin.TEXT_FONT) and rgb(name, 'TextColor') == skin.TEXT_RGB
+    assert name.findtext('AlignLeft') == name.findtext('NoWrap') == 'true'
+    # Nothing writes the stock caption: it's ours, in the same font and color, and fits the shared column (71px of ink
+    # in font 3, which tools/preview.py checks by drawing it).
+    caption = found['BW_SharedBankLabel']
+    assert caption.findtext('Text') == skin.SHARED_CAPTION == 'Shared Bank' and caption.find('EQType') is None
+    assert caption.findtext('Font') == str(skin.TEXT_FONT) and rgb(caption, 'TextColor') == skin.TEXT_RGB
+    assert caption.findtext('AlignLeft') == caption.findtext('NoWrap') == 'true'
+    # Change and Done are the confirmation dialog's buttons, with no tooltips (neither duxaUI's nor the stock Done has
+    # one), in duxaUI's order.
+    for screen_id, button_name, _ in skin.BANK_BUTTONS:
+        check_confirmation_button(found[screen_id], button_name)
+    assert [(screen_id, button_name) for screen_id, button_name, _ in skin.BANK_BUTTONS] == [
+        ('DoneButton', 'Done'), ('ChangeButton', 'Change')]
+
+
+def test_bank_coin_boxes_are_the_give_windows_wider_with_the_stock_tooltips():
+    # Platinum, gold, silver and copper, in the stock window's order (its coin decals), each with its coin's name over
+    # it (see COIN_CAPTIONS): the game writes the amount, centered, in font 3. They take coins and give them back, so
+    # they light up under the pointer like the give window's, and keep the stock window's tooltips.
+    root, window, found = bank_parts()
+    coins = ('Platinum', 'Gold', 'Silver', 'Copper')
+    assert [(screen_id, caption) for screen_id, caption, _ in skin.BANK_COINS] == [
+        (f'BW_Money{n}', caption) for n, caption in enumerate(skin.COIN_CAPTIONS)]
+    for (screen_id, caption, _), coin_name in zip(skin.BANK_COINS, coins):
+        coin = found[screen_id]
+        assert coin.findtext('Font') == str(skin.TEXT_FONT) and coin.findtext('Text') == ''
+        assert rgb(coin, 'TextColor') == skin.TEXT_RGB and coin.findtext('Style_Checkbox') == 'false'
+        assert coin.findtext('TooltipReference') == f'Drop coins here or click to pick up {coin_name}'
+        assert [(e.tag, e.text) for e in coin.find('ButtonDrawTemplate')] == [
+            (state, f'TUI_BankCoin{skin.BUTTON_ART[state]}') for state in skin.BUTTON_STATES]
+        check_coin_caption(root, window, coin, caption)
+    # Wider than the give window's so seven digits of platinum, centered, start where the name's label ends.
+    assert skin.BANK_COIN_WIDTH == 120 > skin.COIN_WIDTH
+    assert (skin.BANK_COIN_WIDTH - 7 * skin.DIGIT_WIDTH) / 2 >= skin.PADDING + skin.COIN_CAPTION_WIDTH
+    # Every box is the slots' plain wash in each look at its own width, solid, so a drop anywhere on one counts.
+    anims = items(everything(), 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    for state in skin.BUTTON_LOOKS:
+        image = cut(atlas, anims[f'TUI_BankCoin{state}'])
+        plain = skin.solid(skin.labeled_button_art(skin.BANK_COIN_WIDTH, skin.COIN_HEIGHT, '', state))
+        assert image.size == (skin.BANK_COIN_WIDTH, skin.COIN_HEIGHT)
+        assert {a for *_, a in pixels(image)} == {255}, state
+        assert all(image.getpixel((x, y)) == plain.rows[y][x]
+                   for x in range(skin.BANK_COIN_WIDTH) for y in range(skin.COIN_HEIGHT)), state
+
+
 def compass_parts():
     root, window = screen(skin.COMPASS_FILE)
     return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
@@ -3645,6 +3776,43 @@ def test_preview_fills_in_what_the_game_writes_in_the_loot_window(tmp_path):
     slots = [pixels(region(left + x, top + y, width, height))
              for x, y, width, height in (box(slot) for slot in direct_pieces(root, panel))]
     assert all(slot != slots[-1] for slot in slots[:3]) and slots[3:] == [slots[-1]] * 27
+
+
+def test_preview_fills_in_what_the_game_writes_in_the_bank_window(tmp_path):
+    # The banker's name, the shared caption within its column, seven digits of platinum clear of their coin's name,
+    # items in the first slots of each grid, and the divider drawn from its template's background.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.BANK_FILE)
+    _, _, found = bank_parts()
+
+    def region(key, left=0, right=None):
+        x, y, width, height = box(found[key])
+        right = width if right is None else right
+        return image.crop((skin.BORDER + x + left, skin.BORDER + y, skin.BORDER + x + right, skin.BORDER + y + height))
+
+    def bright(part):
+        return sum(1 for p in pixels(part) if min(p[:3]) > 150)
+
+    def columns(part):
+        return [x for x in range(part.width) if bright(part.crop((x, 0, x + 1, part.height)))]
+
+    assert preview.LABEL_TEXT['BW_BankerName'] == 'Banker Denston' and bright(region('BW_BankerName'))
+    # The caption's ink ends short of its label's right edge, so none of it is cut off.
+    ink = columns(region('BW_SharedBankLabel'))
+    assert ink and ink[-1] + 1 < skin.SHARED_WIDTH
+    # The amount's ink starts more than a padding after the name's label ends.
+    name_end = skin.PADDING + skin.COIN_CAPTION_WIDTH
+    assert preview.BUTTON_TEXT['BW_Money0'] == '1234567'
+    assert not bright(region('BW_Money0', name_end, name_end + skin.PADDING))
+    for screen_id, _, _ in skin.BANK_COINS:
+        assert bright(region(screen_id, right=name_end)) and bright(region(screen_id, name_end)), screen_id
+    assert (preview.BANK_ITEMS, preview.SHARED_ITEMS) == (7, 2)
+    for prefix, count, held in (('SharedBank', 10, 2), ('Bank', 30, 7)):
+        slots = [pixels(region(f'BW_{prefix}Slot{n}')) for n in range(count)]
+        assert all(slot != slots[-1] for slot in slots[:held]) and slots[held:] == [slots[-1]] * (count - held)
+    panel = image.getpixel((skin.BORDER + skin.BANK_DIVIDER_X + 1, skin.BORDER + skin.BANK_SLOTS_TOP - 3))
+    line = set(pixels(region('TUI_BW_Divider')))
+    assert len(line) == 1 and line != {panel}
 
 
 @pytest.mark.parametrize('heading, label', [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')])

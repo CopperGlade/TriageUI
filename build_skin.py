@@ -1180,6 +1180,52 @@ LOOT_BUTTON_WIDTHS = tuple(_LOOT_SPAN * (c + 1) // len(LOOT_BUTTONS) - _LOOT_SPA
                            for c in range(len(LOOT_BUTTONS)))
 add_text_buttons(LOOT_BUTTON_WIDTHS)
 LOOT_HEIGHT = 2 * BORDER + LOOT_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
+# The bank window. eqgame.exe looks up the banker's name (BW_BankerName, which it writes), the bank's slots
+# (BW_BankSlot%d), its four coin boxes (BW_Money0 to 3, see COIN_CAPTIONS) and DoneButton; Zeal looks up ChangeButton,
+# if there, and makes it change the bank's coins, then your inventory's (ui_bank.cpp). Quarm's eqgame.dll gives the
+# bank 30 slots (EQTypes 2000 to 2029) and a shared bank. The stock window has ten shared slots (BW_SharedBankSlot0 to
+# 9, EQTypes 2500 to 2509) and their caption (BW_SharedBankLabel), which nothing looks up: the slots work by their
+# EQType. The user's picks (2026-09-29, from mockups): the shared bank on the left, as in the stock window, with
+# duxaUI's Change and Done under it; yours on the right, its coins under it two across; the row divider standing
+# between them a padding from each, as in the trade window.
+BANK_FILE = 'EQUI_BankWnd.xml'
+BANK_SLOTS = 30
+BANK_SLOT_TYPE = 2000
+SHARED_SLOTS = 10
+SHARED_SLOT_TYPE = 2500
+# Both grids five rows tall and numbered down each column, as the stock window's blocks of ten are, so an item sits
+# where players saw it there (less the stock gaps between the blocks).
+BANK_ROWS = 5
+BANK_COLUMNS = BANK_SLOTS // BANK_ROWS
+SHARED_COLUMNS = SHARED_SLOTS // BANK_ROWS
+SHARED_WIDTH = COIN_WIDTH  # two slots and the padding between them, over Change and Done as wide
+BANK_DIVIDER_X = LEFT + SHARED_WIDTH + PADDING
+BANK_X = BANK_DIVIDER_X + DIVIDER_HEIGHT + PADDING
+BANK_CONTENT_WIDTH = BANK_COLUMNS * HOT_SIZE + (BANK_COLUMNS - 1) * BUTTON_GAP
+BANK_RIGHT = BANK_X + BANK_CONTENT_WIDTH
+BANK_WIDTH = BANK_RIGHT + LEFT + 2 * BORDER
+BANK_GRID_HEIGHT = BANK_ROWS * HOT_SIZE + (BANK_ROWS - 1) * BUTTON_ROW_GAP
+# The caption's and the name's line at the inside's top, their ink 7.5px under the window's edge, as in the trade
+# window; the slots a padding under their capitals' ink.
+BANK_NAME_TOP = 0
+BANK_SLOTS_TOP = BANK_NAME_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+SHARED_CAPTION = 'Shared Bank'  # the stock caption, 71px in font 3
+# The band a padding under the slots, two rows a padding apart. Under the shared slots, Change over Done: the
+# confirmation dialog's buttons at the loot window's size, with no tooltips (neither duxaUI's nor the stock Done has
+# one), as (ScreenID, name, row) in duxaUI's order. Under yours, the coin boxes two across filling the row, wider than
+# the give window's so a bank's six or seven digits of platinum clear the coin's name, with the stock tooltips.
+BANK_BAND_TOP = BANK_SLOTS_TOP + BANK_GRID_HEIGHT + BUTTON_ROW_GAP
+BANK_BAND_HEIGHT = 2 * TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP
+BANK_BUTTONS = (('DoneButton', 'Done', 1), ('ChangeButton', 'Change', 0))
+add_text_buttons((SHARED_WIDTH,))
+BANK_COIN_COLUMNS = 2
+BANK_COIN_WIDTH = (BANK_CONTENT_WIDTH - BUTTON_GAP) // BANK_COIN_COLUMNS
+BANK_COINS = tuple((f'BW_Money{n}', caption, f'Drop coins here or click to pick up {coin}')
+                   for n, (caption, coin) in enumerate(zip(COIN_CAPTIONS, ('Platinum', 'Gold', 'Silver', 'Copper'))))
+# The divider from the window's padding at the top down to the band's bottom (see DIVIDER_TEMPLATE).
+BANK_DIVIDER_TOP = LEFT
+BANK_DIVIDER_HEIGHT = BANK_BAND_TOP + BANK_BAND_HEIGHT - BANK_DIVIDER_TOP
+BANK_HEIGHT = 2 * BORDER + BANK_BAND_TOP + BANK_BAND_HEIGHT + BOTTOM_GAP
 # The compass: two copies of a strip of directions (CompassStrip1 and 2) that the game slides sideways as you turn,
 # under an overlay (CompassOverlay) drawn last, all three StaticAnimations the client looks up by ScreenID. Every
 # skin keeps the stock strip's 180px, half a pixel a degree, and the marks where the stock art has them: north at
@@ -1935,6 +1981,8 @@ def pieces():
         'SliderCapRight': slider_track(SLIDER_KNOB_WIDTH),
         # The coin boxes (see COIN_CAPTIONS), solid like the slots, so a drop anywhere on one counts.
         **{f'Coin{state}': solid(labeled_button_art(COIN_WIDTH, COIN_HEIGHT, '', state)) for state in BUTTON_LOOKS},
+        **{f'BankCoin{state}': solid(labeled_button_art(BANK_COIN_WIDTH, COIN_HEIGHT, '', state))
+           for state in BUTTON_LOOKS},
         'TitleBar': title_piece(),
         'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
         'QuantityTitle': quantity_title_piece(),
@@ -3169,16 +3217,16 @@ def quantity_window():
                   template=QUANTITY_TEMPLATE, title_bar=True, close_box=True)
 
 
-def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True):
-    """A box the game writes an amount of one coin on (see COIN_CAPTIONS), COIN_WIDTH x COIN_HEIGHT at x, y, and then
-    its coin's name as a label over it. lit gives the box the buttons' hovered and pressed looks, for your own coins,
-    which take a drop; without it the box keeps its resting look, like a slot."""
+def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True, width=COIN_WIDTH, art='Coin'):
+    """A box the game writes an amount of one coin on (see COIN_CAPTIONS), width x COIN_HEIGHT at x, y, and then its
+    coin's name as a label over it. lit gives the box the buttons' hovered and pressed looks, for your own coins, which
+    take a drop; without it the box keeps its resting look, like a slot. art names the box's art at that width."""
     children = [
         node('ScreenID', screen_id),
         node('Font', TEXT_FONT),
         node('RelativePosition', True),
         point('Location', x, y),
-        size(COIN_WIDTH, COIN_HEIGHT),
+        size(width, COIN_HEIGHT),
         node('Style_Transparent', False),
     ]
     if tooltip:
@@ -3187,7 +3235,7 @@ def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True):
         node('Style_Checkbox', False),
         node('Text', ''),  # the game writes the amount
         color('TextColor', TEXT_RGB),
-        node('ButtonDrawTemplate', [node(state, f'TUI_Coin{BUTTON_ART[state] if lit else "Normal"}')
+        node('ButtonDrawTemplate', [node(state, f'TUI_{art}{BUTTON_ART[state] if lit else "Normal"}')
                                     for state in BUTTON_STATES]),
     ], name)
     caption_box = (x + PADDING, y + COIN_CAPTION_TOP, COIN_CAPTION_WIDTH, TEXT_HEIGHT)
@@ -3286,6 +3334,33 @@ def loot_window():
     return window('LootWnd', 'Loot', LOOT_HEIGHT, [name, panel, *buttons], width=LOOT_WIDTH, inner=slots)
 
 
+def bank_window():
+    """The shared bank's ten slots on the left under their caption, with Change and Done under them; the bank's 30 on
+    the right under the banker's name, with its coin boxes under them; a divider standing between (see BANK_FILE)."""
+    parts = [vertical_divider('TUI_BW_Divider', BANK_DIVIDER_X, BANK_DIVIDER_TOP, BANK_DIVIDER_HEIGHT)]
+    # The game writes the banker's name, from the left like the give window's NPC; nothing writes the caption.
+    parts.append(label('TUI_BW_BankerName', None, (BANK_X, BANK_NAME_TOP, BANK_CONTENT_WIDTH, TEXT_HEIGHT), '',
+                       screen_id='BW_BankerName'))
+    parts.append(label('TUI_BW_SharedBankLabel', None, (LEFT, BANK_NAME_TOP, SHARED_WIDTH, TEXT_HEIGHT),
+                       SHARED_CAPTION, screen_id='BW_SharedBankLabel'))
+    for prefix, x, slots, first_type in (('SharedBank', LEFT, SHARED_SLOTS, SHARED_SLOT_TYPE),
+                                         ('Bank', BANK_X, BANK_SLOTS, BANK_SLOT_TYPE)):
+        parts += [inv_slot(f'TUI_BW_{prefix}Slot{n}', f'BW_{prefix}Slot{n}', first_type + n,
+                           (x + n // BANK_ROWS * HOT_PITCH, BANK_SLOTS_TOP + n % BANK_ROWS * HOT_PITCH),
+                           'TUI_HotButtonNormal')
+                  for n in range(slots)]
+    parts += [part for n, (screen_id, caption, tooltip) in enumerate(BANK_COINS)
+              for part in coin_box(f'TUI_BW_{screen_id}', screen_id, caption,
+                                   BANK_X + n % BANK_COIN_COLUMNS * (BANK_COIN_WIDTH + BUTTON_GAP),
+                                   BANK_BAND_TOP + n // BANK_COIN_COLUMNS * (COIN_HEIGHT + BUTTON_ROW_GAP),
+                                   tooltip=tooltip, width=BANK_COIN_WIDTH, art='BankCoin')]
+    parts += [button(f'TUI_BW_{screen_id}', screen_id, '', LEFT,
+                     BANK_BAND_TOP + row * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP), SHARED_WIDTH, TEXT_BUTTON_HEIGHT,
+                     font=ACTION_FONT, text=button_name)
+              for screen_id, button_name, row in BANK_BUTTONS]
+    return window('BankWnd', 'Bank', BANK_HEIGHT, parts, width=BANK_WIDTH)
+
+
 def compass_window():
     """The eight directions on a strip the game slides past a soft red pointer as you turn, in the stock window's
     pieces and size (see COMPASS_FILE). The strips sit at the inside's left, as in the stock file, wider than the window:
@@ -3304,7 +3379,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
-                LOOT_FILE: loot_window, COMPASS_FILE: compass_window}
+                LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window}
 
 
 def stranded_definitions(skin_xml):

@@ -64,6 +64,8 @@ BAG_ITEMS = 6
 GIVE_ITEMS = 2  # what you hand an NPC fills its slots from the first
 TRADE_ITEMS = 1  # what the other side offers fills its slots from the first; yours share the give window's EQTypes
 LOOT_ITEMS = 3  # a corpse's items fill its slots from the first
+BANK_ITEMS = 7  # the first bank slots, down the first column and into the second
+SHARED_ITEMS = 2
 HELD_SLOTS = {13, 22}  # the primary hand and the first bag, on the hot bar's slots
 LABELS = {
     1: 'Sebik', 12: '60', 13: '45', 14: '38', 15: '41', 16: '52', 17: '4321', 18: '4970', 19: '87', 20: '64',
@@ -88,11 +90,12 @@ BUTTON_TEXT = {
     'GVW_MyMoney0': '12', 'GVW_MyMoney1': '3', 'GVW_MyMoney2': '0', 'GVW_MyMoney3': '0',
     'TRDW_HisMoney0': '120', 'TRDW_HisMoney1': '5', 'TRDW_HisMoney2': '0', 'TRDW_HisMoney3': '0',
     'TRDW_MyMoney0': '0', 'TRDW_MyMoney1': '0', 'TRDW_MyMoney2': '0', 'TRDW_MyMoney3': '0',
+    'BW_Money0': '1234567', 'BW_Money1': '27', 'BW_Money2': '4', 'BW_Money3': '9',
 }
 # Labels with no EQType whose text the client writes, by ScreenID. The other side of a trade is a placeholder, not a
 # character's name.
 LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_MyName': 'Sebik',
-              'LW_CorpseName': "a gnoll pup's corpse"}
+              'LW_CorpseName': "a gnoll pup's corpse", 'BW_BankerName': 'Banker Denston'}
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
@@ -450,7 +453,9 @@ class Preview:
         theirs = skin.TRADE_SLOT_TYPE + skin.TRADE_SLOTS
         offered = theirs <= eq_type < theirs + TRADE_ITEMS
         looted = skin.LOOT_SLOT_TYPE <= eq_type < skin.LOOT_SLOT_TYPE + LOOT_ITEMS
-        held = merchant or bag or given or offered or looted or eq_type in HELD_SLOTS
+        banked = (skin.BANK_SLOT_TYPE <= eq_type < skin.BANK_SLOT_TYPE + BANK_ITEMS
+                  or skin.SHARED_SLOT_TYPE <= eq_type < skin.SHARED_SLOT_TYPE + SHARED_ITEMS)
+        held = merchant or bag or given or offered or looted or banked or eq_type in HELD_SLOTS
         return (eq_type * 7 + 3) % 36 if held else None
 
     def draw_invslot(self, layer, element, at, size, *_):

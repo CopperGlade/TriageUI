@@ -129,6 +129,10 @@ What opens when you trade with another player. What they offer is on the left, u
 
 What opens when you loot a corpse. The corpse's name is along the top. Under it, all 30 of its slots sit six to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Along the bottom are **Link All**, which puts a link to every item in your chat line, **Loot All**, which takes everything, and **Done**. Link All and Loot All are Zeal's, the same as `/linkall` and `/lootall`. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
 
+## The bank window
+
+What opens when you talk to a banker. The shared bank is on the left, its ten slots two to a row under **Shared Bank**, and your own bank is on the right, all 30 slots six to a row under the banker's name, with a thin line between the two. Both keep EverQuest's own order, down each column, so your items sit where you're used to seeing them. Under your slots are your bank's coin boxes, marked **pp**, **gp**, **sp** and **cp** as in the give window and wide enough for a large amount of platinum. Drop coins from your inventory on a box to bank them, or click a box to take some out. Under the shared slots are **Change**, Zeal's button for changing your coins, your bank's and then your inventory's, and **Done**. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
+
 ## The compass
 
 A strip of directions slides past a thin soft red line in the middle as you turn: the direction under the line is the way you face. **N**, **E**, **S** and **W** each have a taller tick under them, with **N** in the same soft red as the line, so north stands out, and **NE**, **SE**, **SW** and **NW** sit between them in grey. A faint tick marks every 10°. The strip moves at EverQuest's own scale, so about half the circle is in view, and it fades out toward the window's sides. It's the size of EverQuest's own compass, with no title bar: drag it by any part.
@@ -184,13 +188,13 @@ Your window layout is kept: EverQuest saves it per character in your EverQuest f
 - **`...TriageUI already exists and wasn't built by this script`:** a `TriageUI` folder that TriageUI didn't create is in the way. Rename it; the builder never overwrites it.
 - **`Couldn't write ...`:** EverQuest may be using the folder. Type `/load default 1`, build again, then `/load TriageUI 1`.
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=default`, then build again once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
-- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd`, `GiveWnd`, `TradeWnd` or `TUI_` are about TriageUI.
+- **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd`, `GiveWnd`, `TradeWnd`, `LootWnd`, `CompassWindow`, `BankWnd` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: rebuild the skin (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
 - **After building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 
 ## Credits
 
-A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, and the loot window's **Link All** and **Loot All**. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's.
+A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, the loot window's **Link All** and **Loot All**, and the bank window's **Change**. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's.
 
 ## Development
 
