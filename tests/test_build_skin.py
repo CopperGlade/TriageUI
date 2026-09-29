@@ -2068,11 +2068,11 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         # Your % in the middle of the line (the user's pick, so the layout stays): the game's label 19 or 20,
         # right-aligned with the drawn % after it, two paddings and a digit before the current number (at one
         # padding they ran together, then the user asked for the % nearer the caption, then one more
-        # character), in the values' green. The % shows while your own health is above 0, so always. The
-        # caption ends before it.
+        # character), in the percentages' gold (the user's pick over the values' green). The % shows while your own
+        # health is above 0, so always. The caption ends before it.
         percent_number = labels[f'TUI_PW_{screen_id}Percent']
         assert percent_number.findtext('EQType') == percent_type and percent_number.findtext('AlignRight') == 'true'
-        assert rgb(percent_number, 'TextColor') == skin.VALUE_RGB and not percent_number.findtext('Text')
+        assert rgb(percent_number, 'TextColor') == skin.GOLD_RGB and not percent_number.findtext('Text')
         px, py, pw, ph = box(percent_number)
         assert py == top and box(head)[0] + box(head)[2] <= px
         percent_clip = items(root, 'Screen')[f'TUI_PW_{screen_id}PercentSign_Clip']
@@ -2083,7 +2083,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         # Even "100" (the number box's whole width) stays more than a padding after "Health" (36px in Arial 12).
         assert px - skin.LEFT - 36 > skin.PADDING
         percent_sign = items(root, 'Gauge')[percent_clip.find('Pieces').text]
-        assert percent_sign.findtext('EQType') == '1' and rgb(percent_sign, 'FillTint') == skin.VALUE_RGB
+        assert percent_sign.findtext('EQType') == '1' and rgb(percent_sign, 'FillTint') == skin.GOLD_RGB
         bar = box(by_id[screen_id])
         assert bar == (skin.LEFT, top + skin.BAR_TOP, skin.PLAYER_CONTENT_WIDTH, skin.BAR_HEIGHT)
         if n:
@@ -2121,7 +2121,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     # user had the AA rate (label 86) share the line. Each rate is a pair, its caption a padding before its
     # number (for 3 digits) and its %: "XP/h" at the line's start, "AA/h" ending at the window's padding. Lined
     # up with the columns above, XP's value sat nearer "AA/h" than its own caption ("spacing is weird"). The
-    # numbers and %s in the values' green; the % shows while your own health is above 0, so always.
+    # numbers and %s in the percentages' gold; the % shows while your own health is above 0, so always.
     tick = box(by_id['ZealTick'])
     xp_top = skin.PLAYER_XP_TOP
     assert 2 * skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (tick[1] + tick[3]) < 2 * skin.PADDING + 1
@@ -2135,7 +2135,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         assert head.findtext('Text') == caption and rgb(head, 'TextColor') == skin.CAPTION_RGB
         assert box(head)[:2] == (left, xp_top)
         assert rate.findtext('EQType') == eq_type and rate.findtext('AlignRight') == 'true'
-        assert rgb(rate, 'TextColor') == skin.VALUE_RGB and not rate.findtext('Text')
+        assert rgb(rate, 'TextColor') == skin.GOLD_RGB and not rate.findtext('Text')
         nx, ny, nw, nh = box(rate)
         assert ny == xp_top and box(head)[0] + box(head)[2] == nx
         assert nx - left == skin.RATE_CAPTION_WIDTH + skin.PADDING
@@ -2143,7 +2143,7 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
         assert box(clip) == (nx + nw, xp_top + skin.PERCENT_INK_TOP, skin.PERCENT_WIDTH, skin.PERCENT_GLYPH_HEIGHT)
         assert box(clip)[0] + box(clip)[2] == right
         percent = items(root, 'Gauge')[clip.find('Pieces').text]
-        assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.VALUE_RGB
+        assert percent.findtext('EQType') == '1' and rgb(percent, 'FillTint') == skin.GOLD_RGB
         pairs.append((left, right))
     # The pairs read apart, the line's middle open between them.
     assert pairs[0][0] == skin.LEFT and pairs[1][1] == skin.PLAYER_RIGHT
@@ -3788,11 +3788,11 @@ def test_inventory_middle_shows_who_you_are_and_your_progress():
         assert box(bar) == (skin.INV_MIDDLE_X, top + skin.BAR_TOP, skin.INV_MIDDLE_WIDTH, skin.BAR_HEIGHT)
         template = bar.find('GaugeDrawTemplate')
         assert (template.findtext('Fill'), template.findtext('Background')) == ('TUI_InvFill', 'TUI_InvTrack')
-        assert rgb(bar, 'FillTint') == skin.PROGRESS_RGB
+        assert rgb(bar, 'FillTint') == skin.GOLD_RGB
         percent = [e for e in root.iter('Label') if e.findtext('EQType') == str(percent_type)]
-        assert len(percent) == 1 and rgb(percent[0], 'TextColor') == skin.PROGRESS_RGB
+        assert len(percent) == 1 and rgb(percent[0], 'TextColor') == skin.GOLD_RGB
         sign = items(root, 'Gauge')[f'TUI_IW_{caption}PercentSign']
-        assert rgb(sign, 'FillTint') == skin.PROGRESS_RGB
+        assert rgb(sign, 'FillTint') == skin.GOLD_RGB
         assert box(percent[0])[0] + box(percent[0])[2] + skin.PERCENT_WIDTH == skin.INV_MIDDLE_RIGHT
         bars.append(box(bar))
     # XP keeps the stock ScreenIDs, which nothing looks up. The client looks up AltAdvLabel and AltAdvGauge and hid

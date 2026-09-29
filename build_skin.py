@@ -730,6 +730,9 @@ HP_RGB = (143, 209, 158)
 # sets, so the user had every value match it rather than mix greens (a softer green and white were tried).
 # The slash is in the text color (the user's request).
 VALUE_RGB = (0, 255, 0)
+# Every percentage, with its drawn %, in EverQuest's classic golden yellow (the user's request, the green didn't suit
+# them): the player window's health, mana, XP/h and AA/h, and the inventory's XP and AA with their bars.
+GOLD_RGB = (230, 184, 46)
 PLAYER_NUMBER_WIDTH = 28  # "8888" in font 3 (Arial 12px)
 SPACE_WIDTH = 3  # a space in font 3 (Arial 12px)
 DIGIT_WIDTH = 7  # a digit in font 3 (Arial 12px; "100" is NUMBER_WIDTH)
@@ -1356,9 +1359,8 @@ INV_AA_TOP = INV_XP_TOP + PLAYER_SECTION_PITCH
 INV_PROGRESS = (('NextLevelLabel', 'XP', 26, 'ExpGauge', 4, INV_XP_TOP),
                 (None, 'AA', 27, None, 5, INV_AA_TOP))
 INV_HIDDEN_AA = ('AltAdvLabel', 'AltAdvGauge')
-# Both bars in EverQuest's classic golden yellow (the user's request), solid like the mana bar so they show it whole: at
-# the other bars' 70% over the panel it would darken toward olive. Their %s too, in place of the values' green.
-PROGRESS_RGB = (230, 184, 46)
+# Both bars in the percentages' golden yellow (GOLD_RGB, the user's request), solid like the mana bar so they show it
+# whole: at the other bars' 70% over the panel it would darken toward olive.
 INV_LEVEL_WIDTH = 2 * DIGIT_WIDTH  # the level, right-aligned against the class a space after it
 # The column on the right, three slots wide, the row divider standing between it and the worn slots a padding from each.
 INV_DIVIDER_X = LEFT + INV_DOLL_WIDTH + PADDING
@@ -2238,7 +2240,7 @@ def pieces():
         'PlayerSolidFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, WHITE),
         'TickFill': Texture(PLAYER_CONTENT_WIDTH, TICK_HEIGHT, WHITE),
         'InvTrack': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, EDGE_FADED),  # the inventory's XP and AA bars
-        'InvFill': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, WHITE),  # solid (see PROGRESS_RGB)
+        'InvFill': Texture(INV_MIDDLE_WIDTH, BAR_HEIGHT, WHITE),  # solid (see GOLD_RGB)
         **{button_art(width, height, label, state): labeled_button_art(width, height, label, state)
            for (width, height), labels in BUTTON_LABELS.items() for label in labels for state in BUTTON_LOOKS},
         **{f'Scroll{way}{state}': chevron(way == 'Up', alpha)
@@ -3165,7 +3167,7 @@ def player_window():
     slash_x = max_x - PLAYER_SLASH_WIDTH
     current_x = slash_x - PLAYER_NUMBER_WIDTH
     # The % two paddings and a digit before the current number, closer to the caption (at a padding they ran
-    # together, then the user asked for one more character), in the values' green, shown by your own health,
+    # together, then the user asked for one more character), in the percentages' gold, shown by your own health,
     # so always.
     percent_right = current_x - 2 * PADDING - DIGIT_WIDTH
     percent_number_x = percent_right - PERCENT_WIDTH - NUMBER_WIDTH
@@ -3178,7 +3180,7 @@ def player_window():
             ('PlayerMana', 2, 'Mana', 20, 124, 125, MANA_RGB, 'TUI_PlayerSolidFill'))):
         top = PLAYER_SECTIONS_TOP + n * PLAYER_SECTION_PITCH
         percent, readout = percent_readout(f'TUI_PW_{screen_id}Percent', f'TUI_PW_{screen_id}PercentSign',
-                                           percent_type, 1, top, percent_right, rgb=VALUE_RGB)
+                                           percent_type, 1, top, percent_right, rgb=GOLD_RGB)
         percents.append(percent)
         parts += [
             label(f'TUI_PW_{screen_id}Caption', None, (LEFT, top, percent_number_x - LEFT, TEXT_HEIGHT), caption,
@@ -3196,7 +3198,7 @@ def player_window():
                        (LEFT, PLAYER_SECTIONS_TOP + PLAYER_SECTION_PITCH + MANA_TICK_TOP, PLAYER_CONTENT_WIDTH,
                         TICK_HEIGHT), 'TUI_TickFill', TICK_RGB))
     # XP/h and its % at the line's start, AA/h and its % ending at its end (see RATE_PAIR_WIDTH). The numbers
-    # and their %s in the values' green. The drawn % needs a gauge above 0 to show: your own health, so it
+    # and their %s in the percentages' gold. The drawn % needs a gauge above 0 to show: your own health, so it
     # always shows, 0% too.
     rates = []
     for item, caption, eq_type, left in (
@@ -3204,7 +3206,7 @@ def player_window():
             ('AAPerHour', 'AA/h', AA_PER_HOUR_TYPE, PLAYER_RIGHT - RATE_PAIR_WIDTH)):
         right = left + RATE_PAIR_WIDTH
         rate, readout = percent_readout(f'TUI_PW_{item}', f'TUI_PW_{item}Percent', eq_type, 1, PLAYER_XP_TOP, right,
-                                        rgb=VALUE_RGB)
+                                        rgb=GOLD_RGB)
         rates.append(rate)
         number_x = right - PERCENT_WIDTH - NUMBER_WIDTH
         parts += [label(f'TUI_PW_{item}Caption', None, (left, PLAYER_XP_TOP, number_x - left, TEXT_HEIGHT),
@@ -3793,13 +3795,13 @@ def inventory_window():
     readout_x = right - PERCENT_WIDTH - NUMBER_WIDTH
     for caption_id, caption, percent_type, gauge_id, gauge_type, top in INV_PROGRESS:
         percent, readout = percent_readout(f'TUI_IW_{caption}Percent', f'TUI_IW_{caption}PercentSign', percent_type,
-                                           1, top, right, rgb=PROGRESS_RGB)
+                                           1, top, right, rgb=GOLD_RGB)
         percents.append(percent)
         parts += [
             label(f'TUI_IW_{caption}Caption', None, (x, top, readout_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
             *readout,
             gauge(f'TUI_IW_{caption}Bar', gauge_id, gauge_type, (x, top + BAR_TOP, INV_MIDDLE_WIDTH, BAR_HEIGHT),
-                  'TUI_InvFill', PROGRESS_RGB, track='TUI_InvTrack'),
+                  'TUI_InvFill', GOLD_RGB, track='TUI_InvTrack'),
         ]
     # The column: the stats, then AC and ATK, then the weight as the player window's current/max, a divider across over
     # each of the last two, every value in the game's green ending at the column's right; the coins at its foot.
