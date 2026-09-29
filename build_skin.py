@@ -1801,7 +1801,26 @@ def ammo_icon(x, y):
     return min(head, stroke(min(shaft, vanes)))
 
 
-# The inventory window's other worn slots (see INV_WORN), each drawn like the weapons' for what goes in it.
+# The inventory window's other worn slots (see INV_WORN), each what goes in it. The ear, neck and ring are drawn in
+# lines like the weapons; the rest are solid shapes with their details cut in: in outline, they read poorly at the
+# slot's size in its dim color (the user).
+
+def carved(shape, *holes):
+    """shape's signed distance with holes taken out of it."""
+    return max(shape, *(-hole for hole in holes))
+
+
+def slit(distance, half=0.45):
+    """A thin cut half wide each side of a line, from the distance to the line."""
+    return distance - half
+
+
+def turned(x, y, degrees, cx=8, cy=8):
+    """(x, y) turned about (cx, cy) by degrees, to draw a shape tilted by that much the other way."""
+    a = math.radians(degrees)
+    dx, dy = x - cx, y - cy
+    return cx + dx * math.cos(a) + dy * math.sin(a), cy - dx * math.sin(a) + dy * math.cos(a)
+
 
 def ear_icon(x, y):
     # A right ear from the side: the rim arching over and down the back to the lobe, the lobe's curve up to the
@@ -1813,18 +1832,19 @@ def ear_icon(x, y):
 
 
 def head_icon(x, y):
-    # A helm: a dome down to a closed rim, and a T of eye slit and nose slit across its face.
-    shell = min(arc_distance(x, y, 8, 7.5, 6, 180, 360),
-                polyline_distance(x, y, ((2, 7.5), (2, 14.5), (14, 14.5), (14, 7.5))))
-    slits = min(segment_distance(x, y, (4.5, 9), (11.5, 9)), segment_distance(x, y, (8, 9), (8, 12.5)))
-    return stroke(min(shell, slits))
+    # A helm: a dome down to straight cheeks, with a T of eye slit and nose slit cut through it.
+    helm = min(math.hypot(x - 8, y - 7.5) - 6, rounded_rect_distance(x, y, 2, 7.5, 14, 14.75, 0.75))
+    slits = min(rounded_rect_distance(x, y, 3.75, 7.75, 12.25, 9.25, 0.5),
+                rounded_rect_distance(x, y, 7.25, 8.5, 8.75, 13, 0.5))
+    return carved(helm, slits)
 
 
 def face_icon(x, y):
-    # A mask: an oval face, two solid eyes and a line of a mouth.
-    eyes = min(ellipse_signed(x, y, ex, 7, 1.5, 1) for ex in (5.6, 10.4))
-    outline = ellipse_distance(x, y, 8, 8, 5.5, 6.75)
-    return min(stroke(min(outline, segment_distance(x, y, (6.5, 11.25), (9.5, 11.25)))), eyes)
+    # A full mask: an oval face narrowing to the chin, the eyes and the mouth cut out. A mask over the eyes alone read
+    # as an infinity sign.
+    face = min(ellipse_signed(x, y, 8, 7, 5.5, 6), polygon_signed(x, y, [(3, 9), (13, 9), (8, 15)]))
+    eyes = min(ellipse_signed(x, y, ex, 6.75, 1.75, 1) for ex in (5.5, 10.5))
+    return carved(face, eyes, ellipse_signed(x, y, 8, 11.25, 1.75, 0.6))
 
 
 def neck_icon(x, y):
@@ -1835,46 +1855,55 @@ def neck_icon(x, y):
 
 
 def shoulders_icon(x, y):
-    # A pauldron: a domed plate with two lames overlapping under it.
-    plate = min(arc_distance(x, y, 8, 8.5, 6.5, 180, 360), segment_distance(x, y, (1.5, 8.5), (14.5, 8.5)))
-    lames = min(arc_distance(x, y, 8, 11.5, 6, 195, 345), arc_distance(x, y, 8, 14.75, 5.5, 205, 335))
-    return stroke(min(plate, lames))
+    # A pauldron from the side, tilted down to the right as it sits on the shoulder: a domed shell and two plates
+    # stepping down and out from under it, each past a gap. Upright, a dome over plates read as a burger, a rainbow or
+    # a mushroom; spiked, as a crown; a pair on a collar, as a moustache.
+    u, v = turned(x, y, 22)
+    shell = max(ellipse_signed(u, v, 7.5, 8.5, 6.25, 5.5), v - 8.5)
+    plate = max(ellipse_signed(u, v, 7.5, 8.9, 7.25, 3.25), -(v - 8.9))
+    lower = max(ellipse_signed(u, v, 7.5, 12.2, 6.25, 2.75), -(v - 12.2))
+    return min(shell, carved(plate, shell - 0.9), carved(lower, plate - 0.9, shell - 0.9))
 
 
 def arms_icon(x, y):
-    # A sleeved arm bent at the elbow: the upper arm down from the shoulder, the forearm out to the right, the
-    # elbow's outer corner rounded, and a band at the shoulder and the cuff.
-    inner = polyline_distance(x, y, ((7.5, 1.5), (7.5, 9.5), (14.5, 9.5)))
-    outer = min(segment_distance(x, y, (2.5, 1.5), (2.5, 10.5)), arc_distance(x, y, 6.5, 10.5, 4, 90, 180),
-                segment_distance(x, y, (6.5, 14.5), (14.5, 14.5)))
-    ends = min(segment_distance(x, y, (2.5, 1.5), (7.5, 1.5)), segment_distance(x, y, (14.5, 9.5), (14.5, 14.5)))
-    bands = min(segment_distance(x, y, (2.5, 4.25), (7.5, 4.25)), segment_distance(x, y, (11.75, 9.5), (11.75, 14.5)))
-    return stroke(min(inner, outer, ends, bands))
+    # An arm flexed at the elbow: the upper arm with the biceps bulging over it, the forearm rising to a fist, and the
+    # elbow's crease, the cuff and the fingers cut in. An arm bent at the elbow in outline read as a pipe.
+    arm = polygon_signed(x, y, [(0.75, 14.5), (0.75, 11), (2.75, 9), (5.25, 7.75), (7.75, 8.25), (9.25, 9.5),
+                                (9.75, 6.25), (9.25, 5), (9.25, 1.75), (11.75, 0.75), (14.25, 1.25), (14.75, 4),
+                                (13.5, 5.25), (13.25, 6.5), (14, 10.75), (12.75, 13.5), (10, 14.5)]) - 0.2
+    crease = slit(segment_distance(x, y, (9.25, 9.5), (10.25, 11.5)), 0.4)
+    fingers = min(slit(segment_distance(x, y, (8.75, fy), (11.5, fy)), 0.4) for fy in (2.5, 4))
+    cuff = slit(abs(y - 6.25)) if x > 9.5 else math.inf
+    return carved(arm, crease, fingers, cuff)
 
 
 def back_icon(x, y):
-    # A cloak: hanging from a narrow collar and flaring out to the hem, with a clasp at the collar and two folds.
-    # Rounded over the shoulders, it read as a bell.
-    cloak = polyline_distance(x, y, ((5.5, 1.75), (10.5, 1.75), (14, 14.5), (2, 14.5)), closed=True)
-    folds = min(segment_distance(x, y, (7, 4), (5.75, 14.5)), segment_distance(x, y, (9, 4), (10.25, 14.5)))
-    return min(stroke(min(cloak, folds)), math.hypot(x - 8, y - 2.5) - 1.4)
+    # A cloak: hanging from a narrow collar and flaring to the hem, two folds and a round clasp cut into it. Rounded
+    # over the shoulders, it read as a bell.
+    cloak = polygon_signed(x, y, [(5.5, 1.5), (10.5, 1.5), (14.25, 14.5), (1.75, 14.5)])
+    folds = min(slit(segment_distance(x, y, top, bottom)) for top, bottom in (((6.75, 5.25), (5.5, 15)),
+                                                                             ((9.25, 5.25), (10.5, 15))))
+    clasp = slit(abs(math.hypot(x - 8, y - 3.25) - 1.1), 0.4)
+    return carved(cloak, folds, clasp)
 
 
 def wrist_icon(x, y):
-    # A bracelet seen from a little above: a band's top ring, its lower edge and its sides.
-    top = ellipse_distance(x, y, 8, 6.25, 6, 2.75)
-    lower = ellipse_distance(x, y, 8, 9.75, 6, 2.75) if y > 9.75 else math.inf
-    sides = min(segment_distance(x, y, (2, 6.25), (2, 9.75)), segment_distance(x, y, (14, 6.25), (14, 9.75)))
-    return stroke(min(top, lower, sides))
+    # A bracer standing up, wider at the elbow end, bands cut off at both ends and a zigzag of lacing cut down its
+    # middle. A band in outline read as a stack of coins; a tube on the diagonal, as a battery.
+    width = 4.75 - (y - 1) / 14 * 1.5
+    body = max(abs(x - 8) - width, abs(y - 8) - 7) - 0.25
+    bands = min(slit(abs(y - h)) for h in (3.25, 12.75))
+    lacing = min(slit(segment_distance(x, y, (x0, a), (x1, a + 1.75)), 0.4)
+                 for a in (4.75, 7.25, 9.75) for x0, x1 in ((6.75, 9.25), (9.25, 6.75)))
+    return carved(body, bands, lacing)
 
 
 def hands_icon(x, y):
-    # A glove: the fingers' rounded top with two lines between them, the thumb out to the left, and the cuff.
-    hand = abs(rounded_rect_distance(x, y, 4.75, 1.5, 12.25, 10.5, 2.5))
-    thumb = segment_distance(x, y, (4.75, 9.25), (1.75, 6.25))
-    cuff = polyline_distance(x, y, ((5.25, 10.5), (5.25, 14.5), (11.75, 14.5), (11.75, 10.5)), closed=True)
-    fingers = min(segment_distance(x, y, (7.25, 1.75), (7.25, 6)), segment_distance(x, y, (9.75, 1.75), (9.75, 6)))
-    return stroke(min(hand, thumb, cuff, fingers))
+    # A glove: four fingers with gaps between them, the thumb out to the left, and the cuff under a cut.
+    hand = min(rounded_rect_distance(x, y, 4.75, 1.25, 12.25, 11.5, 1.75),
+               segment_distance(x, y, (5.25, 9.25), (2, 5.75)) - 1.2)
+    fingers = min(slit(segment_distance(x, y, (fx, 0), (fx, 6)), 0.4) for fx in (6.6, 8.5, 10.4))
+    return min(carved(hand, fingers), rounded_rect_distance(x, y, 5, 12.25, 12, 15, 0.5))
 
 
 def fingers_icon(x, y):
@@ -1884,35 +1913,37 @@ def fingers_icon(x, y):
 
 
 def chest_icon(x, y):
-    # A breastplate: shoulders, the neck's curve and the arm holes, narrowing to the waist, with a ridge down its
-    # middle.
-    neck = arc_distance(x, y, 8, 1.5, 2.5, 0, 180)
-    body = polyline_distance(x, y, ((5.5, 1.5), (2, 3), (3.5, 7.5), (3.75, 14.5), (12.25, 14.5), (12.5, 7.5), (14, 3),
-                                    (10.5, 1.5)))
-    return stroke(min(neck, body, segment_distance(x, y, (8, 4), (8, 14.5))))
+    # A tunic of armor: shoulders and short sleeves, narrowing to the waist, a V at the neck and a belt line cut in.
+    body = polygon_signed(x, y, [(5.5, 1.5), (1.75, 3.25), (0.75, 7.75), (3.5, 8.25), (3.75, 14.5), (12.25, 14.5),
+                                 (12.5, 8.25), (15.25, 7.75), (14.25, 3.25), (10.5, 1.5)])
+    neck = polygon_signed(x, y, [(5.25, 0.5), (10.75, 0.5), (8, 5.25)])
+    return carved(body, neck, slit(abs(y - 11.25)))
 
 
 def legs_icon(x, y):
-    # Leggings: the waistband, both legs down to their cuffs and the seam between them.
-    legs = polyline_distance(x, y, ((3.5, 1.5), (12.5, 1.5), (13.75, 14.5), (9.5, 14.5), (8, 6.5), (6.5, 14.5),
-                                    (2.25, 14.5)), closed=True)
-    return stroke(min(legs, segment_distance(x, y, (3.6, 3.75), (12.4, 3.75))))
+    # Leggings: the waistband with a cut under it, and both legs down to their cuffs, the gap between them.
+    legs = polygon_signed(x, y, [(3.25, 1.5), (12.75, 1.5), (14, 14.75), (9.25, 14.75), (8, 6.5), (6.75, 14.75),
+                                 (2, 14.75)])
+    return carved(legs, slit(abs(y - 4)))
 
 
 def feet_icon(x, y):
-    # A boot from the side, toe to the right: the shaft with its cuff, the heel and the foot.
-    boot = polyline_distance(x, y, ((4.5, 1.5), (10, 1.5), (10, 8.5), (13.5, 10.5), (14.5, 12.5), (14.5, 14.5),
-                                    (3.5, 14.5), (4, 8)), closed=True)
-    return stroke(min(boot, segment_distance(x, y, (4.35, 4), (10, 4))))
+    # A boot from the side, toe to the right: the shaft with its cuff cut off, the foot and the sole under a cut.
+    boot = polygon_signed(x, y, [(4.25, 1.25), (10.25, 1.25), (10.25, 8), (13.5, 9.5), (15, 11.75), (15, 14.75),
+                                 (3, 14.75), (3.5, 8)])
+    return carved(boot, slit(abs(y - 4)), slit(abs(y - 12.75)))
 
 
 def waist_icon(x, y):
-    # A belt: the strap across, a buckle in its middle with the prong, and the holes past it.
-    strap = min(segment_distance(x, y, (1, 6), (5.25, 6)), segment_distance(x, y, (1, 10), (5.25, 10)),
-                segment_distance(x, y, (10.75, 6), (15, 6)), segment_distance(x, y, (10.75, 10), (15, 10)))
-    buckle = abs(rounded_rect_distance(x, y, 5.25, 3.75, 10.75, 12.25, 1.5))
-    holes = min(math.hypot(x - hx, y - 8) - 0.8 for hx in (12.5, 14.75))
-    return min(stroke(min(strap, buckle, segment_distance(x, y, (8, 8), (10.75, 8)))), holes)
+    # A belt: the strap across with its pointed end on the right and two holes in it, and a square buckle over it, its
+    # frame and prong solid and the strap seen through it past a gap. Cut apart from the buckle, the strap read as
+    # separate blocks.
+    strap = polygon_signed(x, y, [(0.5, 6), (13.5, 6), (15.5, 8), (13.5, 10), (0.5, 10)])
+    outer = rounded_rect_distance(x, y, 3.25, 3.5, 9.75, 12.5, 1.25)
+    inner = rounded_rect_distance(x, y, 5, 5.25, 8, 10.75, 0.5)
+    holes = min(math.hypot(x - hx, y - 8) - 0.7 for hx in (11.25, 13.25))
+    seen = carved(strap, slit(abs(inner), 0.4), holes)
+    return min(seen, carved(outer, inner), segment_distance(x, y, (4, 8), (9, 8)) - 0.5)
 
 
 SLOT_ICONS = {'Primary': primary_icon, 'Secondary': secondary_icon, 'Range': range_icon, 'Ammo': ammo_icon,
