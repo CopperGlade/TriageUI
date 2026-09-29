@@ -518,7 +518,7 @@ for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
 BUFF_FILE = 'EQUI_BuffWindow.xml'
 SONG_FILE = 'EQUI_ShortDurationBuffWindow.xml'
 BUFF_ICONS = 'BuffIcons'  # the stock spell icons the client puts on each slot
-REPLACED_ANIMATIONS = ('BlueIconBackground', 'RedIconBackground')
+REPLACED_ANIMATIONS = ('BlueIconBackground', 'RedIconBackground', 'A_SpellBookSlot')  # the last, the spellbook's
 ROW_ICON = 16
 ROW_ICON_MARGIN = PADDING - BORDER
 ROW_HEIGHT = ROW_ICON + 2 * ROW_ICON_MARGIN
@@ -1226,6 +1226,25 @@ BANK_COINS = tuple((f'BW_Money{n}', caption, f'Drop coins here or click to pick 
 BANK_DIVIDER_TOP = LEFT
 BANK_DIVIDER_HEIGHT = BANK_BAND_TOP + BANK_BAND_HEIGHT - BANK_DIVIDER_TOP
 BANK_HEIGHT = 2 * BORDER + BANK_BAND_TOP + BANK_BAND_HEIGHT + BOTTOM_GAP
+# The skills window: your skills in one list straight on the panel, like the raid window's, with Done under it.
+# eqgame.exe looks up only SkillList; DoneButton is the stock window's other control. Zeal sorts the list when you
+# click the first or third column's heading (ui_manager.cpp, CSkillsWnd's WndNotification), so the client's three
+# columns stay in its order. The user's picks (2026-09-29, from mockups): no rank column, 24 rows in view, a fixed size
+# with no title bar, so it drags by its background.
+SKILLS_FILE = 'EQUI_SkillsWindow.xml'
+# The client's three columns, in its order: (heading, width). Each is its widest text in font 3 (Arial 12px) and a
+# padding: "Percussion Instruments" 127px (eqstr_en.txt's skill names) and the heading "Value" 32. The rank column
+# (eqstr_en.txt's Awful to Master, most likely) has no width and no heading.
+SKILLS_COLUMNS = (('Skill', 127 + PADDING), ('', 0), ('Value', 32 + PADDING))
+SKILLS_LIST_WIDTH = sum(width for _, width in SKILLS_COLUMNS) + SCROLL_WIDTH
+SKILLS_WIDTH = SKILLS_LIST_WIDTH + 2 * PADDING
+SKILLS_ROWS = 24  # the raid window's height
+SKILLS_LIST_HEIGHT = RAID_HEADER_HEIGHT + SKILLS_ROWS * TEXT_HEIGHT  # the lists' heading row and font 3's lines
+# Done a padding under the list and as wide, the confirmation dialog's kind of button, with no tooltip (the stock
+# Done has none).
+SKILLS_DONE_TOP = LEFT + SKILLS_LIST_HEIGHT + BUTTON_ROW_GAP
+add_text_buttons((SKILLS_LIST_WIDTH,))
+SKILLS_HEIGHT = 2 * BORDER + SKILLS_DONE_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 # The compass: two copies of a strip of directions (CompassStrip1 and 2) that the game slides sideways as you turn,
 # under an overlay (CompassOverlay) drawn last, all three StaticAnimations the client looks up by ScreenID. Every
 # skin keeps the stock strip's 180px, half a pixel a degree, and the marks where the stock art has them: north at
@@ -1257,6 +1276,39 @@ COMPASS_NORTH_RGB = SPELL_RGB
 # column and an intercardinal's (12 wide) on the line between two columns, where a half-degree-a-pixel strip puts it.
 COMPASS_MARKS = (('N', 0, COMPASS_NORTH_RGB), ('NE', 45, PET_RGB), ('E', 90, TEXT_RGB), ('SE', 135, PET_RGB),
                  ('S', 180, TEXT_RGB), ('SW', 225, PET_RGB), ('W', 270, TEXT_RGB), ('NW', 315, PET_RGB))
+# The spell book: its two pages side by side, each a table of eight rows in the spell bar's look (the user's pick,
+# 2026-09-29, from a mockup), a divider standing between them; a thin bar along the top for memorizing or scribing,
+# like the spell bar's recovery bar; the page arrows, both page numbers and Done along the bottom. eqgame.exe looks up
+# SBW_Spell%d and SBW_SpellName%d (16 of each), SBW_PageDown_Button and SBW_PageUp_Button, SBW_MemPage0_Button and
+# SBW_MemPage1_Button (no size in every skin), SBW_LeftPageNum and SBW_RightPageNum, and DoneButton; the bars by
+# EQType, 9 memorizing and 10 scribing, which never run together, so they share a spot (as in duxaUI). The stock
+# book art (SBW_SpellBook1 to 4) is nothing the client looks up, so it's left out. The names and page numbers are
+# StaticText, which takes no click (see static_text()).
+SPELLBOOK_FILE = 'EQUI_SpellBookWnd.xml'
+BOOK_SPELLS = 16
+BOOK_PAGE_ROWS = 8
+# Room for the longest name any class can scribe (spells_en.txt), 177px in font 3 (Arial 12px).
+BOOK_NAME_WIDTH = 178
+BOOK_PAGE_WIDTH = GEM_ICON + PADDING + BOOK_NAME_WIDTH
+BOOK_DIVIDER_X = LEFT + BOOK_PAGE_WIDTH + PADDING
+BOOK_PAGE_XS = (LEFT, BOOK_DIVIDER_X + DIVIDER_HEIGHT + PADDING)
+BOOK_RIGHT = BOOK_PAGE_XS[1] + BOOK_PAGE_WIDTH
+BOOK_CONTENT_WIDTH = BOOK_RIGHT - LEFT
+SPELLBOOK_WIDTH = BOOK_RIGHT + LEFT + 2 * BORDER
+MEMORIZE_TYPE = 9
+SCRIBE_TYPE = 10
+BOOK_BAR_TOP = LEFT
+# The first row's icon a padding under the bar; the rows the spell bar's, a divider under each (the last one's across
+# both pages, meeting the one standing between them), and the band a padding under that.
+BOOK_ROWS_TOP = BOOK_BAR_TOP + TICK_HEIGHT + PADDING - GEM_ICON_MARGIN
+BOOK_LAST_DIVIDER_TOP = BOOK_ROWS_TOP + BOOK_PAGE_ROWS * GEM_ROW_PITCH - DIVIDER_HEIGHT
+BOOK_BAND_TOP = BOOK_LAST_DIVIDER_TOP + DIVIDER_HEIGHT + PADDING
+# The page arrows at the band's ends, the Actions window's (see SOCIAL_ARROWS); Done the loot and bank windows',
+# centered on the divider between the pages.
+BOOK_ARROWS = (('SBW_PageDown_Button', 'Previous Page', 'Left'), ('SBW_PageUp_Button', 'Next Page', 'Right'))
+BOOK_DONE_WIDTH = COIN_WIDTH
+add_text_buttons((BOOK_DONE_WIDTH,))
+SPELLBOOK_HEIGHT = 2 * BORDER + BOOK_BAND_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1966,6 +2018,12 @@ def pieces():
         'SpellBarDivider': Texture(SPELL_BAR_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the row divider, this window's width
         'RecastFill': Texture(RECAST_WIDTH, TICK_HEIGHT, BAR_FILL),
         'CastRecoveryFill': Texture(SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
+        # The spell book's (see SPELLBOOK_FILE): a spell's row, clear like a gem's, the row divider at a page's width
+        # and across both pages, and the memorizing bar across the window.
+        'BookSlot': clear_texture(BOOK_PAGE_WIDTH, GEM_ROW_HEIGHT),
+        'BookRowDivider': Texture(BOOK_PAGE_WIDTH, 1, ROW_DIVIDER_RGBA),
+        'BookDivider': Texture(BOOK_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),
+        'MemorizeFill': Texture(BOOK_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
         # The hot button window's, all solid (see HOTBUTTON_FILE): the macros' button, whose Normal is also an
         # item's or a spell's hot button under its icon, each empty slot with its icon, and the page arrows, as
         # wide as the Actions window's and a row tall.
@@ -2171,6 +2229,9 @@ def shared_definitions(rects):
         # rows the slot's size, a harmful one with its red bars (see HELPFUL_RGBA and HARMFUL_RGBA).
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
+        # The spellbook slot's art, which the client names itself (default's is a dark 48px square; poweroftwo's, at its
+        # slots' size, is its "blank spot"): clear at a spell's row, like the slot's own.
+        animation('A_SpellBookSlot', PIECES_TEXTURE, rects['BookSlot']),
         # The slider's left end cap, with no width (see SLIDER_TEMPLATE): the client draws one, so it must be there.
         animation('TUI_SliderCapLeft', PIECES_TEXTURE, (*rects['SliderCapRight'][:2], 0, SLIDER_HEIGHT)),
         frame_template(),
@@ -2258,6 +2319,25 @@ def label(name, eq_type, rect, text, align_right=False, screen_id=None, rgb=TEXT
         node('Style_Tooltip', False),
     ]
     return node('Label', children, name)
+
+
+def static_text(name, screen_id, rect, align_right=False):
+    """Text the client writes into a StaticText it looks up (the spellbook's names and page numbers), in font 3 and
+    the text's color, on one line. Not a label(): SIDL.xml makes StaticText a static piece, which never takes a click,
+    and gives it no EQType, AlignLeft or Style_ flags, so it has only what the schema lists."""
+    x, y, width, height = rect
+    return node('StaticText', [
+        node('ScreenID', screen_id),
+        node('Font', TEXT_FONT),
+        node('RelativePosition', True),
+        point('Location', x, y),
+        size(width, height),
+        node('Text', ''),
+        color('TextColor', TEXT_RGB),
+        node('NoWrap', True),
+        node('AlignCenter', False),
+        node('AlignRight', align_right),
+    ], name)
 
 
 def tooltip_spot(name, rect, tooltip):
@@ -2816,7 +2896,7 @@ def hidden_label(name, screen_id, x=0, y=0):
 def listbox(name, screen_id, rect, tooltip, columns):
     """A list the client fills, on the window's own panel: only our slim scrollbar is drawn (see EDIT_TEMPLATE).
     columns are (heading, width), in the client's order; each column with a width has the header strip (see
-    LIST_HEADER), and one with none is hidden."""
+    LIST_HEADER), and one with none is hidden. tooltip None gives the list none."""
     x, y, width, height = rect
     return node('Listbox', [
         node('ScreenID', screen_id),
@@ -2827,7 +2907,7 @@ def listbox(name, screen_id, rect, tooltip, columns):
         color('TextColor', TEXT_RGB),
         node('Style_VScroll', True),
         node('Style_Border', False),
-        node('TooltipReference', tooltip),
+        *([node('TooltipReference', tooltip)] if tooltip else []),
         node('DrawTemplate', EDIT_TEMPLATE),
     ] + [node('Columns', ([node('Header', LIST_HEADER)] if column_width else [])
               + [node('Width', column_width), node('Heading', heading)])
@@ -3361,6 +3441,15 @@ def bank_window():
     return window('BankWnd', 'Bank', BANK_HEIGHT, parts, width=BANK_WIDTH)
 
 
+def skills_window():
+    """Your skills in one list, name and value with the rank hidden, and Done under it (see SKILLS_FILE)."""
+    skills = listbox('TUI_SKLW_SkillList', 'SkillList', (LEFT, LEFT, SKILLS_LIST_WIDTH, SKILLS_LIST_HEIGHT), None,
+                     SKILLS_COLUMNS)
+    done = button('TUI_SKLW_DoneButton', 'DoneButton', '', LEFT, SKILLS_DONE_TOP, SKILLS_LIST_WIDTH,
+                  TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Done')
+    return window('SkillsWindow', 'Skills', SKILLS_HEIGHT, [skills, done], width=SKILLS_WIDTH)
+
+
 def compass_window():
     """The eight directions on a strip the game slides past a soft red pointer as you turn, in the stock window's
     pieces and size (see COMPASS_FILE). The strips sit at the inside's left, as in the stock file, wider than the window:
@@ -3372,6 +3461,55 @@ def compass_window():
     return window('CompassWindow', None, COMPASS_HEIGHT, [*strips, overlay], width=COMPASS_WIDTH)
 
 
+def spellbook_window():
+    """Two pages of spells side by side, each eight of the spell bar's rows (the spell's icon, then its name), the
+    memorizing and scribing bar along the top, and the page arrows, page numbers and Done along the bottom (see
+    SPELLBOOK_FILE)."""
+    bar_rect = (LEFT, BOOK_BAR_TOP, BOOK_CONTENT_WIDTH, TICK_HEIGHT)
+    parts = [gauge('TUI_SBW_Memorize', 'SBW_Memorize_Gauge', MEMORIZE_TYPE, bar_rect, 'TUI_MemorizeFill', SPELL_RGB),
+             gauge('TUI_SBW_Scribe', 'SBW_Scribe_Gauge', SCRIBE_TYPE, bar_rect, 'TUI_MemorizeFill', SPELL_RGB)]
+    divider_top = BOOK_BAR_TOP + TICK_HEIGHT + PADDING
+    parts.append(vertical_divider('TUI_SBW_Divider', BOOK_DIVIDER_X, divider_top, BOOK_LAST_DIVIDER_TOP - divider_top))
+    parts += [picture(f'TUI_SBW_Divider{p}_{r}', 'TUI_BookRowDivider',
+                      (x, BOOK_ROWS_TOP + r * GEM_ROW_PITCH + GEM_ROW_HEIGHT, BOOK_PAGE_WIDTH, DIVIDER_HEIGHT))
+              for p, x in enumerate(BOOK_PAGE_XS) for r in range(BOOK_PAGE_ROWS - 1)]
+    parts.append(picture('TUI_SBW_LastDivider', 'TUI_BookDivider',
+                         (LEFT, BOOK_LAST_DIVIDER_TOP, BOOK_CONTENT_WIDTH, DIVIDER_HEIGHT)))
+    # Spells 0 to 7 down the left page and 8 to 15 down the right, the stock reading order. Each slot is its whole row,
+    # so a click anywhere on it counts; the client puts the spell's icon in the decal and may paint the slot
+    # BlueIconBackground or A_SpellBookSlot, both clear. The names go over the slots, as in the spell bar.
+    spots = [(BOOK_PAGE_XS[n // BOOK_PAGE_ROWS], BOOK_ROWS_TOP + n % BOOK_PAGE_ROWS * GEM_ROW_PITCH)
+             for n in range(BOOK_SPELLS)]
+    parts += [node('Button', [
+        node('ScreenID', f'SBW_Spell{n}'),
+        node('RelativePosition', True),
+        point('Location', x, y),
+        size(BOOK_PAGE_WIDTH, GEM_ROW_HEIGHT),
+        node('Style_Transparent', False),
+        node('Style_Checkbox', False),
+        node('ButtonDrawTemplate', [node('Normal', 'TUI_BookSlot'), node('NormalDecal', BUFF_ICONS)]),
+        point('DecalOffset', 0, GEM_ICON_MARGIN),
+        node('DecalSize', [node('CX', GEM_ICON), node('CY', GEM_ICON)]),
+    ], f'TUI_SBW_Spell{n}') for n, (x, y) in enumerate(spots)]
+    parts += [static_text(f'TUI_SBW_SpellName{n}', f'SBW_SpellName{n}',
+                          (x + GEM_ICON + PADDING, y + GEM_NAME_TOP, BOOK_NAME_WIDTH, TEXT_HEIGHT))
+              for n, (x, y) in enumerate(spots)]
+    parts += [icon_button(f'TUI_{screen_id}', screen_id, x, BOOK_BAND_TOP, tooltip, icon, ARROW_SIZE)
+              for x, (screen_id, tooltip, icon) in zip((LEFT, BOOK_RIGHT - ARROW_SIZE), BOOK_ARROWS)]
+    number_top = BOOK_BAND_TOP + SOCIAL_PAGE_LABEL_TOP  # the digits' ink centered on the band, as between the arrows
+    parts += [static_text('TUI_SBW_LeftPageNum', 'SBW_LeftPageNum',
+                          (LEFT + ARROW_SIZE + PADDING, number_top, NUMBER_WIDTH, TEXT_HEIGHT)),
+              static_text('TUI_SBW_RightPageNum', 'SBW_RightPageNum',
+                          (BOOK_RIGHT - ARROW_SIZE - PADDING - NUMBER_WIDTH, number_top, NUMBER_WIDTH, TEXT_HEIGHT),
+                          align_right=True)]
+    parts.append(button('TUI_SBW_DoneButton', 'DoneButton', '', LEFT + (BOOK_CONTENT_WIDTH - BOOK_DONE_WIDTH) // 2,
+                        BOOK_BAND_TOP, BOOK_DONE_WIDTH, TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Done'))
+    parts += [hidden_button(f'TUI_{screen_id}', screen_id)
+              for screen_id in ('SBW_MemPage0_Button', 'SBW_MemPage1_Button')]
+    return window('SpellBookWnd', 'Spell Book', SPELLBOOK_HEIGHT, parts, tooltip='Your Spell Book',
+                  width=SPELLBOOK_WIDTH)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
@@ -3379,7 +3517,8 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 BREATH_FILE: breath_window, RAID_FILE: raid_window, CONTAINER_FILE: container_window,
                 MERCHANT_FILE: merchant_window, CONFIRM_FILE: confirmation_dialog, ITEM_FILE: item_display_window,
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
-                LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window}
+                LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window,
+                SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window}
 
 
 def stranded_definitions(skin_xml):

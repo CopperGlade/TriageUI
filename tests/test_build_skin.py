@@ -30,7 +30,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
-              skin.COMPASS_FILE, skin.BANK_FILE]
+              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE]
 
 
 @functools.cache
@@ -507,7 +507,7 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
-                     'CompassWindow', 'BankWnd'}
+                     'CompassWindow', 'BankWnd', 'SkillsWindow'}
     # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
     # definitions taken out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -3221,6 +3221,68 @@ def test_bank_coin_boxes_are_the_give_windows_wider_with_the_stock_tooltips():
                    for x in range(skin.BANK_COIN_WIDTH) for y in range(skin.COIN_HEIGHT)), state
 
 
+# The skills window
+
+def skills_parts():
+    root, window = screen(skin.SKILLS_FILE)
+    return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
+
+
+def test_skills_window_keeps_every_control_the_stock_one_has():
+    # eqgame.exe looks up only the list; Done is the stock window's other control. A fixed size with no title bar or
+    # close box (the user's pick), so it drags by its background and Done closes it.
+    root, window = check_inside_frame(skin.SKILLS_FILE, skin.SKILLS_WIDTH)
+    assert window.get('item') == 'SkillsWindow' and window.findtext('Text') == 'Skills'
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.SKILLS_WIDTH, skin.SKILLS_HEIGHT) == (195, 390)
+    assert [(e.tag, e.findtext('ScreenID')) for e in direct_pieces(root, window)] == [
+        ('Listbox', 'SkillList'), ('Button', 'DoneButton')]
+
+
+def test_skills_list_shows_name_and_value_with_the_rank_hidden():
+    _, _, found = skills_parts()
+    listbox = found['SkillList']
+    columns = listbox.findall('Columns')
+    # The client's three columns in its order, since Zeal sorts by the first and third headings; the rank column has
+    # no width and no heading (the user's pick).
+    assert [c.findtext('Heading') for c in columns] == ['Skill', '', 'Value']
+    widths = [number(c, 'Width') for c in columns]
+    assert columns[1].find('Header') is None
+    assert all(c.findtext('Header') == skin.LIST_HEADER for c in (columns[0], columns[2]))
+    # Each as wide as its widest text in font 3 (Arial 12px) and a padding: "Percussion Instruments" and "Value".
+    assert widths == [127 + skin.PADDING, 0, 32 + skin.PADDING]
+    # The columns and the scrollbar fill the list, which spans the window between its paddings, 24 rows tall under
+    # its heading row.
+    x, y, width, height = box(listbox)
+    assert sum(widths) + skin.SCROLL_WIDTH == width == skin.SKILLS_WIDTH - 2 * skin.PADDING
+    assert height == skin.RAID_HEADER_HEIGHT + 24 * skin.TEXT_HEIGHT and skin.SKILLS_ROWS == 24
+    # Straight on the window's panel, only the slim scrollbar drawn, in the windows' font, with no tooltip (the stock
+    # list has none).
+    assert listbox.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+    assert listbox.findtext('Style_VScroll') == 'true' and listbox.findtext('Style_Border') == 'false'
+    assert listbox.findtext('Font') == str(skin.TEXT_FONT) and rgb(listbox, 'TextColor') == skin.TEXT_RGB
+    assert listbox.find('TooltipReference') is None
+
+
+def test_skills_window_follows_the_spacing_standard():
+    _, window, found = skills_parts()
+    skills, done = box(found['SkillList']), box(found['DoneButton'])
+    # The heading strip a padding from the window's edge, across and down.
+    assert skills[:2] == (skin.LEFT, skin.LEFT) and skin.BORDER + skin.LEFT == skin.PADDING
+    # Done a padding under the list and as wide, and the window's edge a padding under it.
+    assert done[1] - (skills[1] + skills[3]) == skin.BUTTON_ROW_GAP == skin.PADDING
+    assert (done[0], done[2], done[3]) == (skin.LEFT, skills[2], skin.TEXT_BUTTON_HEIGHT)
+    assert box(window)[3] == 2 * skin.BORDER + done[1] + done[3] + skin.BOTTOM_GAP
+    assert skin.BORDER + skin.BOTTOM_GAP == skin.PADDING
+
+
+def test_skills_done_is_the_confirmation_dialogs_kind_of_button():
+    # No tooltip: the stock Done has none.
+    _, _, found = skills_parts()
+    check_confirmation_button(found['DoneButton'], 'Done')
+
+
 def compass_parts():
     root, window = screen(skin.COMPASS_FILE)
     return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
@@ -3813,6 +3875,28 @@ def test_preview_fills_in_what_the_game_writes_in_the_bank_window(tmp_path):
     panel = image.getpixel((skin.BORDER + skin.BANK_DIVIDER_X + 1, skin.BORDER + skin.BANK_SLOTS_TOP - 3))
     line = set(pixels(region('TUI_BW_Divider')))
     assert len(line) == 1 and line != {panel}
+
+
+def test_preview_fills_in_the_skills_list(tmp_path):
+    # More skills than rows, so every row in view has a name and a value.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.SKILLS_FILE)
+    _, _, found = skills_parts()
+    x, y = box(found['SkillList'])[:2]
+    (_, name_width), _, (_, value_width) = skin.SKILLS_COLUMNS
+    rows = preview.LIST_ROWS['SkillList']
+    assert len(rows) > skin.SKILLS_ROWS and 'Percussion Instruments' in {row[0] for row in rows}
+
+    def ink(left, width, row):
+        top = skin.BORDER + y + skin.RAID_HEADER_HEIGHT + row * skin.TEXT_HEIGHT
+        part = image.crop((skin.BORDER + x + left, top, skin.BORDER + x + left + width, top + skin.TEXT_HEIGHT))
+        return [column for column in range(part.width)
+                if any(min(part.getpixel((column, r))[:3]) > 150 for r in range(part.height))]
+
+    for row in range(skin.SKILLS_ROWS):
+        assert ink(0, name_width, row) and ink(name_width, value_width, row), row
+    # The widest name, as drawn here, ends a padding or more before the value column.
+    assert preview.text_mask('Percussion Instruments', skin.TEXT_FONT).getbbox()[2] <= name_width - skin.PADDING
 
 
 @pytest.mark.parametrize('heading, label', [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')])

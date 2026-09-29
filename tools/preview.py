@@ -56,6 +56,12 @@ HARMFUL = {'Buff3'}  # the client paints these slots RedIconBackground
 SONGS = ["Selo's Accelerando", 'Chant of Battle', "Cassindra's Chorus of Clarity"]
 GEMS = ['Complete Healing', 'Divine Aura', 'Superior Healing', 'Symbol of Marzin', 'Resolution', None, 'Root', 'Gate']
 GEM_ICONS = [3, 11, 5, 21, 17, None, 30, 44]  # cells of gemicons01.tga
+# A spread of the spell book: (name, cell of gemicons01.tga) down the left page, then the right, the last slots empty.
+# One name is the longest any class can scribe, to show it fits.
+BOOK = [('Complete Healing', 3), ('Superior Healing', 5), ('Divine Aura', 11), ('Symbol of Marzin', 21),
+        ('Resolution', 17), ('Root', 30), ('Gate', 44), ('Transons Phantasmal Protection', 8),
+        ('Yaulp IV', 12), ('Word of Healing', 6), ('Spirit Armor', 25), ('Heroic Bond', 27), ('Stun', 14)]
+BOOK_PAGES = ('12', '13')
 # The hot bar's item and spell spots show only on a hot button holding one: one of each here, the rest macros.
 HOT_ITEMS = {'HB_InvSlot3': 20}
 HOT_SPELLS = {'HB_SpellGem2': 11}
@@ -75,7 +81,7 @@ LABELS = {
     **{135 + n: name for n, name in enumerate(SONGS)},
     **{60 + n: name for n, name in enumerate(GEMS) if name},
 }
-GAUGES = {1: 0.87, 2: 0.64, 3: 0.5, 6: 0.73, 7: 0.45, 8: 0.6, 11: 0.98, 12: 0.64, 13: 0.31, 14: 1.0, 16: 0.8,
+GAUGES = {1: 0.87, 2: 0.64, 3: 0.5, 6: 0.73, 7: 0.45, 8: 0.6, 9: 0.4, 11: 0.98, 12: 0.64, 13: 0.31, 14: 1.0, 16: 0.8,
           17: 0.8, 18: 0.45, 24: 0.5, 25: 0.5, 27: 0.6, 32: 0.25}
 GAUGE_TEXT = {11: 'Sebik', 12: 'Warrior', 13: 'Cleric', 14: 'Enchanter', 16: 'Gobaner', 17: 'Kibartik', 18: 'Labn'}
 BUTTON_TEXT = {
@@ -95,7 +101,9 @@ BUTTON_TEXT = {
 # Labels with no EQType whose text the client writes, by ScreenID. The other side of a trade is a placeholder, not a
 # character's name.
 LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_MyName': 'Sebik',
-              'LW_CorpseName': "a gnoll pup's corpse", 'BW_BankerName': 'Banker Denston'}
+              'LW_CorpseName': "a gnoll pup's corpse", 'BW_BankerName': 'Banker Denston',
+              **{f'SBW_SpellName{n}': name for n, (name, _) in enumerate(BOOK)},
+              'SBW_LeftPageNum': BOOK_PAGES[0], 'SBW_RightPageNum': BOOK_PAGES[1]}
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
@@ -110,6 +118,19 @@ LIST_ROWS = {
     'RAID_PlayerList': [[str(1 + n // 6), 'Sebik' if n == 0 else f'Player {n + 1}', '', CLASSES[n % len(CLASSES)],
                          'Raid Leader' if n == 0 else ('Group Leader' if n % 6 == 0 else '')] for n in range(18)],
     'RAID_NotInGroupPlayerList': [['', f'Player {n + 19}', '', CLASSES[n + 3], ''] for n in range(2)],
+    # A bard's skills in the client's order, each with its rank (the words in eqstr_en.txt) and value.
+    'SkillList': [[name, rank, str(value)] for name, rank, value in (
+        ('1H Blunt', 'Very Good', 182), ('1H Slashing', 'Very Good', 175), ('Archery', 'Below Avg', 45),
+        ('Bind Wound', 'Good', 150), ('Brass Instruments', 'Excellent', 190), ('Defense', 'Excellent', 200),
+        ('Dodge', 'Above Avg', 125), ('Dual Wield', 'Very Good', 180), ('Hand to Hand', 'Average', 100),
+        ('Offense', 'Master', 210), ('Parry', 'Above Avg', 130), ('Pick Lock', 'Average', 95),
+        ('Piercing', 'Very Good', 175), ('Riposte', 'Good', 145), ('Safe Fall', 'Average', 80),
+        ('Sense Heading', 'Above Avg', 120), ('Singing', 'Excellent', 200), ('Sneak', 'Average', 85),
+        ('Stringed Instruments', 'Excellent', 200), ('Swimming', 'Good', 150), ('Throwing', 'Bad', 30),
+        ('Tracking', 'Above Avg', 110), ('Wind Instruments', 'Excellent', 195), ('Fishing', 'Feeble', 20),
+        ('Baking', 'Bad', 32), ('Tailoring', 'Feeble', 15), ('Blacksmithing', 'Awful', 5), ('Fletching', 'Awful', 3),
+        ('Brewing', 'Feeble', 18), ('Alcohol Tolerance', 'Below Avg', 55), ('Begging', 'Awful', 10),
+        ('Jewelry Making', 'Awful', 4), ('Pottery', 'Awful', 2), ('Percussion Instruments', 'Excellent', 195))],
 }
 TITLES = {'ItemDisplayWindow': 'Fine Steel Long Sword', 'ChatWindow': 'Main'}  # names the client writes
 SLIDER = (12, 20)  # value, most
@@ -391,6 +412,8 @@ class Preview:
         self.text(clip, (0, 0), text, number(element, 'Font', 3), color(element, 'TextColor'), size[0], align)
         layer.alpha_composite(clip, at)
 
+    draw_statictext = draw_label  # no EQType, so its text is by ScreenID (the spellbook's names and page numbers)
+
     def draw_gauge(self, layer, element, at, size, *_):
         eq_type = number(element, 'EQType')
         clip = Image.new('RGBA', size, (0, 0, 0, 0))
@@ -421,7 +444,8 @@ class Preview:
             layer.alpha_composite(art.crop((0, 0, *size)), at)
         if templates.find('NormalDecal') is not None:
             kind = 'item' if screen_id in ITEM_DECALS else 'spell'
-            cell = 7 + 9 * effect if effect is not None else 14 if screen_id in ITEM_DECALS else None
+            cell = (7 + 9 * effect if effect is not None else 14 if screen_id in ITEM_DECALS
+                    else self.book_cell(screen_id))
             icon = self.icon(kind, cell, (number(element, 'DecalSize/CX'), number(element, 'DecalSize/CY')))
             if icon is not None:
                 layer.alpha_composite(icon, (at[0] + number(element, 'DecalOffset/X'),
@@ -441,6 +465,12 @@ class Preview:
         labels = [e for e in defined.values() if e.tag == 'Label' and e.findtext('ScreenID') == f'{screen_id}Label']
         eq_type = labels[0].findtext('EQType') if labels else None
         return int(screen_id[4:]) if eq_type and LABELS.get(int(eq_type)) else None
+
+    @staticmethod
+    def book_cell(screen_id):
+        """A spell book slot's icon, or None for an empty slot or any other button."""
+        n = screen_id[len('SBW_Spell'):]
+        return BOOK[int(n)][1] if screen_id.startswith('SBW_Spell') and n.isdigit() and int(n) < len(BOOK) else None
 
     @staticmethod
     def item_cell(eq_type, screen_id):
