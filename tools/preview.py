@@ -110,7 +110,7 @@ LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_M
               'SBW_LeftPageNum': BOOK_PAGES[0], 'SBW_RightPageNum': BOOK_PAGES[1],
               # The AA window's: how much XP goes to AA, your points, those spent and the selected ability's timer.
               'ExpCount': '100%', 'CurrentCount': '12', 'TotalCount': '145', 'Timer': 'Ready'}
-EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
+EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup', 'NameInput': 'Player 10'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
     'CWChatOutput': "You say, 'Hail, a gnoll pup'\nA gnoll pup says, 'Grrr!'\nSebik tells the group, 'incoming'\n"
@@ -128,6 +128,9 @@ LIST_ROWS = {
     'RAID_PlayerList': [[str(1 + n // 6), 'Sebik' if n == 0 else f'Player {n + 1}', '', CLASSES[n % len(CLASSES)],
                          'Raid Leader' if n == 0 else ('Group Leader' if n % 6 == 0 else '')] for n in range(18)],
     'RAID_NotInGroupPlayerList': [['', f'Player {n + 19}', '', CLASSES[n + 3], ''] for n in range(2)],
+    # The friends window's lists, fewer than they show, as the client lists the names you added.
+    'FriendsList': [[f'Player {n}'] for n in range(2, 10)],
+    'IgnoreList': [['Player 21']],
     # A bard's skills in the client's order, each with its rank (the words in eqstr_en.txt) and value.
     'SkillList': [[name, rank, str(value)] for name, rank, value in (
         ('1H Blunt', 'Very Good', 182), ('1H Slashing', 'Very Good', 175), ('Archery', 'Below Avg', 45),
@@ -689,9 +692,14 @@ class Preview:
             if art is not None:
                 layer.alpha_composite(art, (at[0] + skin.TAB_OFFSET + shares * i // len(pages) + skin.TAB_ICON_INSET,
                                             at[1] + skin.TAB_TOP + (0 if i == page else skin.TAB_SHIFT)))
-        area = (size[0] - 2 * skin.LEFT, size[1] - skin.PAGE_TOP)
+        # The pages start the tab border's LeftBottom height above the tab row's bottom, down by the page border's Top
+        # height, which differs between our page borders (see LIST_PAGE_BORDER).
+        border = self.templates.get(element.findtext('PageBorderTemplate') or '')
+        top_piece = self.art(border.findtext('Top')) if border is not None else None
+        top = skin.TAB_ROW_HEIGHT - skin.TAB_OVERLAP + (top_piece.height if top_piece is not None else skin.PAGE_TOP_GAP)
+        area = (size[0] - 2 * skin.LEFT, size[1] - top)
         self.pieces(layer, [p.text for p in pages[page].findall('Pieces')], defined,
-                    (at[0] + skin.LEFT, at[1] + skin.PAGE_TOP), area, state, page)
+                    (at[0] + skin.LEFT, at[1] + top), area, state, page)
 
     # A window
 

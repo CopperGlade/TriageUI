@@ -37,6 +37,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Inventory | `EQUI_Inventory.xml` |
 | Tracking | `EQUI_TrackingWnd.xml` |
 | Alternate Advancement | `EQUI_AAWindow.xml` |
+| Friends | `EQUI_FriendsWnd.xml` |
 
 ## To do: everyday
 
@@ -46,7 +47,6 @@ Roughly in order of how much a player sees them.
 |---|---|
 | Inspect | `EQUI_InspectWnd.xml` |
 | Raid Options | `EQUI_RaidOptionsWindow.xml` |
-| Friends | `EQUI_FriendsWnd.xml` |
 
 ## To do: occasional
 

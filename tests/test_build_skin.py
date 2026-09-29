@@ -32,7 +32,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
               skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE, skin.INVENTORY_FILE,
-              skin.TRACKING_FILE, skin.AA_FILE]
+              skin.TRACKING_FILE, skin.AA_FILE, skin.FRIENDS_FILE]
 
 
 @functools.cache
@@ -517,7 +517,7 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
                      'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow', 'TrackingWnd',
-                     'AAWindow'}
+                     'AAWindow', 'FriendsWindow'}
     # The slot backgrounds the client paints by name are redefined on purpose, and the base's own definitions taken
     # out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -1369,7 +1369,8 @@ def test_actions_tab_and_page_borders_have_every_piece_the_client_reads():
     root = everything()
     frames, anims = items(root, 'FrameTemplate'), items(root, 'Ui2DAnimation')
     atlas = decode(files()[skin.PIECES_TEXTURE])
-    for name, stock in ((skin.TAB_BORDER, STOCK_TAB_BORDER), (skin.PAGE_BORDER, STOCK_PAGE_BORDER)):
+    for name, stock in ((skin.TAB_BORDER, STOCK_TAB_BORDER), (skin.PAGE_BORDER, STOCK_PAGE_BORDER),
+                        (skin.LIST_PAGE_BORDER, STOCK_PAGE_BORDER)):
         sides = [e for e in frames[name] if not e.tag.startswith('Overlap')]
         assert [e.tag for e in sides] == stock, name
         for e in sides:
@@ -4201,7 +4202,7 @@ def test_aa_tabs_are_the_stock_pages_with_their_names_on_them():
         assert (page.findtext('TabIcon'), page.findtext('TabIconActive')) == (f'TUI_Tab{art}Normal',
                                                                               f'TUI_Tab{art}Pressed')
         assert page.findtext('Style_Transparent') == 'true' and page.findtext('Style_Border') == 'false'
-        (left, top), ink = skin.AA_TAB_INK[name]
+        (left, top), ink = skin.TAB_INK[name]
         assert {len(row) for row in ink} == {len(ink[0])} and abs(left + len(ink[0]) / 2 - width / 2) <= 0.5
         lit = {}
         for state, shift in (('Normal', 0), ('Pressed', skin.TAB_SHIFT)):
@@ -4366,6 +4367,184 @@ def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
     assert boxes[-1][1] + boxes[-1][3] == description[1] + description[3] == skin.AA_BOTTOM
     assert box(window)[3] - (b + skin.AA_BOTTOM) == skin.PADDING
     assert boxes[0][1] - (skin.AA_NUMBERS_TOP + len(skin.AA_NUMBERS) * skin.TEXT_HEIGHT) >= skin.PADDING
+
+
+# The friends window
+
+# Every ScreenID of the stock window by its page, all of which eqgame.exe's strings name, and the tab box's. The stock
+# pages have no ScreenID; ours are ours.
+STOCK_FRIENDS = {'FriendsPage': ['FriendsList', 'NameInput', 'AddButton', 'DeleteButton', 'ContactButton', 'WhoButton'],
+                 'IgnorePage': ['IgnoreList', 'IgnoreNameInput', 'IgnoreAddButton', 'IgnoreDeleteButton']}
+
+
+def friends_parts():
+    """The friends window file, its window, its tab box, and its pages as {page's ScreenID: {ScreenID (or item, where
+    it has none): part}}, the parts in the page's order."""
+    root, window = screen(skin.FRIENDS_FILE)
+    defined = {e.get('item'): e for e in root}
+    tabs = direct_pieces(root, window)[0]
+    pages = {}
+    for p in tabs.findall('Pages'):
+        page = defined[p.text]
+        pages[page.findtext('ScreenID')] = {defined[piece.text].findtext('ScreenID') or piece.text: defined[piece.text]
+                                            for piece in page.findall('Pieces')}
+    return root, window, tabs, pages
+
+
+def test_friends_window_keeps_every_control_the_stock_one_has():
+    # A fixed size with no title bar or close box (the user's pick), so it drags by its background. Every stock control
+    # is there under its ScreenID, of the stock kind, on its stock page.
+    root, window, tabs, pages = friends_parts()
+    assert window.get('item') == 'FriendsWindow' and window.findtext('Text') == 'Friends Window'
+    assert window.findtext('Style_Titlebar') == window.findtext('Style_Sizable') == 'false'
+    assert window.findtext('Style_Closebox') == 'false' and window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.FRIENDS_WIDTH, skin.FRIENDS_HEIGHT) == (174, 269)
+    assert tabs.tag == 'TabBox' and tabs.findtext('ScreenID') == 'Subwindows'
+    assert list(pages) == list(STOCK_FRIENDS)
+    kinds = {'List': 'Listbox', 'Input': 'Editbox', 'Button': 'Button'}
+    for page, controls in STOCK_FRIENDS.items():
+        shown = {screen_id: part.tag for screen_id, part in pages[page].items() if not screen_id.startswith('TUI_')}
+        assert shown == {c: next(kind for end, kind in kinds.items() if c.endswith(end)) for c in controls}, page
+    ids = [e.findtext('ScreenID') for e in root if e.findtext('ScreenID')]
+    stock = [c for controls in STOCK_FRIENDS.values() for c in controls] + ['Subwindows']
+    assert sorted(ids) == sorted(stock + list(STOCK_FRIENDS)) and len(set(ids)) == len(ids)
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / skin.FRIENDS_FILE
+        if folder and path.is_file():
+            assert sorted(re.findall(r'<ScreenID>\s*(\w+)\s*</ScreenID>', path.read_text(encoding='latin-1'))) == sorted(
+                stock)
+            break
+
+
+def test_friends_tabs_are_the_pages_names_like_the_aa_windows():
+    # Each tab is the Actions tabs' toggle with no icon and the page's name painted on, as the AA window's (the user's
+    # pick: words; see TAB_INK), centered, the open one lit. No tooltips: the names are on the tabs.
+    root, _, tabs, _ = friends_parts()
+    pages = [items(root, 'Page')[p.text] for p in tabs.findall('Pages')]
+    assert tabs.findtext('TabBorderTemplate') == skin.TAB_BORDER
+    assert tabs.findtext('PageBorderTemplate') == skin.LIST_PAGE_BORDER
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    for page, (_, name, *_), width in zip(pages, skin.FRIENDS_PAGES, skin.FRIENDS_TAB_WIDTHS):
+        assert page.find('TabText') is None and page.find('TooltipReference') is None
+        assert (page.findtext('TabIcon'), page.findtext('TabIconActive')) == (f'TUI_Tab{name}Normal',
+                                                                              f'TUI_Tab{name}Pressed')
+        assert page.findtext('Style_Transparent') == 'true' and page.findtext('Style_Border') == 'false'
+        (left, _), ink = skin.TAB_INK[name]
+        assert abs(left + len(ink[0]) / 2 - width / 2) <= 0.5
+        lit = {}
+        for state, shift in (('Normal', 0), ('Pressed', skin.TAB_SHIFT)):
+            full = cut(atlas, anims[f'TUI_Tab{name}{state}'])
+            assert full.size == (width, skin.TAB_ART_HEIGHT)
+            spot = (0, shift, width, shift + skin.TOGGLE_SIZE)
+            tab = full.crop(spot)
+            assert tab.tobytes() == as_image(skin.tab_art((), state, width, name)).crop(spot).tobytes(), (name, state)
+            full.paste((0, 0, 0, 0), spot)
+            assert {p[3] for p in pixels(full)} == {0}
+            lit[state] = sum(sum(p[:3]) * p[3] for p in pixels(tab))
+        assert lit['Pressed'] > lit['Normal'], name
+    assert [name for _, name, *_ in skin.FRIENDS_PAGES] == ['Friends', 'Ignored']
+
+
+def test_list_page_border_is_the_page_borders_with_a_shorter_top_row():
+    # Pages that open with a list with no heading start higher, by the room over a line's ink that a padding already
+    # counts, so the first name's ink sits a padding under the divider.
+    assert skin.PAGE_TOP - skin.LIST_PAGE_TOP == skin.PADDING - skin.DIVIDER_TO_NAME == 3
+    for side, (width, height) in skin.PAGE_BORDER_PIECES.items():
+        shorter = side in ('TopLeft', 'Top', 'TopRight')
+        assert skin.LIST_PAGE_BORDER_PIECES[side] == (width, height - 3 if shorter else height), side
+
+
+def test_friends_window_follows_the_spacing_standard():
+    root, window, tabs, pages = friends_parts()
+    b = skin.BORDER
+    width, height = box(window)[2:]
+    # As wide as the Actions window, its tab box laid out the same way, running TAB_OVERHANG past the inside on the
+    # right, where only the last tab's padding and the page border's side are.
+    assert width == skin.ACTIONS_WIDTH == 174
+    assert box(tabs) == (0, 0, width - 2 * b + skin.TAB_OVERHANG, height - 2 * b)
+    spots, cut_at, (left, top, right, bottom) = tab_box_layout(tabs, [items(root, 'Page')[p.text]
+                                                                      for p in tabs.findall('Pages')])
+    toggles = [(x, y + skin.TAB_SHIFT) for x, y in spots]
+    edges = [(b + x, b + x + w) for (x, _), w in zip(toggles, skin.FRIENDS_TAB_WIDTHS)]
+    # The two tabs fill the row, a padding apart and from the window's sides, a pixel lower than the padding (see
+    # TAB_TOP), never cut off.
+    assert edges[0][0] == skin.PADDING and width - edges[-1][1] == skin.PADDING
+    assert edges[1][0] - edges[0][1] == skin.PADDING and skin.FRIENDS_TAB_WIDTHS == [78, 78]
+    assert [b + x for x in skin.FRIENDS_TAB_LEFTS] == [edge[0] for edge in edges]
+    assert {b + y for _, y in toggles} == {skin.PADDING + 1}
+    assert toggles[0][1] + skin.TOGGLE_SIZE <= cut_at
+    # The Actions window's divider a padding under the tabs, across the content row. The lists have no heading, so the
+    # pages start where the first name's ink, TEXT_INK_TOP into its line, is a padding under it (rounded up to a whole
+    # pixel, as the tracking list's), a padding in from the window's sides and bottom.
+    divider = direct_pieces(root, window)[-1]
+    dx, dy, dw, dh = box(divider)
+    assert divider.findtext('Animation') == 'TUI_ActionsDivider' and (b + dx, dw, dh) == (skin.PADDING, right - left, 1)
+    assert dy - (toggles[0][1] + skin.TOGGLE_SIZE) == skin.PADDING
+    gap = top - (dy + dh)
+    assert gap == skin.DIVIDER_TO_NAME and gap - 1 < skin.PADDING - skin.TEXT_INK_TOP <= gap
+    assert b + left == skin.PADDING == width - (b + right) == height - (b + bottom)
+    assert (right - left, bottom - top) == (skin.FRIENDS_CONTENT_WIDTH, skin.FRIENDS_PAGE_HEIGHT)
+    content = right - left
+    spots_by_page = []
+    for (_, _, list_id, field_id, add_id, delete_id, more), parts in zip(skin.FRIENDS_PAGES, pages.values()):
+        names, strip, add = box(parts[list_id]), box(parts[f'TUI_FW_{field_id}Field']), box(parts[add_id])
+        row = [box(parts[delete_id])] + [box(parts[button_id]) for button_id, _ in more]
+        # The list fills the page's top, 12 names tall (a name's line each).
+        assert names == (0, 0, content, skin.FRIENDS_ROWS * skin.TEXT_HEIGHT) and skin.FRIENDS_ROWS == 12
+        # The field and Add a padding under it, Add a padding after the field and ending at the row's right, both as
+        # tall as a dialog's button.
+        assert strip[1] == add[1] == names[3] + skin.BUTTON_ROW_GAP and strip[0] == 0
+        assert add[0] - (strip[0] + strip[2]) == skin.BUTTON_GAP and add[0] + add[2] == content
+        assert strip[3] == skin.INPUT_HEIGHT == add[3] == skin.TEXT_BUTTON_HEIGHT
+        # The buttons a padding under them, in thirds of the row a padding apart, Add over the last; the page's bottom
+        # (a padding over the window's edge) under them.
+        assert {r[1] for r in row} == {strip[1] + strip[3] + skin.BUTTON_ROW_GAP}
+        assert [r[0] for r in row] == list(skin.FRIENDS_LEFTS[:len(row)]) and {r[2] for r in row} == {add[2]} == {50}
+        assert add[0] == skin.FRIENDS_LEFTS[-1] and row[0][1] + row[0][3] == bottom - top
+        assert all(b2[0] - (a[0] + a[2]) == skin.BUTTON_GAP for a, b2 in zip(row, row[1:]))
+        spots_by_page.append((strip, add, row[0]))
+    # The field, Add and Delete are in the same spots on both tabs; the friends' Who ends at the row's right.
+    assert spots_by_page[0] == spots_by_page[1]
+    who = box(pages['FriendsPage']['WhoButton'])
+    assert who[0] + who[2] == content
+
+
+def test_friends_lists_are_one_column_of_names_with_no_heading():
+    # The stock lists' one column, 150px, and our scrollbar fill the content row. Like the stock lists they have no
+    # heading, so no heading strip either.
+    _, _, _, pages = friends_parts()
+    for (_, _, list_id, *_), parts in zip(skin.FRIENDS_PAGES, pages.values()):
+        listbox = parts[list_id]
+        [column] = listbox.findall('Columns')
+        assert column.find('Header') is None and not column.findtext('Heading')
+        assert number(column, 'Width') == 150 == skin.FRIENDS_CONTENT_WIDTH - skin.SCROLL_WIDTH
+        assert listbox.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+        assert listbox.findtext('Style_VScroll') == 'true' and listbox.findtext('Style_Border') == 'false'
+        assert listbox.findtext('Font') == str(skin.TEXT_FONT) and rgb(listbox, 'TextColor') == skin.TEXT_RGB
+        assert listbox.find('TooltipReference') is None
+
+
+def test_friends_fields_are_the_quantity_windows_and_the_buttons_the_confirmation_dialogs_kind():
+    # Each name field is the quantity window's number field: the strip, then the see-through box on it, inset as far,
+    # in the text's color. The buttons have the stock words and no tooltips (the stock ones have none).
+    _, _, _, pages = friends_parts()
+    for (_, _, _, field_id, add_id, delete_id, more), parts in zip(skin.FRIENDS_PAGES, pages.values()):
+        strip, field = parts[f'TUI_FW_{field_id}Field'], parts[field_id]
+        assert strip.tag == 'Screen' and strip.findtext('DrawTemplate') == skin.FIELD_TEMPLATE
+        assert strip.findtext('Style_Border') == 'true' and list(parts).index(strip.get('item')) < list(parts).index(
+            field_id)
+        fx, fy, fw, fh = box(strip)
+        assert box(field) == (fx + skin.FIELD_PADDING, fy, fw - 2 * skin.FIELD_PADDING, fh)
+        assert field.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+        assert field.findtext('Style_Transparent') == 'true' and field.findtext('Style_Border') == 'false'
+        assert field.findtext('Font') == str(skin.TEXT_FONT) and rgb(field, 'TextColor') == skin.TEXT_RGB
+        check_confirmation_button(parts[add_id], 'Add')
+        check_confirmation_button(parts[delete_id], 'Delete')
+        for button_id, name in more:
+            check_confirmation_button(parts[button_id], name)
+    assert skin.FRIENDS_PAGES[0][-1] == (('ContactButton', 'Contact'), ('WhoButton', 'Who'))
+    assert skin.FRIENDS_PAGES[1][-1] == ()
 
 
 # Building
@@ -4651,19 +4830,23 @@ def test_close_is_painted_as_the_preview_draws_a_buttons_own_text():
                                    for y in range(top, bottom))
 
 
-def test_aa_tab_names_are_painted_as_the_preview_draws_a_buttons_own_text():
-    # Like Close's: each AA tab's name is the ink's coverage as this tool draws a button's own text in font 2 centered on
-    # a button the tab's size, at the 16 alpha steps. The widest, "PoP Advance", has a padding either side.
+def test_tab_names_are_painted_as_the_preview_draws_a_buttons_own_text():
+    # Like Close's: each AA and friends tab's name is the ink's coverage as this tool draws a button's own text in font 2
+    # centered on a button the tab's size, at the 16 alpha steps. The widest AA name, "PoP Advance", has a padding either
+    # side.
     preview = preview_module()
     if not any(Path(path).is_file() for path in preview.ARIAL):
         pytest.skip('no Arial to draw font 2 with')
-    for (_, _, name, _), width in zip(skin.AA_PAGES, skin.AA_TAB_WIDTHS):
+    tabs = [(name, width) for (_, _, name, _), width in zip(skin.AA_PAGES, skin.AA_TAB_WIDTHS)]
+    tabs += [(name, width) for (_, name, *_), width in zip(skin.FRIENDS_PAGES, skin.FRIENDS_TAB_WIDTHS)]
+    assert sorted(name for name, _ in tabs) == sorted(skin.TAB_INK)
+    for name, width in tabs:
         mask = preview.button_text_mask(name, (width, skin.TOGGLE_SIZE), skin.ACTION_FONT)
         left, top, right, bottom = mask.getbbox()
-        assert skin.AA_TAB_INK[name] == ((left, top), tuple(
+        assert skin.TAB_INK[name] == ((left, top), tuple(
             ''.join(f'{round(mask.getpixel((x, y)) / skin.STEP):x}' for x in range(left, right))
             for y in range(top, bottom))), name
-    (left, _), ink = skin.AA_TAB_INK['PoP Advance']
+    (left, _), ink = skin.TAB_INK['PoP Advance']
     assert left == skin.AA_TAB_WIDTH - (left + len(ink[0])) == skin.PADDING
 
 
@@ -4989,6 +5172,37 @@ def test_preview_fills_in_the_aa_window(tmp_path):
     if not any(Path(path).is_file() for path in preview.ARIAL):
         pytest.skip('no Arial to draw font 3 with')
     assert preview.text_mask(widest, skin.TEXT_FONT).getbbox()[2] <= name_width - skin.PADDING
+
+
+def test_preview_fills_in_the_friends_window(tmp_path):
+    # One look per tab, each with its tab lit and its list's sample names from the top of the page, which starts where
+    # its page border puts it (see LIST_PAGE_BORDER), and the friends' tab's sample name in its field.
+    preview = preview_module()
+    images = preview.Preview(files(), eq_dir=tmp_path).render(skin.FRIENDS_FILE)
+    assert len(images) == len(skin.FRIENDS_PAGES)
+    b = skin.BORDER
+
+    def crop(image, x, y, width, height):
+        return image.crop((b + x, b + y, b + x + width, b + y + height))
+
+    def inked(image, x, y, width, height):
+        return any(min(p[:3]) > 150 for p in pixels(crop(image, x, y, width, height)))
+
+    names_width = skin.FRIENDS_CONTENT_WIDTH - skin.SCROLL_WIDTH
+    field_top = skin.LIST_PAGE_TOP + skin.FRIENDS_FIELD_TOP
+    for n, (image, (_, _, list_id, field_id, *_)) in enumerate(zip(images, skin.FRIENDS_PAGES)):
+        rows = preview.LIST_ROWS[list_id]
+        assert 0 < len(rows) < skin.FRIENDS_ROWS
+        for row in range(skin.FRIENDS_ROWS):
+            top = skin.LIST_PAGE_TOP + row * skin.TEXT_HEIGHT
+            assert inked(image, skin.LEFT, top, names_width, skin.TEXT_HEIGHT) == (row < len(rows)), (list_id, row)
+        # Inside the field's outline.
+        typed = inked(image, skin.LEFT + skin.FIELD_PADDING, field_top + 1,
+                      skin.FRIENDS_FIELD_WIDTH - 2 * skin.FIELD_PADDING, skin.INPUT_HEIGHT - 2)
+        assert typed == (field_id in preview.EDIT_TEXT), field_id
+        # The open tab differs from the same tab while the other page is open; both land at TOGGLES_TOP.
+        spot = (skin.FRIENDS_TAB_LEFTS[n], skin.TOGGLES_TOP, skin.FRIENDS_TAB_WIDTHS[n], skin.TOGGLE_SIZE)
+        assert crop(image, *spot).tobytes() != crop(images[1 - n], *spot).tobytes(), list_id
 
 
 def test_preview_picks_windows_by_words_from_their_file_names():

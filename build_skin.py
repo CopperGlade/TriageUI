@@ -516,6 +516,12 @@ PAGE_BORDER_PIECES = {
     'BottomRight': (PAGE_RIGHT, LEFT), 'Bottom': (1, LEFT), 'BottomLeft': (LEFT, LEFT),
     'LeftTop': (LEFT, 1), 'Left': (LEFT, 1), 'LeftBottom': (LEFT, 1),
 }
+# Pages that open with a list with no heading (the friends window's) start higher, under a page border whose top row is
+# that much shorter: the first name's ink a padding under the divider, as the tracking list's is under its dropdown.
+LIST_PAGE_BORDER = 'TUI_ListPageBorder'
+LIST_PAGE_TOP = TAB_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME
+LIST_PAGE_BORDER_PIECES = {side: (width, height - (PAGE_TOP - LIST_PAGE_TOP) if side.startswith('Top') else height)
+                           for side, (width, height) in PAGE_BORDER_PIECES.items()}
 for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
     BUTTON_LABELS[(_width, TEXT_BUTTON_HEIGHT)] = ('',)
 # The Effects and Songs windows, as EQ Triage's tables: a row per slot, the spell's icon and then its
@@ -1495,10 +1501,10 @@ AA_TAB_WIDTH = 64 + 2 * PADDING
 AA_LIST_WIDTH = len(AA_PAGES) * (AA_TAB_WIDTH + BUTTON_GAP) - BUTTON_GAP
 AA_TAB_WIDTHS, AA_TAB_LEFTS = tab_row(AA_LIST_WIDTH, len(AA_PAGES))
 AA_TAB_BOX_WIDTH = AA_LIST_WIDTH + BUTTON_GAP + 2 * TAB_CORNER
-# Each tab's name, painted on in the Actions tabs' icons' color, since where the tab box would write a page's TabText
-# isn't known: the ink's coverage as tools/preview.py draws font 2 centered on the tab, as for Close (see CLOSE_INK), as
-# (its top left in the tab, rows).
-AA_TAB_INK = {
+# Each tab's name (the AA and friends windows'), painted on in the Actions tabs' icons' color, since where the tab box
+# would write a page's TabText isn't known: the ink's coverage as tools/preview.py draws font 2 centered on the tab, as
+# for Close (see CLOSE_INK), as (its top left in the tab, rows). The friends window's tabs are 78px wide, the AA's 76.
+TAB_INK = {
     'General': ((19, 10), (
         '02aeeb3000000000000000000000000000058',
         '0d7116c000000000000000000000000000058',
@@ -1548,6 +1554,26 @@ AA_TAB_INK = {
         '00000000000000000000000000000000000000000000003c00',
         '0000000000000000000000000000000000000000000006e300',
     )),
+    'Friends': ((22, 10), (
+        '3ffffa000580000000000000000d000000',
+        '3c0000000000000000000000000d000000',
+        '3c00005ae8809ed305bde601be8d02cfc2',
+        '3ffff25c1586913d05c14d07916d07a200',
+        '3c0000580589ffff15800d09400d02bfd3',
+        '3c0000580587910005800d07a15d000188',
+        '3c0000580580aee905800d00af9c05dfc2',
+    )),
+    'Ignored': ((21, 10), (
+        '1d00000000000000000000000000000000d',
+        '1d00000000000000000000000000000000d',
+        '1d01be9c05bde600aed405ae59ed301be8d',
+        '1d07915d05c14d07a13d15c17913d07916d',
+        '1d0a400d05800d09400b25809ffff19400d',
+        '1d07915d05800d07a13e15807910007a15d',
+        '1d01ae8d05800d01aed505800aee900af9c',
+        '0006906b000000000000000000000000000',
+        '0001bfd3000000000000000000000000000',
+    )),
 }
 # Each list's three columns, in the client's order: (heading, width). The rank and cost are each their widest text in
 # font 3 (Arial 12px) and a padding: "10/10" (31px; the client writes "%d/%d") and the heading "Cost" (25). The names
@@ -1593,6 +1619,41 @@ AA_VALUE_WIDTH = 48  # "00:00:00" in font 3 (Arial 12px): the timer's "%02d:%02d
 AA_BUTTONS = (('TrainButton', 'Train'), ('HotButton', 'Hotkey'), ('DoneButton', 'Done'))
 AA_BUTTONS_TOP = AA_BOTTOM - len(AA_BUTTONS) * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP) + BUTTON_ROW_GAP
 add_text_buttons((AA_COLUMN_WIDTH,))
+# The friends window: your friends and the players you ignore, each on a tab over its list, with the name field and Add
+# under the list, then Delete, and on the friends' tab Contact and Who. eqgame.exe's strings name the tab box
+# (Subwindows), both lists, both name fields and every button; the stock pages have no ScreenID. The user's pick
+# (2026-09-29, from a mockup): the tabs as words, like the AA window's, as wide as the Actions window, a fixed size with
+# no title bar, so it drags by its background.
+FRIENDS_FILE = 'EQUI_FriendsWnd.xml'
+# The stock pages in the stock order: (page's ScreenID, name on its tab and its art's name, the list, the name field,
+# Add, Delete, and the buttons after Delete as (ScreenID, name)). The pages' ScreenIDs are ours.
+FRIENDS_PAGES = (
+    ('FriendsPage', 'Friends', 'FriendsList', 'NameInput', 'AddButton', 'DeleteButton',
+     (('ContactButton', 'Contact'), ('WhoButton', 'Who'))),
+    ('IgnorePage', 'Ignored', 'IgnoreList', 'IgnoreNameInput', 'IgnoreAddButton', 'IgnoreDeleteButton', ()),
+)
+FRIENDS_WIDTH = ACTIONS_WIDTH
+FRIENDS_CONTENT_WIDTH = ACTIONS_CONTENT_WIDTH
+FRIENDS_TAB_WIDTHS, FRIENDS_TAB_LEFTS = tab_row(FRIENDS_CONTENT_WIDTH, len(FRIENDS_PAGES))
+# Each list with no heading, like the stock ones, so its page starts higher (see LIST_PAGE_BORDER): one column, the
+# names, and the scrollbar across the content row, 12 names in view.
+FRIENDS_ROWS = 12
+FRIENDS_LIST_HEIGHT = FRIENDS_ROWS * TEXT_HEIGHT
+FRIENDS_COLUMNS = (('', FRIENDS_CONTENT_WIDTH - SCROLL_WIDTH),)
+# Under the list the name field and Add, then Delete, Contact and Who, in thirds of the row: the field spans two, Add
+# is over Who, and Delete is in the same spot on both tabs. The field is the quantity window's; the buttons are the
+# confirmation dialog's kind, with no tooltips (the stock ones have none).
+FRIENDS_COLUMN_COUNT = 3
+_FRIENDS_SPAN = FRIENDS_CONTENT_WIDTH - (FRIENDS_COLUMN_COUNT - 1) * BUTTON_GAP
+FRIENDS_THIRDS = tuple(_FRIENDS_SPAN * (c + 1) // FRIENDS_COLUMN_COUNT - _FRIENDS_SPAN * c // FRIENDS_COLUMN_COUNT
+                       for c in range(FRIENDS_COLUMN_COUNT))
+FRIENDS_LEFTS = tuple(sum(FRIENDS_THIRDS[:c]) + c * BUTTON_GAP for c in range(FRIENDS_COLUMN_COUNT))
+FRIENDS_FIELD_TOP = FRIENDS_LIST_HEIGHT + BUTTON_ROW_GAP
+FRIENDS_FIELD_WIDTH = FRIENDS_LEFTS[-1] - BUTTON_GAP
+FRIENDS_BUTTONS_TOP = FRIENDS_FIELD_TOP + INPUT_HEIGHT + BUTTON_ROW_GAP
+FRIENDS_PAGE_HEIGHT = FRIENDS_BUTTONS_TOP + TEXT_BUTTON_HEIGHT
+FRIENDS_HEIGHT = 2 * BORDER + LIST_PAGE_TOP + FRIENDS_PAGE_HEIGHT + LEFT
+add_text_buttons(FRIENDS_THIRDS)
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -2221,10 +2282,11 @@ def toggle_art(coverage, state, size=TOGGLE_SIZE, height=None):
 def tab_art(coverage, state, width, name=None):
     """An Actions window tab, width wide: the icon's toggle in one state at the top of TAB_ART_HEIGHT of clear,
     or TAB_SHIFT lower for an open page's tab (Pressed), since the client draws the others that much lower. With name,
-    an AA window tab: no icon, and the page's name painted on in the icon's color and brightness (see AA_TAB_INK)."""
+    an AA or friends window tab: no icon, and the page's name painted on in the icon's color and brightness (see
+    TAB_INK)."""
     toggle = toggle_art(coverage, state, width, TOGGLE_SIZE)
     if name:
-        at, name_ink = AA_TAB_INK[name]
+        at, name_ink = TAB_INK[name]
         toggle = snapped_art(painted(toggle, name_ink, at, (*ICON_RGB, ICON_LOOKS[state][2])))
     art = Texture(width, TAB_ART_HEIGHT)
     art.paste(toggle, 0, TAB_SHIFT if state == 'Pressed' else 0)
@@ -2522,10 +2584,14 @@ def pieces():
            for (*_, icon), width in zip(ACTIONS_PAGES, TAB_WIDTHS) for state in ('Normal', 'Pressed')},
         **{f'TabBorder{side}': clear_texture(*size) for side, size in TAB_BORDER_PIECES.items()},
         **{f'PageBorder{side}': clear_texture(*size) for side, size in PAGE_BORDER_PIECES.items()},
+        **{f'ListPageBorder{side}': clear_texture(*size) for side, size in LIST_PAGE_BORDER_PIECES.items()},
         # The AA window's tabs, their names on them, and the row divider at its list's width (see AA_FILE).
         **{f'Tab{art}{state}': tab_art((), state, width, name)
            for (_, _, name, art), width in zip(AA_PAGES, AA_TAB_WIDTHS) for state in ('Normal', 'Pressed')},
         'AADivider': Texture(AA_LIST_WIDTH, 1, ROW_DIVIDER_RGBA),
+        # The friends window's tabs, their names on them (see FRIENDS_FILE).
+        **{f'Tab{name}{state}': tab_art((), state, width, name)
+           for (_, name, *_), width in zip(FRIENDS_PAGES, FRIENDS_TAB_WIDTHS) for state in ('Normal', 'Pressed')},
         # The compass's strip, which the game slides, and what it draws over it (see COMPASS_FILE).
         'CompassStrip': compass_strip(),
         'CompassOverlay': compass_overlay(),
@@ -2740,6 +2806,8 @@ def shared_definitions(rects):
              TAB_BORDER),
         node('FrameTemplate', [node(side, f'TUI_PageBorder{side}') for side in PAGE_BORDER_PIECES] + overlaps(),
              PAGE_BORDER),
+        node('FrameTemplate', [node(side, f'TUI_ListPageBorder{side}') for side in LIST_PAGE_BORDER_PIECES]
+             + overlaps(), LIST_PAGE_BORDER),
         # A list column's heading strip (see LIST_HEADER).
         node('FrameTemplate', [node(side, 'TUI_ListHeaderWash') for side in ('Left', 'Middle', 'Right')] + overlaps(),
              LIST_HEADER),
@@ -4209,6 +4277,59 @@ def aa_window():
                   inner=[*inner, percent])
 
 
+def friends_window():
+    """Your friends and the players you ignore, each on a tab over its list, a divider under the tabs, and under each
+    list the name field and Add, then Delete, and on the friends' tab Contact and Who (see FRIENDS_FILE). Positions on a
+    page are from its top left, which the tab box puts under the divider and a padding in from the window's left (see
+    LIST_PAGE_BORDER)."""
+    inner = []
+    for screen_id, name, list_id, field_id, add_id, delete_id, more in FRIENDS_PAGES:
+        names = listbox(f'TUI_FW_{list_id}', list_id, (0, 0, FRIENDS_CONTENT_WIDTH, FRIENDS_LIST_HEIGHT), None,
+                        FRIENDS_COLUMNS)
+        # The field as the quantity window's: a child window drawing the strip, and the see-through name box on it,
+        # inset FIELD_PADDING each side.
+        strip = node('Screen', [
+            node('RelativePosition', True),
+            point('Location', 0, FRIENDS_FIELD_TOP),
+            size(FRIENDS_FIELD_WIDTH, INPUT_HEIGHT),
+            node('DrawTemplate', FIELD_TEMPLATE),
+            node('Style_Transparent', False),
+            node('Style_Border', True),
+        ], f'TUI_FW_{field_id}Field')
+        field = node('Editbox', [
+            node('ScreenID', field_id),
+            node('Font', TEXT_FONT),
+            node('DrawTemplate', EDIT_TEMPLATE),
+            node('RelativePosition', True),
+            point('Location', FIELD_PADDING, FRIENDS_FIELD_TOP),
+            size(FRIENDS_FIELD_WIDTH - 2 * FIELD_PADDING, INPUT_HEIGHT),
+            node('Style_Border', False),
+            node('Style_Transparent', True),
+            color('TextColor', TEXT_RGB),
+        ], f'TUI_FW_{field_id}')
+        add = button(f'TUI_FW_{add_id}', add_id, '', FRIENDS_LEFTS[-1], FRIENDS_FIELD_TOP, FRIENDS_THIRDS[-1],
+                     TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Add')
+        buttons = [button(f'TUI_FW_{button_id}', button_id, '', FRIENDS_LEFTS[column], FRIENDS_BUTTONS_TOP,
+                          FRIENDS_THIRDS[column], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
+                   for column, (button_id, button_name) in enumerate(((delete_id, 'Delete'), *more))]
+        parts = [names, strip, field, add, *buttons]
+        inner += parts + [page(f'TUI_FW_{screen_id}', screen_id, None, name, parts)]
+    tabs = node('TabBox', [
+        node('ScreenID', 'Subwindows'),
+        node('Font', TEXT_FONT),  # its height + 8 is the least tab row, which our tabs are taller than
+        node('RelativePosition', True),
+        point('Location', 0, 0),
+        size(TAB_BOX_WIDTH, FRIENDS_HEIGHT - 2 * BORDER),  # TAB_OVERHANG past the inside, as the Actions window's
+        node('TabBorderTemplate', TAB_BORDER),
+        node('PageBorderTemplate', LIST_PAGE_BORDER),
+    ] + [node('Pages', f'TUI_FW_{screen_id}') for screen_id, *_ in FRIENDS_PAGES], 'TUI_FW_Tabs')
+    # The divider under the tabs: the Actions window's, the same width.
+    divider = picture('TUI_FW_TabDivider', 'TUI_ActionsDivider',
+                      (LEFT, TAB_DIVIDER_TOP, FRIENDS_CONTENT_WIDTH, DIVIDER_HEIGHT))
+    return window('FriendsWindow', 'Friends Window', FRIENDS_HEIGHT, [tabs, divider], width=FRIENDS_WIDTH,
+                  inner=inner)
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
@@ -4218,7 +4339,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
                 LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window,
                 SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window, INVENTORY_FILE: inventory_window,
-                TRACKING_FILE: tracking_window, AA_FILE: aa_window}
+                TRACKING_FILE: tracking_window, AA_FILE: aa_window, FRIENDS_FILE: friends_window}
 
 
 def stranded_definitions(skin_xml):
