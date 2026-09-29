@@ -4,6 +4,7 @@ import io
 import os
 import re
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -30,7 +31,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.HOTBUTTON_FILE,
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
-              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE]
+              skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE]
 
 
 @functools.cache
@@ -281,8 +282,8 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The target's bar and %, the casting bar, your pet's bar and %, each group member, pet and %, the Player
     # window's HP and mana with their %s, its server tick and its XP and AA rates' %s, the spell bar's recast
-    # bars and global recovery, and the air bar.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1
+    # bars and global recovery, the air bar, and the spell book's memorizing and scribing bars.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -507,9 +508,9 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
-                     'CompassWindow', 'BankWnd', 'SkillsWindow'}
-    # The two slot backgrounds the client paints by name are redefined on purpose, and the base's own
-    # definitions taken out, so each name is still defined once.
+                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd'}
+    # The slot backgrounds the client paints by name are redefined on purpose, and the base's own definitions taken
+    # out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
                                skin.ITEM_TEMPLATE, skin.QUANTITY_TEMPLATE, skin.DIVIDER_TEMPLATE,
                                *skin.REPLACED_ANIMATIONS}
@@ -659,7 +660,8 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
-                                                  'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', *group_percents))
+                                                  'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', 'TUI_SBW_Memorize',
+                                                  'TUI_SBW_Scribe', *group_percents))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
 
@@ -3440,6 +3442,187 @@ def test_compass_window_follows_the_spacing_standard():
     assert b + skin.LEFT == skin.PADDING
 
 
+# The spell book
+
+BOOK_MEMPAGES = ('SBW_MemPage0_Button', 'SBW_MemPage1_Button')
+# What the client writes into, a StaticText each: every element SIDL.xml gives the type, and nothing else.
+STATIC_TEXT_ELEMENTS = ['ScreenID', 'Font', 'RelativePosition', 'Location', 'Size', 'Text', 'TextColor', 'NoWrap',
+                        'AlignCenter', 'AlignRight']
+
+
+def spellbook_parts():
+    root, window = screen(skin.SPELLBOOK_FILE)
+    return root, window, {e.findtext('ScreenID') or e.get('item'): e for e in direct_pieces(root, window)}
+
+
+def check_static_text(text, align_right=False):
+    """text is a StaticText the client writes into, empty until then, in font 3 and the text's color, on one line."""
+    assert text.tag == 'StaticText' and [e.tag for e in text] == STATIC_TEXT_ELEMENTS
+    assert text.findtext('Text') == '' and text.findtext('Font') == str(skin.TEXT_FONT)
+    assert rgb(text, 'TextColor') == skin.TEXT_RGB and text.findtext('NoWrap') == 'true'
+    assert text.findtext('AlignCenter') == 'false' and text.findtext('AlignRight') == str(align_right).lower()
+
+
+def test_spellbook_keeps_every_control_the_client_looks_for():
+    # eqgame.exe looks up the 16 spell slots and their names, the page arrows, the two memorize-page buttons (no size in
+    # every skin), the page numbers and Done, and finds the bars by EQType, 9 memorizing and 10 scribing. The stock book
+    # art (SBW_SpellBook1 to 4) is nothing it looks up, so it's left out. Drawn in this order: the bars, the dividers,
+    # the slots and the names over them, then the band. With no title bar or close box: it drags by its background, and
+    # Done closes it.
+    root, window = check_inside_frame(skin.SPELLBOOK_FILE, skin.SPELLBOOK_WIDTH)
+    assert window.get('item') == 'SpellBookWnd' and window.findtext('Text') == 'Spell Book'
+    assert window.findtext('TooltipReference') == 'Your Spell Book'
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.SPELLBOOK_WIDTH, skin.SPELLBOOK_HEIGHT) == (441, 306)
+    pieces = direct_pieces(root, window)
+    assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
+        ('Gauge', 'SBW_Memorize_Gauge'), ('Gauge', 'SBW_Scribe_Gauge'), ('Screen', None),
+        *(('StaticAnimation', None) for _ in range(2 * (skin.BOOK_PAGE_ROWS - 1) + 1)),
+        *(('Button', f'SBW_Spell{n}') for n in range(16)), *(('StaticText', f'SBW_SpellName{n}') for n in range(16)),
+        ('Button', 'SBW_PageDown_Button'), ('Button', 'SBW_PageUp_Button'), ('StaticText', 'SBW_LeftPageNum'),
+        ('StaticText', 'SBW_RightPageNum'), ('Button', 'DoneButton'), *(('Button', screen_id) for screen_id in BOOK_MEMPAGES)]
+    assert [number(e, 'EQType') for e in pieces if e.tag == 'Gauge'] == [skin.MEMORIZE_TYPE, skin.SCRIBE_TYPE] == [9, 10]
+    assert not [e for e in root.iter() if (e.findtext('ScreenID') or '').startswith('SBW_SpellBook')]
+    assert all((box(e)[2:] == (0, 0)) == (e.findtext('ScreenID') in BOOK_MEMPAGES) for e in pieces)
+    for hidden in (e for e in pieces if e.findtext('ScreenID') in BOOK_MEMPAGES):
+        assert {e.text for e in hidden.find('ButtonDrawTemplate')} == {'TUI_Clear'}
+
+
+def test_spellbook_pages_are_the_spell_bars_rows():
+    # Spells 0 to 7 down the left page and 8 to 15 down the right, the stock reading order, each slot its whole row so a
+    # click anywhere on it counts, on the spell bar's 32px rows. The client puts the spell's icon in the decal, 24px
+    # like a gem's, at the page's left edge and centered on the row, and may paint the slot BlueIconBackground or
+    # A_SpellBookSlot, both clear like its own art. The name a padding after the icon, on one line centered on the row
+    # as the spell bar's, in room for the longest name any class can scribe (177px in font 3). A StaticText takes no
+    # click, so the names can lie over the slots.
+    _, _, found = spellbook_parts()
+    assert (skin.GEM_ROW_HEIGHT, skin.GEM_ROW_PITCH, skin.BOOK_NAME_WIDTH) == (32, 33, 178)
+    for n in range(skin.BOOK_SPELLS):
+        x = skin.BOOK_PAGE_XS[n // skin.BOOK_PAGE_ROWS]
+        top = skin.BOOK_ROWS_TOP + n % skin.BOOK_PAGE_ROWS * skin.GEM_ROW_PITCH
+        slot = found[f'SBW_Spell{n}']
+        assert box(slot) == (x, top, skin.BOOK_PAGE_WIDTH, skin.GEM_ROW_HEIGHT)
+        assert [(e.tag, e.text) for e in slot.find('ButtonDrawTemplate')] == [
+            ('Normal', 'TUI_BookSlot'), ('NormalDecal', skin.BUFF_ICONS)]
+        assert (number(slot, 'DecalOffset/X'), number(slot, 'DecalOffset/Y')) == (0, skin.GEM_ICON_MARGIN)
+        assert (number(slot, 'DecalSize/CX'), number(slot, 'DecalSize/CY')) == (skin.GEM_ICON, skin.GEM_ICON) == (24, 24)
+        assert slot.findtext('Style_Checkbox') == 'false' and slot.find('TooltipReference') is None
+        name = found[f'SBW_SpellName{n}']
+        assert box(name) == (x + skin.GEM_ICON + skin.PADDING, top + skin.GEM_NAME_TOP, skin.BOOK_NAME_WIDTH,
+                             skin.TEXT_HEIGHT)
+        check_static_text(name)
+    assert skin.BOOK_PAGE_WIDTH == skin.GEM_ICON + skin.PADDING + skin.BOOK_NAME_WIDTH
+
+
+def test_spellbook_text_has_only_what_the_stock_schema_gives_static_text():
+    # SIDL.xml makes StaticText a static piece (a ScreenPiece, then a StaticScreenPiece): no EQType, AlignLeft or
+    # Style_ flags, which label() writes.
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / 'SIDL.xml'
+        if folder and path.is_file():
+            break
+    else:
+        pytest.skip('no EverQuest folder with uifiles/default here')
+    types = dict(re.findall(r'<ElementType name="(\w+)">(.*?)</ElementType>', path.read_text(encoding='latin-1'), re.S))
+    allowed = {name for kind in ('ScreenPiece', 'StaticScreenPiece', 'StaticText')
+               for name in re.findall(r'<element name="(\w+)"', types[kind])}
+    assert set(STATIC_TEXT_ELEMENTS) <= allowed and not {'EQType', 'AlignLeft', 'Style_Transparent'} & allowed
+
+
+def test_spellbook_follows_the_spacing_standard():
+    _, window, found = spellbook_parts()
+    b = skin.BORDER
+    # Down: the bar a padding under the window's edge, the first icons a padding under it.
+    bar = box(found['SBW_Memorize_Gauge'])
+    icon_top = box(found['SBW_Spell0'])[1] + skin.GEM_ICON_MARGIN
+    assert b + bar[1] == skin.PADDING and icon_top - (bar[1] + bar[3]) == skin.PADDING
+    assert box(found['SBW_Spell8'])[1] == box(found['SBW_Spell0'])[1]
+    # Across: the left page from the window's padding, the divider a padding past it and a padding before the right
+    # page, which ends a padding from the window's edge.
+    divider = box(found['TUI_SBW_Divider'])
+    left, right = box(found['SBW_Spell7']), box(found['SBW_Spell15'])
+    assert b + left[0] == skin.PADDING and divider[0] - (left[0] + left[2]) == skin.PADDING
+    assert divider[2] == skin.DIVIDER_HEIGHT == 1 and right[0] - (divider[0] + divider[2]) == skin.PADDING
+    assert box(window)[2] - (b + right[0] + right[2]) == skin.PADDING
+    # Each page's rows a divider apart, in the pixel between them; under the last rows one line across both pages,
+    # which the standing divider meets, from level with the first icons.
+    for p, x in enumerate(skin.BOOK_PAGE_XS):
+        for r in range(skin.BOOK_PAGE_ROWS - 1):
+            above, under = box(found[f'SBW_Spell{p * 8 + r}']), box(found[f'SBW_Spell{p * 8 + r + 1}'])
+            line = box(found[f'TUI_SBW_Divider{p}_{r}'])
+            assert line == (x, above[1] + above[3], skin.BOOK_PAGE_WIDTH, 1) and under[1] == line[1] + 1
+            assert found[f'TUI_SBW_Divider{p}_{r}'].findtext('Animation') == 'TUI_BookRowDivider'
+    last = box(found['TUI_SBW_LastDivider'])
+    assert last == (skin.LEFT, right[1] + right[3], skin.BOOK_CONTENT_WIDTH, 1)
+    assert found['TUI_SBW_LastDivider'].findtext('Animation') == 'TUI_BookDivider'
+    assert divider[1] == icon_top and divider[1] + divider[3] == last[1]
+    assert found['TUI_SBW_Divider'].findtext('DrawTemplate') == skin.DIVIDER_TEMPLATE
+    # The band a padding under that line: the arrows at the window's padding, the page numbers a padding from them with
+    # their digits' ink centered on the band, and Done centered on the standing divider, as tall as the arrows.
+    band = last[1] + last[3] + skin.PADDING
+    down, up = box(found['SBW_PageDown_Button']), box(found['SBW_PageUp_Button'])
+    assert down == (skin.LEFT, band, skin.ARROW_SIZE, skin.ARROW_SIZE)
+    assert up == (skin.BOOK_RIGHT - skin.ARROW_SIZE, band, skin.ARROW_SIZE, skin.ARROW_SIZE)
+    first, second = box(found['SBW_LeftPageNum']), box(found['SBW_RightPageNum'])
+    assert first[0] == down[0] + down[2] + skin.PADDING and second[0] + second[2] == up[0] - skin.PADDING
+    for number_box in (first, second):
+        assert number_box[1] + skin.DIGITS_INK_MIDDLE == band + skin.ARROW_SIZE / 2
+        assert number_box[2:] == (skin.NUMBER_WIDTH, skin.TEXT_HEIGHT)
+    done = box(found['DoneButton'])
+    assert done[1] == band and done[3] == skin.TEXT_BUTTON_HEIGHT == skin.ARROW_SIZE
+    assert abs(done[0] + done[2] / 2 - (divider[0] + divider[2] / 2)) <= 0.5
+    # The window's edge a padding under the band.
+    assert box(window)[3] - (b + done[1] + done[3]) == skin.PADDING
+
+
+def test_spellbook_band_is_the_actions_arrows_and_the_loot_windows_done():
+    _, _, found = spellbook_parts()
+    for screen_id, tooltip, icon in (('SBW_PageDown_Button', 'Previous Page', 'Left'),
+                                     ('SBW_PageUp_Button', 'Next Page', 'Right')):
+        arrow = found[screen_id]
+        assert arrow.findtext('TooltipReference') == tooltip
+        assert arrow.findtext('ButtonDrawTemplate/Normal') == f'TUI_Toggle{icon}Normal'
+    check_static_text(found['SBW_LeftPageNum'])
+    check_static_text(found['SBW_RightPageNum'], align_right=True)
+    # Done as wide as the loot and bank windows', with no tooltip (the stock Done has none).
+    check_confirmation_button(found['DoneButton'], 'Done')
+    loot_done = {e.findtext('ScreenID'): e for e in parse(skin.LOOT_FILE).iter('Button')}['DoneButton']
+    assert box(found['DoneButton'])[2] == box(loot_done)[2] == skin.BOOK_DONE_WIDTH == 78
+
+
+def test_spellbook_bars_share_one_spot_along_the_top():
+    # Memorizing and scribing never run together, so both bars share the spot along the top, the spell bar's recovery
+    # bar across this window: as thin and in the same soft red, with no track, so nothing shows while neither runs, and
+    # their own text hidden.
+    _, _, found = spellbook_parts()
+    recovery = {e.findtext('ScreenID'): e for e in parse(skin.CASTSPELL_FILE).iter('Gauge')}['CSPW_Global_Recast']
+    for screen_id in ('SBW_Memorize_Gauge', 'SBW_Scribe_Gauge'):
+        bar = found[screen_id]
+        assert box(bar) == (skin.LEFT, skin.BOOK_BAR_TOP, skin.BOOK_CONTENT_WIDTH, skin.TICK_HEIGHT)
+        assert [(e.tag, e.text) for e in bar.find('GaugeDrawTemplate')] == [('Fill', 'TUI_MemorizeFill')]
+        assert rgb(bar, 'FillTint') == rgb(recovery, 'FillTint') == skin.SPELL_RGB
+        assert box(bar)[3] == box(recovery)[3]
+        assert number(bar, 'GaugeOffsetY') == 0 and number(bar, 'TextOffsetY') == 8000
+    fill = cut(decode(files()[skin.PIECES_TEXTURE]), items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')['TUI_MemorizeFill'])
+    assert fill.size == (skin.BOOK_CONTENT_WIDTH, skin.TICK_HEIGHT) and set(pixels(fill)) == {skin.BAR_FILL}
+
+
+def test_spellbook_slots_are_clear_whatever_the_client_paints_on_them():
+    # The client names A_SpellBookSlot itself (eqgame.exe, beside the spellbook's ScreenIDs), most likely an empty
+    # slot's look: default's is a dark 48px square. It's redefined clear at a row's size, like the slot's own art, and
+    # the base's definition taken out.
+    assert 'A_SpellBookSlot' in skin.REPLACED_ANIMATIONS
+    assert files()[skin.ANIMATIONS_FILE].decode('latin-1').count('item="A_SpellBookSlot"') == 1
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    for name in ('A_SpellBookSlot', 'TUI_BookSlot'):
+        art = cut(atlas, anims[name])
+        assert art.size == (skin.BOOK_PAGE_WIDTH, skin.GEM_ROW_HEIGHT) and {p[3] for p in pixels(art)} == {0}, name
+    base = BASE_ANIMATIONS.replace('</XML>', '  <Ui2DAnimation item="A_SpellBookSlot"></Ui2DAnimation>\r\n</XML>')
+    assert 'A_SpellBookSlot' in base and 'A_SpellBookSlot' not in skin.with_definitions(base, [])
+
+
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (art is drawn at its
@@ -3472,7 +3655,7 @@ def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon()
             inside = (any(bar <= x < bar + skin.HARMFUL_BAR_WIDTH for bar in (left, right))
                       and skin.ROW_ICON_MARGIN <= y < skin.ROW_ICON_MARGIN + skin.ROW_ICON)
             assert red.getpixel((x, y)) == (skin.HARMFUL_RGBA if inside else skin.CLEAR), (x, y)
-    # Only those two: every other stock definition stays.
+    # Only the redefined ones: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1
 
@@ -3899,6 +4082,37 @@ def test_preview_fills_in_the_skills_list(tmp_path):
     assert preview.text_mask('Percussion Instruments', skin.TEXT_FONT).getbbox()[2] <= name_width - skin.PADDING
 
 
+def test_preview_fills_in_the_spell_book(tmp_path):
+    # Each sample spell's icon and name in its row and the rows past them blank, both page numbers, the memorizing bar
+    # part filled along the top, and the longest name any class can scribe drawn inside its box.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.SPELLBOOK_FILE)  # grey squares for icons here
+    _, _, found = spellbook_parts()
+
+    def region(key, left=0, top=0, width=None, height=None):
+        x, y, w, h = box(found[key])
+        x, y = skin.BORDER + x + left, skin.BORDER + y + top
+        return image.crop((x, y, x + (w if width is None else width), y + (h if height is None else height)))
+
+    def bright(part):
+        return sum(1 for p in pixels(part) if min(p[:3]) > 150)
+
+    spells = len(preview.BOOK)
+    assert spells == 13 and 'Transons Phantasmal Protection' in {name for name, _ in preview.BOOK}
+    for n in range(skin.BOOK_SPELLS):
+        icon = set(pixels(region(f'SBW_Spell{n}', 0, skin.GEM_ICON_MARGIN, skin.GEM_ICON, skin.GEM_ICON)))
+        assert (icon == {preview.PLACEHOLDER_RGBA}) == (n < spells), n
+        assert bool(bright(region(f'SBW_SpellName{n}'))) == (n < spells), n
+    assert preview.BOOK_PAGES == ('12', '13')
+    assert bright(region('SBW_LeftPageNum')) and bright(region('SBW_RightPageNum'))
+    bar = region('SBW_Memorize_Gauge')
+    assert preview.GAUGES[skin.MEMORIZE_TYPE] == 0.4
+    assert bar.getpixel((0, 0)) != bar.getpixel((bar.width - 1, 0))
+    if not any(Path(path).is_file() for path in preview.ARIAL):
+        pytest.skip('no Arial to draw font 3 with')
+    assert preview.text_mask('Transons Phantasmal Protection', skin.TEXT_FONT).getbbox()[2] <= skin.BOOK_NAME_WIDTH
+
+
 @pytest.mark.parametrize('heading, label', [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')])
 def test_preview_slides_the_compass_strip_to_the_heading(tmp_path, monkeypatch, heading, label):
     # The strips go where the stock art's line-up puts them, so the direction faced has its label centered over the
@@ -4039,9 +4253,16 @@ def test_nothing_mentions_playing_several_characters_at_once():
     assert [problem.split(':')[1] for problem in release.boxing_problems(texts)] == ['6', '7', '8', '9', '10']
 
 
-def test_the_release_zip_is_the_builder_and_readme_cut_from_the_tag(tmp_path):
+def test_the_release_zip_is_the_built_skin_in_a_triageui_folder(eq, tmp_path):
+    # Players drag the zip's TriageUI folder into uifiles: it holds exactly what the given builder writes on default,
+    # and nothing of the base's.
     release = release_module()
-    out = tmp_path / release.zip_name('1.2.0')
-    assert out.name == 'TriageUI-v1.2.0.zip'
-    assert release.archive_command('1.2.0', out) == [
-        'archive', '--format=zip', '--prefix=TriageUI/', '-o', str(out), 'v1.2.0', 'build_skin.py', 'README.md']
+    assert release.zip_name('1.2.0') == 'TriageUI-v1.2.0.zip'
+    out = release.build_zip((REPO / 'build_skin.py').read_text(encoding='utf-8'), eq, tmp_path / 'release.zip')
+    built = skin.build(eq, out=tmp_path / 'built' / skin.SKIN_NAME)
+    with zipfile.ZipFile(out) as archive:
+        assert archive.namelist() == sorted(f'TriageUI/{path.name}' for path in built.iterdir())
+        assert {f'TriageUI/{skin.MARKER_FILE}', f'TriageUI/{skin.ANIMATIONS_FILE}'} <= set(archive.namelist())
+        assert not {'TriageUI/EQUI_Inventory.xml', 'TriageUI/window_pieces01.tga'} & set(archive.namelist())
+        for path in built.iterdir():
+            assert archive.read(f'TriageUI/{path.name}') == path.read_bytes()

@@ -1,22 +1,24 @@
 """Checks TriageUI before a release and cuts the release zip. Run it on the Mac, where git is.
 
     python tools/release.py check      every rule a release must pass; it changes nothing
-    python tools/release.py package    dist/TriageUI-vX.Y.Z.zip, cut from the tag vX.Y.Z
+    python tools/release.py package    dist/TriageUI-vX.Y.Z.zip, the skin built by the tag vX.Y.Z
 
 check lists each problem on a line and exits 1 if there are any. It reads git, the tracked files and the EverQuest
 folder (EQ_DIR, C:\\QUARM or the Mac mount, or --eq), whose per-character files name the characters that must never
 appear in the repo. A match is reported by file and line, or by commit, never by the name. It also runs the tests
 (--no-tests skips them) and builds the skin from that folder into a temporary one.
 
-package cuts build_skin.py and README.md from the tag with git archive, in a TriageUI folder, so the zip holds exactly
-what was tagged and nothing else: never a built skin, which holds Daybreak's animations file.
+package builds the skin with the tag's build_skin.py on default from the same EverQuest folder and zips the TriageUI
+folder, ready to drag into uifiles. Everything in it is ours but its EQUI_Animations.xml: default's, with ours added.
 """
 import argparse
+import importlib.util
 import os
 import re
 import subprocess
 import sys
 import tempfile
+import zipfile
 from collections import namedtuple
 from pathlib import Path
 
@@ -27,7 +29,6 @@ import build_skin as skin  # noqa: E402
 
 EQ_DIRS = [os.environ.get('EQ_DIR', ''), r'C:\QUARM', '/Volumes/[C] Windows 11/QUARM']
 BRANCH = 'dev'
-SHIPPED = ('build_skin.py', 'README.md')
 DIST = REPO / 'dist'
 # Every commit's author and committer, with UTC dates, so neither the user's real identity nor their timezone is public.
 IDENTITY = ('CopperGlade', '3092256+CopperGlade@users.noreply.github.com')
@@ -176,9 +177,26 @@ def zip_name(version):
     return f'{skin.SKIN_NAME}-v{version}.zip'
 
 
-def archive_command(version, out):
-    """git's arguments for the release zip: the shipped files at the tag, in a TriageUI folder."""
-    return ['archive', '--format=zip', f'--prefix={skin.SKIN_NAME}/', '-o', str(out), f'v{version}', *SHIPPED]
+def build_zip(source, eq_dir, out):
+    """Builds the skin with source, a build_skin.py's text, on default from eq_dir, and zips it as out: the skin's
+    files in a TriageUI folder, so dragging that folder into uifiles installs it. Returns out."""
+    with tempfile.TemporaryDirectory() as scratch:
+        builder = Path(scratch) / 'build_skin.py'
+        builder.write_text(source, encoding='utf-8')
+        # Its own module name, so the given builder runs and not the working tree's, which is already imported.
+        spec = importlib.util.spec_from_file_location('tagged_build_skin', builder)
+        tagged = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tagged)
+        try:
+            folder = tagged.build(eq_dir, out=Path(scratch) / tagged.SKIN_NAME)
+        except tagged.BuildError as error:  # the given builder's own class, not skin.BuildError
+            raise skin.BuildError(str(error)) from error
+        with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as archive:
+            for path in sorted(folder.iterdir()):
+                # Dotfiles are the Mac's metadata, never the skin's.
+                if path.is_file() and not path.name.startswith('.'):
+                    archive.write(path, f'{folder.name}/{path.name}')
+    return out
 
 
 # Reading the repo
@@ -260,18 +278,23 @@ def check(eq_dir=None, tests=True):
     return problems
 
 
-def package(version=skin.VERSION):
-    """Writes dist/TriageUI-vX.Y.Z.zip from the tag; returns its path."""
+def package(version=skin.VERSION, eq_dir=None):
+    """Writes dist/TriageUI-vX.Y.Z.zip, the skin as the tag's build_skin.py builds it; returns its path."""
     tag = f'v{version}'
     if tag not in tags():
         raise SystemExit(f'There is no tag {tag} yet: tag the release commit first.')
-    tagged = source_version(git('show', f'{tag}:build_skin.py'))
+    source = git('show', f'{tag}:build_skin.py')
+    tagged = source_version(source)
     if tagged != version:
         raise SystemExit(f'{tag}\'s build_skin.py says VERSION {tagged}, not {version}.')
+    eq = find_eq(eq_dir)
+    if eq is None:
+        raise SystemExit(f'No EverQuest folder with uifiles/{skin.DEFAULT_BASE} found to build from: give it with --eq.')
     DIST.mkdir(exist_ok=True)
-    out = DIST / zip_name(version)
-    git(*archive_command(version, out))
-    return out
+    try:
+        return build_zip(source, eq, DIST / zip_name(version))
+    except skin.BuildError as error:
+        raise SystemExit(f'build: {error}') from error
 
 
 def main(argv=None):
@@ -280,10 +303,12 @@ def main(argv=None):
     checking = commands.add_parser('check', help='every rule a release must pass; it changes nothing')
     checking.add_argument('--eq', type=Path, help='the EverQuest folder, for the character names and a real build')
     checking.add_argument('--no-tests', action='store_true', help='skip the test suite')
-    commands.add_parser('package', help=f'dist/{zip_name(skin.VERSION)} from the tag v{skin.VERSION}')
+    packaging = commands.add_parser('package', help=f'dist/{zip_name(skin.VERSION)}, the skin built by the tag '
+                                                    f'v{skin.VERSION}')
+    packaging.add_argument('--eq', type=Path, help='the EverQuest folder, whose uifiles/default the skin is built on')
     args = parser.parse_args(argv)
     if args.command == 'package':
-        out = package()
+        out = package(eq_dir=args.eq)
         print(f'Wrote {out}')
         print(f'Attach it to the GitHub release v{skin.VERSION}, with dist/release-notes-v{skin.VERSION}.md as its notes.')
         return 0

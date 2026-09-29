@@ -33,6 +33,7 @@ Windows are redesigned one at a time, and each is checked in game before the nex
 | Compass | `EQUI_CompassWnd.xml` |
 | Bank | `EQUI_BankWnd.xml` |
 | Skills | `EQUI_SkillsWindow.xml` |
+| Spell Book | `EQUI_SpellBookWnd.xml` |
 
 ## To do: everyday
 
@@ -41,7 +42,6 @@ Roughly in order of how much a player sees them.
 | Window | File |
 |---|---|
 | Inventory | `EQUI_Inventory.xml` |
-| Spell Book (already without the bright slot bars, see the effects window) | `EQUI_SpellBookWnd.xml` |
 | Inspect | `EQUI_InspectWnd.xml` |
 | Tracking | `EQUI_TrackingWnd.xml` |
 | Raid Options | `EQUI_RaidOptionsWindow.xml` |
