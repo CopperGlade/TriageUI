@@ -475,18 +475,26 @@ TAB_ART_HEIGHT = TOGGLE_SIZE + 2 * TAB_SHIFT  # room for the toggle either way u
 TAB_ROW_HEIGHT = TAB_TOP + TAB_ART_HEIGHT
 TAB_OFFSET = 1  # the page border's TopLeft width: where the tabs start
 TAB_ICON_INSET = LEFT - TAB_OFFSET  # the tab border's Left width: the first toggle at the window's padding
+def tab_row(content_width, count):
+    """count tabs filling a content row content_width wide from the window's padding, a padding apart, as the client
+    lays them out: each gets an equal share of the row plus one padding (the client's own rounding), its tab and the
+    padding after it. Returns the tabs' widths and their lefts in the window's inside."""
+    shares_width = content_width + BUTTON_GAP
+    shares = [shares_width * (i + 1) // count - shares_width * i // count for i in range(count)]
+    return [share - BUTTON_GAP for share in shares], [LEFT + sum(shares[:i]) for i in range(count)]
+
+
 TAB_SHARES_WIDTH = ACTIONS_CONTENT_WIDTH + BUTTON_GAP  # every tab and the padding after it
-TAB_SHARES = [TAB_SHARES_WIDTH * (i + 1) // len(ACTIONS_PAGES) - TAB_SHARES_WIDTH * i // len(ACTIONS_PAGES)
-              for i in range(len(ACTIONS_PAGES))]  # the client's own rounding
-TAB_WIDTHS = [share - BUTTON_GAP for share in TAB_SHARES]
-TAB_LEFTS = [LEFT + sum(TAB_SHARES[:i]) for i in range(len(ACTIONS_PAGES))]  # in the window's inside
+TAB_WIDTHS, TAB_LEFTS = tab_row(ACTIONS_CONTENT_WIDTH, len(ACTIONS_PAGES))
 # The tab box shows no tooltip of a tab's own (the tabs aren't windows; its code has nothing for it), so each
 # tab has an empty label over it carrying the page's name. Labels let clicks through to what's under them
 # (duxaUI's effect names sit over the slot buttons, which still click off), so the tab still opens its page.
 TAB_CORNER = 1  # the tab border's TopLeft and TopRight widths, which the shares leave out
 TAB_BOX_WIDTH = TAB_SHARES_WIDTH + 2 * TAB_CORNER
 TAB_OVERHANG = TAB_BOX_WIDTH - ACTIONS_INSIDE_WIDTH
-PAGE_RIGHT = TAB_BOX_WIDTH - LEFT - ACTIONS_CONTENT_WIDTH  # the page border's right side: to the padding
+# The page border's right side: to the padding. It comes to the padding and two TAB_CORNERs less LEFT whatever the
+# row's width, so a tab box laid out the same way over another row (the AA window's) fits both templates as they are.
+PAGE_RIGHT = TAB_BOX_WIDTH - LEFT - ACTIONS_CONTENT_WIDTH
 TAB_OVERLAP = 1  # the tab border's LeftBottom height
 TOGGLES_TOP = TAB_TOP + TAB_SHIFT  # where every tab lands, TOGGLE_SIZE tall
 # Under the tabs, the Effects window's divider across the content row, separating the tabs from the open page
@@ -1468,6 +1476,123 @@ TRACK_BUTTON_WIDTHS = tuple(_TRACK_SPAN * (c + 1) // len(TRACK_BUTTONS) - _TRACK
                             for c in range(len(TRACK_BUTTONS)))
 add_text_buttons(TRACK_BUTTON_WIDTHS)
 TRACK_HEIGHT = 2 * BORDER + TRACK_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
+# The Alternate Advancement window: a tab for each kind of ability over its list, the selected ability's description
+# under them, and a column on the right with your AA XP, how much of your XP goes to AA, your points and the ability's
+# reuse timer, then Train, Hotkey and Done. eqgame.exe looks up the tab box (Subwindows), its pages and their lists
+# (Page%d and List%d, 1 to 5), Description, ExpCount, CurrentCount, TotalCount, Timer, LessExpButton, MoreExpButton,
+# TrainButton, HotButton and DoneButton, and fills them all; the bar works by its EQType (5), and nothing looks up the
+# stock captions, which keep their ScreenIDs as ours. The user's pick (2026-09-29, from mockups): the stock arrangement,
+# a fixed size with no title bar, so it drags by its background.
+AA_FILE = 'EQUI_AAWindow.xml'
+# The stock pages in the stock order: (page's ScreenID, list's ScreenID, name on its tab, the tab art's name).
+AA_PAGES = (('Page1', 'List1', 'General', 'AAGeneral'), ('Page2', 'List2', 'Archetype', 'AAArchetype'),
+            ('Page3', 'List3', 'Class', 'AAClass'), ('Page4', 'List4', 'PoP Advance', 'AAPoPAdvance'),
+            ('Page5', 'List5', 'PoP Ability', 'AAPoPAbility'))
+# The tabs are laid out as the Actions window's, with the same tab and page border templates (see PAGE_RIGHT), each
+# wide enough for "PoP Advance" in font 2 (64px) and a padding either side; the list and the description fill the row.
+# The tab box ends where the divider standing beside the list is.
+AA_TAB_WIDTH = 64 + 2 * PADDING
+AA_LIST_WIDTH = len(AA_PAGES) * (AA_TAB_WIDTH + BUTTON_GAP) - BUTTON_GAP
+AA_TAB_WIDTHS, AA_TAB_LEFTS = tab_row(AA_LIST_WIDTH, len(AA_PAGES))
+AA_TAB_BOX_WIDTH = AA_LIST_WIDTH + BUTTON_GAP + 2 * TAB_CORNER
+# Each tab's name, painted on in the Actions tabs' icons' color, since where the tab box would write a page's TabText
+# isn't known: the ink's coverage as tools/preview.py draws font 2 centered on the tab, as for Close (see CLOSE_INK), as
+# (its top left in the tab, rows).
+AA_TAB_INK = {
+    'General': ((19, 10), (
+        '02aeeb3000000000000000000000000000058',
+        '0d7116c000000000000000000000000000058',
+        '5b00001009ed305bde6009ed305ae59ed4058',
+        '7800dff26913d05c14d06913d05c16a14c058',
+        '5b0000c29ffff15800d09ffff158018bed058',
+        '0d7115e27910005800d07910005808936d058',
+        '02aefb400aee905800d00aee905804ee7d058',
+    )),
+    'Archetype': ((14, 10), (
+        '007e0000000000058000000000016000000000000000000',
+        '00c9600000000005800000000003a000000000000000000',
+        '0492c005ae5aec25ace6009ed30cf9a502b59de5009ed30',
+        '0a40b305c17a16a5c23d06913d03a04a0855c13d06913d0',
+        '1ffffa0580950005800d09ffff13a00c2d05700c29ffff1',
+        '69001e15806a14b5800d07910003b006b805c13d0791000',
+        'c3000975800aec35800d00aee901d901f305bdd400aee90',
+        '00000000000000000000000000000003c00580000000000',
+        '0000000000000000000000000000006e300580000000000',
+    )),
+    'Class': ((25, 10), (
+        '02bee80580000000000000000',
+        '1d612b6580000000000000000',
+        '6a000125809ed402cfc22cfc2',
+        '7800000585a14c07a2007a200',
+        '5a000255818bed02bfd32bfd3',
+        '1d612b7588936d00018800188',
+        '03cee80584ee7d05dfc25dfc2',
+    )),
+    'PoP Advance': ((6, 10), (
+        '4fffe700000004fffe70000007e0000000d00000000000000000000000000000',
+        '4b002e20000004b002e200000c96000000d00000000000000000000000000000',
+        '4b002d20aed404b002d20000492c001be8d0a403a09ed405bde600aec209ed30',
+        '4fffd707a13d14fffd700000a40b307916d0490945a14c05c14d06a16a6913d0',
+        '4b000009400b24b000000001ffffa09400d00c1c018bed05800d0950009ffff1',
+        '4b000007a13e14b0000000069001e17a15d007a808936d05800d06a14b791000',
+        '4b000001aed504b00000000c3000970af9c002f204ee7d05800d00aec30aee90',
+    )),
+    'PoP Ability': ((13, 10), (
+        '4fffe700000004fffe70000007e00058000058585816000000',
+        '4b002e20000004b002e200000c96005800000058003a000000',
+        '4b002d20aed404b002d20000492c005add50585858cf9a502b',
+        '4fffd707a13d14fffd700000a40b305c13d05858583a04a085',
+        '4b000009400b24b000000001ffffa05700c25858583a00c2d0',
+        '4b000007a13e14b0000000069001e15c13d05858583b006b80',
+        '4b000001aed504b00000000c3000975add405858581d901f30',
+        '00000000000000000000000000000000000000000000003c00',
+        '0000000000000000000000000000000000000000000006e300',
+    )),
+}
+# Each list's three columns, in the client's order: (heading, width). The rank and cost are each their widest text in
+# font 3 (Arial 12px) and a padding: "10/10" (31px; the client writes "%d/%d") and the heading "Cost" (25). The names
+# take the rest, where eqstr_en.txt's widest, "Spell Casting Reinforcement Mastery", is 202px. 18 rows in view (the
+# user's pick), most of a tab's abilities.
+AA_RANK_WIDTH = 31 + PADDING
+AA_COST_WIDTH = 25 + PADDING
+AA_COLUMNS = (('Ability', AA_LIST_WIDTH - SCROLL_WIDTH - AA_RANK_WIDTH - AA_COST_WIDTH), ('Rank', AA_RANK_WIDTH),
+              ('Cost', AA_COST_WIDTH))
+AA_ROWS = 18
+AA_LIST_HEIGHT = RAID_HEADER_HEIGHT + AA_ROWS * TEXT_HEIGHT
+AA_TAB_BOX_HEIGHT = PAGE_TOP + AA_LIST_HEIGHT + LEFT  # the page border's bottom under the list (see PAGE_BORDER_PIECES)
+# The selected ability's description, the client's text (eqstr_en.txt: the ability's own, then whether it's activated
+# and its refresh time, or passive), under the row divider a padding under the list, its first line's ink a padding
+# under that. Six lines in view: at this width the longest description takes seven, most four or fewer.
+AA_DIVIDER_TOP = PAGE_TOP + AA_LIST_HEIGHT + PADDING
+AA_DESCRIPTION_TOP = AA_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME
+AA_DESCRIPTION_LINES = 6
+AA_BOTTOM = AA_DESCRIPTION_TOP + AA_DESCRIPTION_LINES * TEXT_HEIGHT
+# The column, three slots wide like the inventory's, with the row divider standing between it and the list a padding
+# from each, from the window's top padding to its bottom one.
+AA_DIVIDER_X = LEFT + AA_LIST_WIDTH + PADDING
+AA_COLUMN_X = AA_DIVIDER_X + DIVIDER_HEIGHT + PADDING
+AA_COLUMN_WIDTH = 3 * HOT_SIZE + 2 * BUTTON_GAP
+AA_RIGHT = AA_COLUMN_X + AA_COLUMN_WIDTH
+AA_WIDTH = AA_RIGHT + LEFT + 2 * BORDER
+AA_HEIGHT = 2 * BORDER + AA_BOTTOM + BOTTOM_GAP
+# The column's sections, two paddings apart like the inventory's: your AA XP, its % (label 27) and bar as the inventory's,
+# the first line at the inside's top like the inventory's stats (its ink 7.5px under the edge); how much of your XP goes
+# to AA, a caption over the client's % between - and + (the social page arrows' size, the digits' ink centered on
+# them); then your points, those spent and the selected ability's reuse timer, stacked on their line height.
+AA_XP_TOP = 0
+AA_SPLIT_TOP = AA_XP_TOP + PLAYER_SECTION_PITCH
+AA_SPLIT_ROW_TOP = AA_SPLIT_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+AA_NUMBERS_TOP = AA_SPLIT_ROW_TOP + ARROW_SIZE + math.ceil(2 * PADDING - TEXT_INK_TOP)
+# (caption's ScreenID, caption, value's ScreenID), each value in the game's green ending at the column's right: the
+# stock captions' ScreenIDs, which nothing looks up; the timer's caption is ours.
+AA_NUMBERS = (('CurrentLabel', 'Points', 'CurrentCount'), ('TotalLabel', 'Spent', 'TotalCount'),
+              (None, 'Reuse', 'Timer'))
+AA_VALUE_WIDTH = 48  # "00:00:00" in font 3 (Arial 12px): the timer's "%02d:%02d:%02d", the longest value
+# Train, Hotkey and Done down the column's foot, Done's bottom level with the description's: the confirmation dialog's
+# kind of button, a padding apart, with no tooltips (the stock ones have none).
+AA_BUTTONS = (('TrainButton', 'Train'), ('HotButton', 'Hotkey'), ('DoneButton', 'Done'))
+AA_BUTTONS_TOP = AA_BOTTOM - len(AA_BUTTONS) * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP) + BUTTON_ROW_GAP
+add_text_buttons((AA_COLUMN_WIDTH,))
 
 # Every SIDL file starts like this; the client is picky about these lines (see Zeal's generate_big_xml.py).
 XML_HEADER = (
@@ -1817,6 +1942,15 @@ def right_icon(x, y):
     return stroke(polyline_distance(x, y, ((6.25, 4.5), (9.75, 8), (6.25, 11.5))))
 
 
+def minus_icon(x, y):
+    # The AA window's XP-to-AA buttons: a minus and a plus, as wide as the page arrows are tall.
+    return stroke(segment_distance(x, y, (4.5, 8), (11.5, 8)))
+
+
+def plus_icon(x, y):
+    return stroke(min(segment_distance(x, y, (4.5, 8), (11.5, 8)), segment_distance(x, y, (8, 4.5), (8, 11.5))))
+
+
 def book_icon(x, y):
     # The spell bar's spellbook button: an open book, two pages meeting at the spine, their outer corners
     # raised a little as an open book's are.
@@ -1829,6 +1963,7 @@ ICONS = {'Actions': actions_icon, 'Inventory': inventory_icon, 'Options': option
          'Effects': effects_icon,
          'Main': main_icon, 'Abilities': abilities_icon, 'Combat': combat_icon, 'Socials': socials_icon}
 ARROW_ICONS = {'Left': left_icon, 'Right': right_icon}  # drawn on ARROW_SIZE buttons
+SIGN_ICONS = {'Minus': minus_icon, 'Plus': plus_icon}  # the same
 
 
 # The hot button window's empty slots: what goes in each (see HOT_SLOTS).
@@ -2083,11 +2218,16 @@ def toggle_art(coverage, state, size=TOGGLE_SIZE, height=None):
     return snapped_art(art)
 
 
-def tab_art(coverage, state, width):
+def tab_art(coverage, state, width, name=None):
     """An Actions window tab, width wide: the icon's toggle in one state at the top of TAB_ART_HEIGHT of clear,
-    or TAB_SHIFT lower for an open page's tab (Pressed), since the client draws the others that much lower."""
+    or TAB_SHIFT lower for an open page's tab (Pressed), since the client draws the others that much lower. With name,
+    an AA window tab: no icon, and the page's name painted on in the icon's color and brightness (see AA_TAB_INK)."""
+    toggle = toggle_art(coverage, state, width, TOGGLE_SIZE)
+    if name:
+        at, name_ink = AA_TAB_INK[name]
+        toggle = snapped_art(painted(toggle, name_ink, at, (*ICON_RGB, ICON_LOOKS[state][2])))
     art = Texture(width, TAB_ART_HEIGHT)
-    art.paste(toggle_art(coverage, state, width, TOGGLE_SIZE), 0, TAB_SHIFT if state == 'Pressed' else 0)
+    art.paste(toggle, 0, TAB_SHIFT if state == 'Pressed' else 0)
     return art
 
 
@@ -2306,7 +2446,8 @@ def pieces():
     """
     # Each icon's (coverage, button width, button height).
     icons = {name: (icon_coverage(shape), TOGGLE_SIZE, TOGGLE_SIZE) for name, shape in ICONS.items()}
-    icons.update({name: (icon_coverage(shape), ARROW_SIZE, ARROW_SIZE) for name, shape in ARROW_ICONS.items()})
+    icons.update({name: (icon_coverage(shape), ARROW_SIZE, ARROW_SIZE)
+                  for name, shape in {**ARROW_ICONS, **SIGN_ICONS}.items()})
     icons['Book'] = (icon_coverage(book_icon), BOOK_WIDTH, TOGGLE_SIZE)  # the spell bar's wide book button
     return {
         **frame_pieces(),
@@ -2381,6 +2522,10 @@ def pieces():
            for (*_, icon), width in zip(ACTIONS_PAGES, TAB_WIDTHS) for state in ('Normal', 'Pressed')},
         **{f'TabBorder{side}': clear_texture(*size) for side, size in TAB_BORDER_PIECES.items()},
         **{f'PageBorder{side}': clear_texture(*size) for side, size in PAGE_BORDER_PIECES.items()},
+        # The AA window's tabs, their names on them, and the row divider at its list's width (see AA_FILE).
+        **{f'Tab{art}{state}': tab_art((), state, width, name)
+           for (_, _, name, art), width in zip(AA_PAGES, AA_TAB_WIDTHS) for state in ('Normal', 'Pressed')},
+        'AADivider': Texture(AA_LIST_WIDTH, 1, ROW_DIVIDER_RGBA),
         # The compass's strip, which the game slides, and what it draws over it (see COMPASS_FILE).
         'CompassStrip': compass_strip(),
         'CompassOverlay': compass_overlay(),
@@ -2659,10 +2804,10 @@ def label(name, eq_type, rect, text, align_right=False, screen_id=None, rgb=TEXT
     return node('Label', children, name)
 
 
-def static_text(name, screen_id, rect, align_right=False):
+def static_text(name, screen_id, rect, align_right=False, align_center=False, rgb=TEXT_RGB):
     """Text the client writes into a StaticText it looks up (the spellbook's names and page numbers), in font 3 and
-    the text's color, on one line. Not a label(): SIDL.xml makes StaticText a static piece, which never takes a click,
-    and gives it no EQType, AlignLeft or Style_ flags, so it has only what the schema lists."""
+    rgb, on one line. Not a label(): SIDL.xml makes StaticText a static piece, which never takes a click, and gives it
+    no EQType, AlignLeft or Style_ flags, so it has only what the schema lists."""
     x, y, width, height = rect
     return node('StaticText', [
         node('ScreenID', screen_id),
@@ -2671,9 +2816,9 @@ def static_text(name, screen_id, rect, align_right=False):
         point('Location', x, y),
         size(width, height),
         node('Text', ''),
-        color('TextColor', TEXT_RGB),
+        color('TextColor', rgb),
         node('NoWrap', True),
-        node('AlignCenter', False),
+        node('AlignCenter', align_center),
         node('AlignRight', align_right),
     ], name)
 
@@ -2832,14 +2977,14 @@ def anchored_button(name, screen_id, label, left, bottom, width, height, layout_
 
 def icon_square(name, screen_id, x, y, tooltip, icon, side, checkbox, art, height=None, prefix='Toggle'):
     """A square button, side wide (or height tall, when wider than it is tall), showing an icon in every state,
-    its name in its tooltip. Its art is TUI_<prefix><icon><state>."""
+    its name in its tooltip (none when tooltip is None). Its art is TUI_<prefix><icon><state>."""
     return node('Button', [
         node('ScreenID', screen_id),
         node('RelativePosition', True),
         point('Location', x, y),
         size(side, height or side),
         node('Style_Transparent', False),
-        node('TooltipReference', tooltip),
+        *([node('TooltipReference', tooltip)] if tooltip else []),
         node('Style_Checkbox', checkbox),
         node('ButtonDrawTemplate', [node(state, f'TUI_{prefix}{icon}{art[state]}') for state in BUTTON_STATES]),
     ], name)
@@ -3111,14 +3256,15 @@ def selector_window():
 
 def page(item, screen_id, tooltip, icon, parts):
     """One of a tab box's pages, holding parts: see-through, so the window's panel shows, and its tab the
-    icon's toggle, lit (the open look) while the page is shown (see tab_art())."""
+    icon's toggle (or the tab with its name, for the AA window's), lit (the open look) while the page is shown (see
+    tab_art()). tooltip None gives it none."""
     return node('Page', [
         node('ScreenID', screen_id),
         node('RelativePosition', True),
         node('Style_VScroll', False),
         node('Style_HScroll', False),
         node('Style_Transparent', True),
-        node('TooltipReference', tooltip),
+        *([node('TooltipReference', tooltip)] if tooltip else []),
         node('DrawTemplate', FRAME_TEMPLATE),
         node('Style_Border', False),
         node('TabIcon', f'TUI_Tab{icon}Normal'),
@@ -3991,6 +4137,78 @@ def tracking_window():
     return window('TrackingWnd', 'Tracking', TRACK_HEIGHT, parts, width=TRACK_WIDTH)
 
 
+def aa_window():
+    """The five stock tabs, each over its list of abilities, a divider under them, the selected ability's description
+    under the list, and the column beside them: your AA XP, how much of your XP goes to AA, your points and the reuse
+    timer, and Train, Hotkey and Done (see AA_FILE). A list's position is from its page's top left, which the tab box
+    puts a padding under the divider and in from the window's left (see TAB_BORDER)."""
+    inner = []
+    for screen_id, list_id, _, art in AA_PAGES:
+        abilities = listbox(f'TUI_AAW_{list_id}', list_id, (0, 0, AA_LIST_WIDTH, AA_LIST_HEIGHT), None, AA_COLUMNS)
+        inner += [abilities, page(f'TUI_AAW_{screen_id}', screen_id, None, art, [abilities])]
+    tabs = node('TabBox', [
+        node('ScreenID', 'Subwindows'),
+        node('Font', TEXT_FONT),  # its height + 8 is the least tab row, which our tabs are taller than
+        node('RelativePosition', True),
+        point('Location', 0, 0),
+        size(AA_TAB_BOX_WIDTH, AA_TAB_BOX_HEIGHT),
+        node('TabBorderTemplate', TAB_BORDER),
+        node('PageBorderTemplate', PAGE_BORDER),
+    ] + [node('Pages', f'TUI_AAW_{screen_id}') for screen_id, *_ in AA_PAGES], 'TUI_AAW_Tabs')
+    parts = [tabs] + [picture(f'TUI_AAW_{name}', 'TUI_AADivider', (LEFT, top, AA_LIST_WIDTH, DIVIDER_HEIGHT))
+                      for name, top in (('TabDivider', TAB_DIVIDER_TOP), ('ListDivider', AA_DIVIDER_TOP))]
+    # Straight on the panel, like the item window's text, with our slim scrollbar.
+    parts.append(node('STMLbox', [
+        node('ScreenID', 'Description'),
+        node('Font', TEXT_FONT),
+        node('RelativePosition', True),
+        point('Location', LEFT, AA_DESCRIPTION_TOP),
+        size(AA_LIST_WIDTH, AA_DESCRIPTION_LINES * TEXT_HEIGHT),
+        node('Style_VScroll', True),
+        node('Style_HScroll', False),
+        node('Style_Transparent', True),
+        node('Style_Border', False),
+        node('DrawTemplate', EDIT_TEMPLATE),
+    ], 'TUI_AAW_Description'))
+    # The column. The drawn % needs a gauge above 0 to show: your own health, so it always shows, 0% too. The bar is as
+    # wide as the inventory's, so they share its art.
+    x, right = AA_COLUMN_X, AA_RIGHT
+    parts.append(vertical_divider('TUI_AAW_Divider', AA_DIVIDER_X, LEFT, AA_BOTTOM - LEFT))
+    percent, readout = percent_readout('TUI_AAW_XPPercent', 'TUI_AAW_XPPercentSign', 27, 1, AA_XP_TOP, right,
+                                       rgb=GOLD_RGB)
+    readout_x = right - PERCENT_WIDTH - NUMBER_WIDTH
+    parts += [
+        label('TUI_AAW_XPCaption', None, (x, AA_XP_TOP, readout_x - x, TEXT_HEIGHT), 'AA XP'),
+        *readout,
+        gauge('TUI_AAW_ExpGauge', 'ExpGauge', 5, (x, AA_XP_TOP + BAR_TOP, AA_COLUMN_WIDTH, BAR_HEIGHT), 'TUI_InvFill',
+              GOLD_RGB, track='TUI_InvTrack'),
+        label('TUI_AAW_PercentLabel', None, (x, AA_SPLIT_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), 'XP to AA',
+              screen_id='PercentLabel'),
+        icon_button('TUI_AAW_LessExpButton', 'LessExpButton', x, AA_SPLIT_ROW_TOP, None, 'Minus', ARROW_SIZE),
+        static_text('TUI_AAW_ExpCount', 'ExpCount',
+                    (x + ARROW_SIZE + PADDING, AA_SPLIT_ROW_TOP + SOCIAL_PAGE_LABEL_TOP,
+                     AA_COLUMN_WIDTH - 2 * (ARROW_SIZE + PADDING), TEXT_HEIGHT), align_center=True, rgb=VALUE_RGB),
+        icon_button('TUI_AAW_MoreExpButton', 'MoreExpButton', right - ARROW_SIZE, AA_SPLIT_ROW_TOP, None, 'Plus',
+                    ARROW_SIZE),
+    ]
+    # The counts are StaticText, the timer a label, as in the stock window.
+    value_x = right - AA_VALUE_WIDTH
+    for n, (caption_id, caption, value_id) in enumerate(AA_NUMBERS):
+        top = AA_NUMBERS_TOP + n * TEXT_HEIGHT
+        rect = (value_x, top, AA_VALUE_WIDTH, TEXT_HEIGHT)
+        parts += [
+            label(f'TUI_AAW_{caption}', None, (x, top, value_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
+            label(f'TUI_AAW_{value_id}', None, rect, '', align_right=True, screen_id=value_id, rgb=VALUE_RGB)
+            if value_id == 'Timer' else
+            static_text(f'TUI_AAW_{value_id}', value_id, rect, align_right=True, rgb=VALUE_RGB),
+        ]
+    parts += [button(f'TUI_AAW_{screen_id}', screen_id, '', x, AA_BUTTONS_TOP + n * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP),
+                     AA_COLUMN_WIDTH, TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
+              for n, (screen_id, button_name) in enumerate(AA_BUTTONS)]
+    return window('AAWindow', 'Alternate Advancement Window', AA_HEIGHT, parts, width=AA_WIDTH,
+                  inner=[*inner, percent])
+
+
 WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FILE: casting_window,
                 CHAT_FILE: chat_window, PET_WINDOW_FILE: pet_window, SELECTOR_FILE: selector_window,
                 BUFF_FILE: buff_window, SONG_FILE: song_window, PLAYER_FILE: player_window,
@@ -4000,7 +4218,7 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
                 LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window,
                 SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window, INVENTORY_FILE: inventory_window,
-                TRACKING_FILE: tracking_window}
+                TRACKING_FILE: tracking_window, AA_FILE: aa_window}
 
 
 def stranded_definitions(skin_xml):

@@ -107,7 +107,9 @@ BUTTON_TEXT = {
 LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_MyName': 'Sebik',
               'LW_CorpseName': "a gnoll pup's corpse", 'BW_BankerName': 'Banker Denston',
               **{f'SBW_SpellName{n}': name for n, (name, _) in enumerate(BOOK)},
-              'SBW_LeftPageNum': BOOK_PAGES[0], 'SBW_RightPageNum': BOOK_PAGES[1]}
+              'SBW_LeftPageNum': BOOK_PAGES[0], 'SBW_RightPageNum': BOOK_PAGES[1],
+              # The AA window's: how much XP goes to AA, your points, those spent and the selected ability's timer.
+              'ExpCount': '100%', 'CurrentCount': '12', 'TotalCount': '145', 'Timer': 'Ready'}
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
@@ -116,6 +118,10 @@ STML_TEXT = {
     'ItemDescription': 'MAGIC ITEM  LORE ITEM\nSlot: PRIMARY SECONDARY\nSkill: 1H Slashing   Atk Delay: 24\n'
                        'DMG: 10  AC: 5\nSTR: +5  STA: +5  HP: +25\nSV FIRE: +5  SV COLD: +5\nWT: 8.0   Size: MEDIUM\n'
                        'Class: WAR PAL RNG SHD BRD ROG\nRace: ALL\nEffect: Lifetap (Combat)',
+    # The AA window's selected ability, as the client writes it (eqstr_en.txt 13810 and 3109).
+    'Description': 'This ability turns the next group buff that you cast into a beneficial area effect spell, hitting '
+                   "everyone within its radius, at the cost of doubling the spell's mana usage.\n"
+                   'Type: Activated, Refresh Time: 1:30:00',
 }
 CLASSES = ['Cleric', 'Warrior', 'Enchanter', 'Shadow Knight', 'Druid', 'Bard', 'Necromancer', 'Monk', 'Shaman']
 LIST_ROWS = {
@@ -150,6 +156,26 @@ TRACKED = [
 LIST_ROWS['TRW_TrackingList'] = [[name] for name, _ in TRACKED]
 # Each row's color, where the client colors the rows itself: a tracked name's is its con's.
 LIST_RGB = {'TRW_TrackingList': [skin.TRACK_FILTERS[con][3] for _, con in TRACKED]}
+# A cleric's alternate abilities on each AA tab, as the client lists them (eqstr_en.txt's names): (name, rank, most,
+# the next rank's cost). The General tab has all of its own, the others a few; the widest name any tab lists (Spell
+# Casting Reinforcement Mastery) is among the PoP abilities.
+AA_ABILITIES = {
+    'List1': [(f'Innate {stat}', rank, 5, min(rank + 1, 5)) for stat, rank in (
+        ('Strength', 2), ('Stamina', 0), ('Agility', 5), ('Dexterity', 1), ('Intelligence', 0), ('Wisdom', 3),
+        ('Charisma', 0), ('Fire Protection', 0), ('Cold Protection', 0), ('Magic Protection', 2),
+        ('Poison Protection', 0), ('Disease Protection', 0))] + [
+        ('Innate Run Speed', 1, 3, 1), ('Innate Regeneration', 0, 3, 1), ('Innate Metabolism', 0, 3, 1),
+        ('Innate Lung Capacity', 0, 3, 1), ('First Aid', 0, 3, 1)],
+    'List2': [('Healing Adept', 3, 3, 3), ('Healing Gift', 1, 3, 3), ('Spell Casting Mastery', 0, 3, 2),
+              ('Mental Clarity', 2, 3, 3), ('Channeling Focus', 0, 3, 2), ('Mass Group Buff', 0, 1, 9)],
+    'List3': [('Divine Resurrection', 0, 1, 5), ('Purify Soul', 0, 1, 5), ('Turn Undead', 1, 5, 2),
+              ('Celestial Regeneration', 0, 1, 5), ('Bestow Divine Aura', 0, 1, 5)],
+    'List4': [('Advanced Innate Strength', 0, 5, 1), ('Planar Power', 1, 5, 2), ('Planar Durability', 0, 3, 1),
+              ('Innate Enlightenment', 0, 5, 1), ('Spell Casting Reinforcement Mastery', 0, 1, 8)],
+    'List5': [('Divine Arbitration', 0, 3, 3), ('Hastened Divinity', 0, 3, 2), ('Advanced Healing Adept', 0, 3, 3)],
+}
+LIST_ROWS.update({list_id: [[name, f'{rank}/{most}', str(cost)] for name, rank, most, cost in abilities]
+                  for list_id, abilities in AA_ABILITIES.items()})
 COMBO_TEXT = {'TRW_TrackSortCombobox': 'Distance', 'TRW_TrackPlayersCombobox': 'On'}  # the choice each shows
 COMBO_TEXT_INSET = skin.FIELD_PADDING  # a guess, like the chat input's text: the client's own is unknown
 TITLES ={'ItemDisplayWindow': 'Fine Steel Long Sword', 'ChatWindow': 'Main'}  # names the client writes

@@ -32,7 +32,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
               skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE, skin.INVENTORY_FILE,
-              skin.TRACKING_FILE]
+              skin.TRACKING_FILE, skin.AA_FILE]
 
 
 @functools.cache
@@ -288,9 +288,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The target's bar and %, the casting bar, your pet's bar and %, each group member, pet and %, the Player
     # window's HP and mana with their %s, its server tick and its XP and AA rates' %s, the spell bar's recast
-    # bars and global recovery, the air bar, the spell book's memorizing and scribing bars, and the inventory's XP and
-    # AA bars with their %s.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2 + 4
+    # bars and global recovery, the air bar, the spell book's memorizing and scribing bars, the inventory's XP and
+    # AA bars with their %s, and the AA window's AA XP bar and %.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2 + 4 + 2
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -301,9 +301,10 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
         if g.get('item').startswith('TUI_GW_PetGauge'):
             bar = (skin.GROUP_BAR_WIDTH - skin.PET_INDENT, bar[1])
         template = g.find('GaugeDrawTemplate')
-        # Solid, each exactly its tint: see the group, player and inventory window tests and the server tick test.
+        # Solid, each exactly its tint: see the group, player, inventory and AA window tests and the server tick test.
         solid = (g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge'))
-                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick', 'TUI_IW_XPBar', 'TUI_IW_AABar'))
+                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick', 'TUI_IW_XPBar', 'TUI_IW_AABar',
+                                      'TUI_AAW_ExpGauge'))
         fill = skin.WHITE if solid else skin.BAR_FILL
         for part, color in (('Background', skin.EDGE_FADED), ('Fill', fill)):
             if template.find(part) is None:
@@ -515,7 +516,8 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'BuffWindow', 'ShortDurationBuffWindow', 'PlayerWindow', 'ActionsWindow', 'CastSpellWnd',
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
-                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow', 'TrackingWnd'}
+                     'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow', 'TrackingWnd',
+                     'AAWindow'}
     # The slot backgrounds the client paints by name are redefined on purpose, and the base's own definitions taken
     # out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
@@ -673,7 +675,7 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     # The user found a solid bar in the text's color harsh next to the name.
     assert skin.BAR_FILL == (255, 255, 255, 170)  # about 70%, on a 16-bit step
     # (The group window's drawn % is its soft blue: see the group window's test. The inventory's XP and AA bars and
-    # their %s are its golden yellow: see its tests.)
+    # their %s are its golden yellow, and so are the AA window's: see their tests.)
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
     inventory_progress = tuple(f'TUI_IW_{caption}{part}' for _, caption, *_ in skin.INV_PROGRESS
                                for part in ('PercentSign', 'Bar'))
@@ -681,7 +683,7 @@ def test_bars_are_the_text_color_softened_to_70_percent():
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
                                                   'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', 'TUI_SBW_Memorize',
-                                                  'TUI_SBW_Scribe', *group_percents, *inventory_progress))
+                                                  'TUI_SBW_Scribe', 'TUI_AAW_', *group_percents, *inventory_progress))
                 and g.find('GaugeDrawTemplate/Fill') is not None
                 and box(g)[2:] != (0, 0)):  # not the hidden ones, which draw nothing
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
@@ -1545,7 +1547,7 @@ def test_every_icon_is_distinct_stays_in_its_square_and_dims_when_disabled():
     normals = set()
     # (icon, button width, button height): the spell bar's book button runs across the window.
     buttons = ([(n, skin.TOGGLE_SIZE, skin.TOGGLE_SIZE) for n in skin.ICONS]
-               + [(n, skin.ARROW_SIZE, skin.ARROW_SIZE) for n in skin.ARROW_ICONS]
+               + [(n, skin.ARROW_SIZE, skin.ARROW_SIZE) for n in {**skin.ARROW_ICONS, **skin.SIGN_ICONS}]
                + [('Book', skin.BOOK_WIDTH, skin.TOGGLE_SIZE)])
     for name, width, height in buttons:
         left, top = (width - skin.ICON_SIZE) // 2, (height - skin.ICON_SIZE) // 2
@@ -4134,6 +4136,238 @@ def test_tracking_buttons_are_the_confirmation_dialogs_kind_with_the_stock_words
     assert box(hidden)[2:] == (0, 0) and hidden.findtext('Text') == ''
 
 
+# The Alternate Advancement window
+
+# Every ScreenID of the stock window. eqgame.exe looks up all but the three captions and the bar, which works by its
+# EQType.
+STOCK_AA = ['TrainButton', 'HotButton', 'DoneButton', 'LessExpButton', 'MoreExpButton', 'PercentLabel', 'ExpCount',
+            'ExpGauge', 'TotalLabel', 'CurrentLabel', 'TotalCount', 'CurrentCount', 'Description',
+            *[f'{kind}{n}' for n in range(1, 6) for kind in ('List', 'Page')], 'Subwindows', 'Timer']
+
+
+def aa_parts():
+    """The AA window file, its window, and every control in the file by ScreenID (or item, where it has none)."""
+    root, window = screen(skin.AA_FILE)
+    return root, window, {e.findtext('ScreenID') or e.get('item'): e for e in root if e.get('item')}
+
+
+def aa_tabs():
+    root, window, found = aa_parts()
+    tabs = found['Subwindows']
+    return root, window, tabs, [items(root, 'Page')[p.text] for p in tabs.findall('Pages')]
+
+
+def test_aa_window_keeps_every_control_the_stock_one_has():
+    # A fixed size with no title bar or close box (the user's pick), so it drags by its background and Done closes it.
+    # Every stock control is there under its ScreenID, each the client looks up of the stock kind; the stock captions,
+    # which nothing looks up, are ours.
+    root, window = check_inside_frame(skin.AA_FILE, skin.AA_WIDTH)
+    assert window.get('item') == 'AAWindow' and window.findtext('Text') == 'Alternate Advancement Window'
+    assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
+    assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
+    assert box(window)[2:] == (skin.AA_WIDTH, skin.AA_HEIGHT) == (549, 414)
+    ids = [e.findtext('ScreenID') for e in root if e.findtext('ScreenID')]
+    assert sorted(ids) == sorted(STOCK_AA) and len(set(ids)) == len(ids)
+    _, _, found = aa_parts()
+    kinds = {'Subwindows': 'TabBox', 'Description': 'STMLbox', 'ExpCount': 'StaticText', 'CurrentCount': 'StaticText',
+             'TotalCount': 'StaticText', 'Timer': 'Label', 'ExpGauge': 'Gauge',
+             **{f'Page{n}': 'Page' for n in range(1, 6)}, **{f'List{n}': 'Listbox' for n in range(1, 6)},
+             **{b: 'Button' for b in ('TrainButton', 'HotButton', 'DoneButton', 'LessExpButton', 'MoreExpButton')}}
+    assert {screen_id: found[screen_id].tag for screen_id in kinds} == kinds
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / skin.AA_FILE
+        if folder and path.is_file():
+            stock = re.findall(r'<ScreenID>\s*(\w+)\s*</ScreenID>', path.read_text(encoding='latin-1'))
+            assert sorted(stock) == sorted(STOCK_AA)
+            break
+
+
+def test_aa_tabs_are_the_stock_pages_with_their_names_on_them():
+    # The stock pages in the stock order, each holding only its list, in a tab box with the Actions window's tab and page
+    # border templates (see PAGE_RIGHT). Each tab is the Actions tabs' toggle with no icon and the page's name painted on
+    # (where the tab box would write its own TabText isn't known) in the icons' color, dimmer while closed, centered;
+    # the open tab lit.
+    root, _, tabs, pages = aa_tabs()
+    defined = {e.get('item'): e for e in root}
+    assert (tabs.findtext('TabBorderTemplate'), tabs.findtext('PageBorderTemplate')) == (skin.TAB_BORDER,
+                                                                                          skin.PAGE_BORDER)
+    assert [p.findtext('ScreenID') for p in pages] == [f'Page{n}' for n in range(1, 6)]
+    assert [[defined[piece.text].findtext('ScreenID') for piece in p.findall('Pieces')] for p in pages] == [
+        [f'List{n}'] for n in range(1, 6)]
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    anims = items(everything(), 'Ui2DAnimation')
+    for page, (_, _, name, art), width in zip(pages, skin.AA_PAGES, skin.AA_TAB_WIDTHS):
+        assert page.find('TabText') is None and page.find('TooltipReference') is None
+        assert (page.findtext('TabIcon'), page.findtext('TabIconActive')) == (f'TUI_Tab{art}Normal',
+                                                                              f'TUI_Tab{art}Pressed')
+        assert page.findtext('Style_Transparent') == 'true' and page.findtext('Style_Border') == 'false'
+        (left, top), ink = skin.AA_TAB_INK[name]
+        assert {len(row) for row in ink} == {len(ink[0])} and abs(left + len(ink[0]) / 2 - width / 2) <= 0.5
+        lit = {}
+        for state, shift in (('Normal', 0), ('Pressed', skin.TAB_SHIFT)):
+            # Closed at the top of its art, open TAB_SHIFT lower (the client draws a closed page's tab that much
+            # lower), clear around it.
+            full = cut(atlas, anims[f'TUI_Tab{art}{state}'])
+            assert full.size == (width, skin.TAB_ART_HEIGHT)
+            tab = full.crop((0, shift, width, shift + skin.TOGGLE_SIZE))
+            plain = as_image(skin.toggle_art((), state, width, skin.TOGGLE_SIZE))
+            name_color = (*skin.ICON_RGB, skin.ICON_LOOKS[state][2])
+            for y in range(tab.height):
+                for x in range(tab.width):
+                    inked = 0 <= y - top < len(ink) and 0 <= x - left < len(ink[0])
+                    coverage = int(ink[y - top][x - left], 16) / 15 if inked else 0
+                    expected = skin.snapped(skin.over(name_color, coverage, plain.getpixel((x, y))))
+                    assert tab.getpixel((x, y)) == expected, (name, state, x, y)
+            full.paste((0, 0, 0, 0), (0, shift, width, shift + skin.TOGGLE_SIZE))
+            assert {p[3] for p in pixels(full)} == {0}
+            lit[state] = sum(sum(p[:3]) * p[3] for p in pixels(tab))
+        assert lit['Pressed'] > lit['Normal'], name
+    assert [name for _, _, name, _ in skin.AA_PAGES] == ['General', 'Archetype', 'Class', 'PoP Advance', 'PoP Ability']
+
+
+def test_aa_tabs_and_lists_follow_the_spacing_standard():
+    _, _, tabs, pages = aa_tabs()
+    _, _, found = aa_parts()
+    assert box(tabs) == (0, 0, skin.AA_TAB_BOX_WIDTH, skin.AA_TAB_BOX_HEIGHT)
+    spots, cut_at, (left, top, right, bottom) = tab_box_layout(tabs, pages)
+    toggles = [(x, y + skin.TAB_SHIFT) for x, y in spots]
+    edges = [(skin.BORDER + x, skin.BORDER + x + w) for (x, _), w in zip(toggles, skin.AA_TAB_WIDTHS)]
+    # The tabs a padding apart from the window's padding to the list's right edge, each as wide ("PoP Advance" in font 2
+    # and a padding either side), all level, a pixel lower than the padding like the Actions window's (see TAB_TOP).
+    assert edges[0][0] == skin.PADDING and edges[-1][1] == skin.BORDER + skin.LEFT + skin.AA_LIST_WIDTH
+    assert [b[0] - a[1] for a, b in zip(edges, edges[1:])] == [skin.PADDING] * (len(edges) - 1)
+    assert skin.AA_TAB_WIDTHS == [64 + 2 * skin.PADDING] * 5
+    assert [skin.BORDER + x for x in skin.AA_TAB_LEFTS] == [edge[0] for edge in edges]
+    assert {skin.BORDER + y for _, y in toggles} == {skin.PADDING + 1}
+    assert toggles[0][1] + skin.TOGGLE_SIZE <= cut_at  # a closed tab is never cut off
+    # Under the tabs, the row divider across the list's width, a padding from the tabs and from the page, which the tab
+    # box puts a padding in from the window's left; each list fills its page.
+    divider = found['TUI_AAW_TabDivider']
+    dx, dy, dw, dh = box(divider)
+    assert divider.findtext('Animation') == 'TUI_AADivider'
+    assert (skin.BORDER + dx, dw, dh) == (skin.PADDING, skin.AA_LIST_WIDTH, 1)
+    assert dy - (toggles[0][1] + skin.TOGGLE_SIZE) == skin.PADDING and top - (dy + dh) == skin.PADDING
+    assert (left, right - left, bottom - top) == (skin.LEFT, skin.AA_LIST_WIDTH, skin.AA_LIST_HEIGHT)
+    for n in range(1, 6):
+        assert box(found[f'List{n}']) == (0, 0, skin.AA_LIST_WIDTH, skin.AA_LIST_HEIGHT)
+    # The tab box ends where the divider beside the list stands: past the list it holds only clear space.
+    assert box(tabs)[2] == box(found['TUI_AAW_Divider'])[0]
+    anims = items(everything(), 'Ui2DAnimation')
+    assert rect_of(anims['TUI_AADivider'])[2:] == (skin.AA_LIST_WIDTH, 1)
+    assert colors(anims['TUI_AADivider']) == {skin.ROW_DIVIDER_RGBA}
+
+
+def test_aa_lists_show_each_ability_its_rank_and_cost():
+    # The client's three columns in its order, each heading on the strip: the rank and cost each their widest text in
+    # font 3 (Arial 12px) and a padding ("10/10" and "Cost"), the names the rest. Straight on the window's panel with the
+    # slim scrollbar, in the windows' font, 18 rows under the heading (the user's pick), no tooltip (the stock lists have
+    # none).
+    _, _, found = aa_parts()
+    for n in range(1, 6):
+        listbox = found[f'List{n}']
+        columns = listbox.findall('Columns')
+        assert [c.findtext('Heading') for c in columns] == ['Ability', 'Rank', 'Cost']
+        assert all(c.findtext('Header') == skin.LIST_HEADER for c in columns)
+        widths = [number(c, 'Width') for c in columns]
+        assert widths == [324, 31 + skin.PADDING, 25 + skin.PADDING]
+        assert sum(widths) + skin.SCROLL_WIDTH == box(listbox)[2] == skin.AA_LIST_WIDTH
+        assert box(listbox)[3] == skin.RAID_HEADER_HEIGHT + 18 * skin.TEXT_HEIGHT and skin.AA_ROWS == 18
+        assert listbox.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
+        assert listbox.findtext('Style_VScroll') == 'true' and listbox.findtext('Style_Border') == 'false'
+        assert listbox.findtext('Font') == str(skin.TEXT_FONT) and rgb(listbox, 'TextColor') == skin.TEXT_RGB
+        assert listbox.find('TooltipReference') is None
+
+
+def test_aa_description_is_under_the_list_straight_on_the_panel():
+    # The row divider a padding under the list, the first line's ink a padding under it (rounded up to a whole pixel),
+    # six lines as wide as the list, and the window's edge a padding under them. Like the item window's text: our slim
+    # scrollbar, nothing of its own drawn, in the windows' font.
+    _, window, found = aa_parts()
+    text, line = found['Description'], found['TUI_AAW_ListDivider']
+    x, y, w, h = box(text)
+    assert (x, w, h) == (skin.LEFT, skin.AA_LIST_WIDTH, 6 * skin.TEXT_HEIGHT)
+    assert text.findtext('DrawTemplate') == skin.EDIT_TEMPLATE and text.findtext('Font') == str(skin.TEXT_FONT)
+    assert text.findtext('Style_VScroll') == 'true' and text.findtext('Style_HScroll') == 'false'
+    assert text.findtext('Style_Transparent') == 'true' and text.findtext('Style_Border') == 'false'
+    assert line.findtext('Animation') == 'TUI_AADivider'
+    assert box(line) == (skin.LEFT, skin.PAGE_TOP + skin.AA_LIST_HEIGHT + skin.PADDING, skin.AA_LIST_WIDTH, 1)
+    gap = y - (box(line)[1] + 1)
+    assert gap == skin.DIVIDER_TO_NAME and gap - 1 < skin.PADDING - skin.TEXT_INK_TOP <= gap
+    assert box(window)[3] - (skin.BORDER + y + h) == skin.PADDING
+
+
+def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
+    root, window, found = aa_parts()
+    b, x = skin.BORDER, skin.AA_COLUMN_X
+    # The divider standing a padding from the list and from the column, from the top padding to the bottom one; the
+    # column three slots wide, like the inventory's, a padding from the window's right edge.
+    divider = box(found['TUI_AAW_Divider'])
+    assert divider == (skin.LEFT + skin.AA_LIST_WIDTH + skin.PADDING, skin.LEFT, 1, skin.AA_BOTTOM - skin.LEFT)
+    assert x == divider[0] + 1 + skin.PADDING and box(window)[2] - (b + skin.AA_RIGHT) == skin.PADDING
+    assert b + divider[1] == skin.PADDING and box(window)[3] - (b + divider[1] + divider[3]) == skin.PADDING
+    assert skin.AA_COLUMN_WIDTH == 3 * skin.HOT_SIZE + 2 * skin.PADDING == skin.INV_MIDDLE_WIDTH
+    # AA XP: its caption, its % (label 27) ending at the column's right, and the bar under them across the column,
+    # solid and in the inventory's golden yellow, as wide as the inventory's so they share its art. The first line at
+    # the inside's top, like the inventory's stats (its ink 7.5px under the edge).
+    caption, bar = found['TUI_AAW_XPCaption'], found['ExpGauge']
+    assert caption.findtext('Text') == 'AA XP' and box(caption)[:2] == (x, skin.AA_XP_TOP)
+    assert b + skin.AA_XP_TOP + skin.TEXT_INK_TOP == 7.5
+    assert number(bar, 'EQType') == 5 and rgb(bar, 'FillTint') == skin.GOLD_RGB
+    assert box(bar) == (x, skin.AA_XP_TOP + skin.BAR_TOP, skin.AA_COLUMN_WIDTH, skin.BAR_HEIGHT)
+    template = bar.find('GaugeDrawTemplate')
+    assert (template.findtext('Fill'), template.findtext('Background')) == ('TUI_InvFill', 'TUI_InvTrack')
+    [percent] = [e for e in root.iter('Label') if e.findtext('EQType') == '27']
+    assert rgb(percent, 'TextColor') == skin.GOLD_RGB and box(percent)[1] == skin.AA_XP_TOP
+    assert box(percent)[0] + box(percent)[2] + skin.PERCENT_WIDTH == skin.AA_RIGHT
+    assert rgb(items(root, 'Gauge')['TUI_AAW_XPPercentSign'], 'FillTint') == skin.GOLD_RGB
+    # How much of your XP goes to AA: the caption two paddings under the bar (to its ink), like the inventory's sections;
+    # a padding under its ink the row of - and + at the column's ends, the social page arrows' size, with the client's %
+    # between them a padding from each, its digits' ink centered on them, in the game's green.
+    split = found['PercentLabel']
+    assert split.findtext('Text') == 'XP to AA' and box(split)[:2] == (x, skin.AA_SPLIT_TOP)
+    bar_bottom = skin.AA_XP_TOP + skin.BAR_TOP + skin.BAR_HEIGHT
+    assert 0 <= skin.AA_SPLIT_TOP + skin.TEXT_INK_TOP - bar_bottom - 2 * skin.PADDING < 1
+    row = skin.AA_SPLIT_ROW_TOP
+    assert row - (skin.AA_SPLIT_TOP + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT) == skin.PADDING
+    less, more, count = found['LessExpButton'], found['MoreExpButton'], found['ExpCount']
+    size = (skin.ARROW_SIZE, skin.ARROW_SIZE)
+    assert box(less) == (x, row, *size) and box(more) == (skin.AA_RIGHT - skin.ARROW_SIZE, row, *size)
+    for button, icon in ((less, 'Minus'), (more, 'Plus')):
+        assert [(e.tag, e.text) for e in button.find('ButtonDrawTemplate')] == [
+            (state, f'TUI_Toggle{icon}{skin.ICON_ART[state]}') for state in skin.BUTTON_STATES]
+        assert button.find('TooltipReference') is None and button.findtext('Style_Checkbox') == 'false'
+    cx, cy, cw, ch = box(count)
+    assert cx - (x + skin.ARROW_SIZE) == skin.PADDING and box(more)[0] - (cx + cw) == skin.PADDING
+    assert count.findtext('AlignCenter') == 'true' and rgb(count, 'TextColor') == skin.VALUE_RGB
+    assert cy - row + skin.DIGITS_INK_MIDDLE == skin.ARROW_SIZE / 2 and ch == skin.TEXT_HEIGHT
+    # Two paddings under the row (to the ink), your points, those spent and the selected ability's reuse timer, stacked
+    # on their line height, each value right-aligned in the game's green ending at the column's right, in room for the
+    # timer's "00:00:00": the counts StaticText and the timer a label, as in the stock window.
+    assert 0 <= skin.AA_NUMBERS_TOP + skin.TEXT_INK_TOP - (row + skin.ARROW_SIZE) - 2 * skin.PADDING < 1
+    assert skin.AA_NUMBERS == (('CurrentLabel', 'Points', 'CurrentCount'), ('TotalLabel', 'Spent', 'TotalCount'),
+                               (None, 'Reuse', 'Timer'))
+    for n, (caption_id, caption, value_id) in enumerate(skin.AA_NUMBERS):
+        top = skin.AA_NUMBERS_TOP + n * skin.TEXT_HEIGHT
+        label, value = found[caption_id or f'TUI_AAW_{caption}'], found[value_id]
+        assert label.findtext('Text') == caption and box(label)[:2] == (x, top)
+        assert box(label)[0] + box(label)[2] == box(value)[0]
+        assert value.tag == ('Label' if value_id == 'Timer' else 'StaticText') and value.find('EQType') is None
+        assert box(value) == (skin.AA_RIGHT - skin.AA_VALUE_WIDTH, top, skin.AA_VALUE_WIDTH, skin.TEXT_HEIGHT)
+        assert value.findtext('AlignRight') == 'true' and rgb(value, 'TextColor') == skin.VALUE_RGB
+    # Train, Hotkey and Done down the column's foot a padding apart, Done's bottom level with the description's and the
+    # window's edge a padding under it: the confirmation dialog's kind, with no tooltips (the stock ones have none).
+    boxes = []
+    for screen_id, button_name in (('TrainButton', 'Train'), ('HotButton', 'Hotkey'), ('DoneButton', 'Done')):
+        check_confirmation_button(found[screen_id], button_name)
+        boxes.append(box(found[screen_id]))
+    assert all((bx, bw) == (x, skin.AA_COLUMN_WIDTH) for bx, _, bw, _ in boxes)
+    assert all(below[1] - (above[1] + above[3]) == skin.BUTTON_ROW_GAP for above, below in zip(boxes, boxes[1:]))
+    description = box(found['Description'])
+    assert boxes[-1][1] + boxes[-1][3] == description[1] + description[3] == skin.AA_BOTTOM
+    assert box(window)[3] - (b + skin.AA_BOTTOM) == skin.PADDING
+    assert boxes[0][1] - (skin.AA_NUMBERS_TOP + len(skin.AA_NUMBERS) * skin.TEXT_HEIGHT) >= skin.PADDING
+
+
 # Building
 
 OTHER_SKIN = 'otherskin'  # a skin a player might build on instead, with --base
@@ -4417,6 +4651,22 @@ def test_close_is_painted_as_the_preview_draws_a_buttons_own_text():
                                    for y in range(top, bottom))
 
 
+def test_aa_tab_names_are_painted_as_the_preview_draws_a_buttons_own_text():
+    # Like Close's: each AA tab's name is the ink's coverage as this tool draws a button's own text in font 2 centered on
+    # a button the tab's size, at the 16 alpha steps. The widest, "PoP Advance", has a padding either side.
+    preview = preview_module()
+    if not any(Path(path).is_file() for path in preview.ARIAL):
+        pytest.skip('no Arial to draw font 2 with')
+    for (_, _, name, _), width in zip(skin.AA_PAGES, skin.AA_TAB_WIDTHS):
+        mask = preview.button_text_mask(name, (width, skin.TOGGLE_SIZE), skin.ACTION_FONT)
+        left, top, right, bottom = mask.getbbox()
+        assert skin.AA_TAB_INK[name] == ((left, top), tuple(
+            ''.join(f'{round(mask.getpixel((x, y)) / skin.STEP):x}' for x in range(left, right))
+            for y in range(top, bottom))), name
+    (left, _), ink = skin.AA_TAB_INK['PoP Advance']
+    assert left == skin.AA_TAB_WIDTH - (left + len(ink[0])) == skin.PADDING
+
+
 def test_preview_fills_in_what_the_game_writes_in_the_give_window(tmp_path):
     # The NPC's name (a label with no EQType, sampled by its ScreenID), each coin's name and its amount in the middle of
     # its box, and items in the first slots.
@@ -4691,6 +4941,54 @@ def test_preview_draws_the_tracking_window_with_its_dropdowns_and_con_colored_na
     for screen_id, *_ in skin.TRACK_FILTERS:
         middle = skin.FILTER_SIZE // 2
         assert region(screen_id).getpixel((middle, middle)) != region(screen_id).getpixel((2, middle)), screen_id
+
+
+def test_preview_fills_in_the_aa_window(tmp_path):
+    # One look per tab, each with its tab lit and its list's sample rows, a name, rank and cost on each; the description,
+    # the bar part filled, the % to AA, the points and the timer in the column. The widest name any tab lists fits a
+    # padding before the rank.
+    preview = preview_module()
+    images = preview.Preview(files(), eq_dir=tmp_path).render(skin.AA_FILE)
+    assert len(images) == len(skin.AA_PAGES)
+    _, _, found = aa_parts()
+    (_, name_width), (_, rank_width), (_, cost_width) = skin.AA_COLUMNS
+    b = skin.BORDER
+
+    def crop(image, x, y, width, height):
+        return image.crop((b + x, b + y, b + x + width, b + y + height))
+
+    def ink(image, left, width, row):
+        top = skin.PAGE_TOP + skin.RAID_HEADER_HEIGHT + row * skin.TEXT_HEIGHT
+        part = crop(image, skin.LEFT + left, top, width, skin.TEXT_HEIGHT)
+        return any(min(p[:3]) > 150 for p in pixels(part))
+
+    for n, (image, (_, list_id, _, _)) in enumerate(zip(images, skin.AA_PAGES)):
+        rows = preview.LIST_ROWS[list_id]
+        assert 0 < len(rows) <= skin.AA_ROWS
+        for row in range(len(rows)):
+            assert ink(image, 0, name_width, row) and ink(image, name_width, rank_width, row), (list_id, row)
+            assert ink(image, name_width + rank_width, cost_width, row), (list_id, row)
+        # The open tab differs from the same tab while another page is open; both land at TOGGLES_TOP.
+        tab = crop(image, skin.AA_TAB_LEFTS[n], skin.TOGGLES_TOP, skin.AA_TAB_WIDTHS[n], skin.TOGGLE_SIZE)
+        other = crop(images[(n + 1) % len(images)], skin.AA_TAB_LEFTS[n], skin.TOGGLES_TOP, skin.AA_TAB_WIDTHS[n],
+                     skin.TOGGLE_SIZE)
+        assert tab.tobytes() != other.tobytes(), list_id
+    image = images[0]
+    panel = image.getpixel((b + skin.AA_COLUMN_X + 2, b + skin.AA_BUTTONS_TOP - skin.PADDING))
+
+    def inked(key):
+        return any(p != panel for p in pixels(crop(image, *box(found[key]))))
+
+    for key in ('Description', 'ExpCount', 'CurrentCount', 'TotalCount', 'Timer', 'TUI_AAW_XPPercent'):
+        assert inked(key), key
+    assert preview.GAUGES[5] == 0.12
+    bar = crop(image, *box(found['ExpGauge'])[:2], skin.AA_COLUMN_WIDTH, skin.BAR_HEIGHT)
+    assert bar.getpixel((0, 0)) != bar.getpixel((bar.width - 1, 0))
+    widest = 'Spell Casting Reinforcement Mastery'
+    assert widest in {row[0] for rows in preview.LIST_ROWS.values() for row in rows}
+    if not any(Path(path).is_file() for path in preview.ARIAL):
+        pytest.skip('no Arial to draw font 3 with')
+    assert preview.text_mask(widest, skin.TEXT_FONT).getbbox()[2] <= name_width - skin.PADDING
 
 
 def test_preview_picks_windows_by_words_from_their_file_names():

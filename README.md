@@ -4,13 +4,13 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, inventory, merchant, item, effects, songs, player, quantity, give, trade, loot, bank, skills and tracking windows, the spell bar, the spell book, the confirmation dialog and the compass.** Everything else keeps EverQuest's own look.
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, inventory, merchant, item, effects, songs, player, quantity, give, trade, loot, bank, skills, tracking and alternate advancement windows, the spell bar, the spell book, the confirmation dialog and the compass.** Everything else keeps EverQuest's own look.
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows and one with a **Close** button on the item and quantity windows. Drag a window by its background to move it, and a chat, item or quantity window by the strip along its top.
 
 The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
 
-Buttons are a faint wash over the panel with a thin outline, and turn solid slate while you point at them. Most buttons' labels are TriageUI's own crisp pixel lettering with room between the letters. The actions window, the confirmation dialog and the quantity, merchant, give, trade, loot, inventory and tracking windows have taller buttons that show their names in EverQuest's own small font instead, which is easier to read. The **Close** button on the item and quantity windows' title bars matches them. Buttons side by side are as far apart as the window's edge is from its text.
+Buttons are a faint wash over the panel with a thin outline, and turn solid slate while you point at them. Most buttons' labels are TriageUI's own crisp pixel lettering with room between the letters. The actions window, the confirmation dialog and the quantity, merchant, give, trade, loot, inventory, tracking and alternate advancement windows have taller buttons that show their names in EverQuest's own small font instead, which is easier to read. The **Close** button on the item and quantity windows' title bars matches them. Buttons side by side are as far apart as the window's edge is from its text.
 
 ## The target window
 
@@ -171,6 +171,18 @@ Your skills and their values in one list straight on the panel, with each headin
 ## The tracking window
 
 What opens when a ranger, druid or bard uses **Track**. Along the top, a button for each con color: red, yellow, white, blue, light blue and green. Each shows a square of its color, bright while NPCs of that color are listed and dim while they're filtered out; click one to switch it, and point at one for its color. Under them, **Sort** and **Players** pick how the list is sorted and whether it lists players; each opens its choices over the list below. Then the list itself: about 24 names are in view, each in its con color, and the rest scroll with the same slim scrollbar as the chat windows. Select a name and click **Track**, or click **Cancel** to close the window. It's as wide as the hot button window and has a fixed size. There's no title bar or close box: drag the window by its background.
+
+## The alternate advancement window
+
+Your alternate abilities, laid out as in EverQuest's own AA window. Along the top are the five tabs, **General**, **Archetype**, **Class**, **PoP Advance** and **PoP Ability**, with their names on them. The open tab is lit, and a faint line separates the tabs from its list. Each list shows the abilities on that tab, the rank you have of the most there is, and the cost of the next rank, with each heading on a faint strip like the skills window's. About 18 abilities are in view, and the rest scroll with the same slim scrollbar as the chat windows. Click one to read its description under the list: what it does, and whether it's activated, with its refresh time, or passive.
+
+On the right, past a thin line:
+- your **AA XP**, the % of the way to your next AA point, with a bar under it, both in the inventory's golden yellow;
+- **XP to AA**, how much of your experience goes to AA: click **-** or **+** to change it;
+- your unspent **Points**, the points you've **Spent**, and **Reuse**, the selected ability's reuse timer, in green;
+- **Train** trains the selected ability, **Hotkey** makes a hotkey for it, and **Done** closes the window.
+
+The window has a fixed size. There's no title bar or close box: drag the window by its background.
 
 ## The compass
 
