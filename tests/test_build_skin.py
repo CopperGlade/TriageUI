@@ -279,9 +279,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     anims = items(root, 'Ui2DAnimation')
     # Not the hidden ones, which have no size.
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
-    # The server tick, the target's bar and %, the casting bar, your pet's bar and %, each group member,
-    # pet and %, the Player window's HP and mana with their %s and its XP and AA rates' %s, the spell bar's
-    # recast bars and global recovery, and the air bar.
+    # The target's bar and %, the casting bar, your pet's bar and %, each group member, pet and %, the Player
+    # window's HP and mana with their %s, its server tick and its XP and AA rates' %s, the spell bar's recast
+    # bars and global recovery, and the air bar.
     assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
@@ -293,11 +293,10 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
         if g.get('item').startswith('TUI_GW_PetGauge'):
             bar = (skin.GROUP_BAR_WIDTH - skin.PET_INDENT, bar[1])
         template = g.find('GaugeDrawTemplate')
-        # Solid, each exactly its names' color: see the group and player window tests.
-        solid = g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge')) or g.get('item') == 'TUI_PW_PlayerMana'
+        # Solid, each exactly its tint: see the group and player window tests and the server tick test.
+        solid = (g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge'))
+                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick'))
         fill = skin.WHITE if solid else skin.BAR_FILL
-        if g.get('item') == 'TUI_Target_ZealTick':
-            fill = skin.EDGE_FADED  # see the server tick test
         for part, color in (('Background', skin.EDGE_FADED), ('Fill', fill)):
             if template.find(part) is None:
                 continue
@@ -554,13 +553,6 @@ def percent_box(root):
     return box(items(root, 'Screen')['TUI_Target_HPPercent_Clip'])
 
 
-def without_tick(rect):
-    """A rect in the target window as it would be without the server tick above the name, which the
-    casting and pet windows don't have."""
-    x, y, width, height = rect
-    return x, y - skin.TARGET_NAME_TOP, width, height
-
-
 def test_target_window_shows_name_hp_percent_and_hp_bar():
     # 20% narrower than the other windows, then 10% wider, at the user's requests.
     assert skin.TARGET_WIDTH == 176 == round(skin.WINDOW_WIDTH * 0.8 * 1.1)
@@ -570,24 +562,19 @@ def test_target_window_shows_name_hp_percent_and_hp_bar():
     assert name.find('EQType').text == '28'
     assert number.find('EQType').text == '29'
     bars = [g for g in root.iter('Gauge') if g.find('ScreenID') is not None]
-    assert [g.get('item') for g in bars] == ['TUI_Target_ZealTick', 'TUI_Target_HP']
-    assert bars[1].find('EQType').text == '6' and bars[1].find('ScreenID').text == 'TargetHP'
+    assert [g.get('item') for g in bars] == ['TUI_Target_HP']
+    assert bars[0].find('EQType').text == '6' and bars[0].find('ScreenID').text == 'TargetHP'
+    # No server tick: it's under the mana bar (see the server tick test).
+    assert all(g.findtext('EQType') != '24' for g in root.iter('Gauge'))
     # The name and number in the text's color (see the target and casting colors test).
     for element in root.iter('Label'):
         assert rgb(element, 'TextColor') == skin.TEXT_RGB
-    # Zeal's server tick along the top of the inside (in the frame it didn't show), as wide as the name's
-    # line, and the name's ink a padding under it. It moved here from the player window (the user's request).
-    tick = bars[0]
-    assert tick.findtext('EQType') == '24' and tick.findtext('ScreenID') == 'ZealTick'
-    assert box(tick) == (skin.LEFT, 0, box(name)[2], skin.TICK_HEIGHT) and skin.TICK_WIDTH == box(name)[2]
-    gap = box(name)[1] + skin.TEXT_INK_TOP - skin.TICK_HEIGHT
-    assert skin.PADDING <= gap < skin.PADDING + 1
-    assert box(window)[3] == skin.TARGET_NAME_TOP + skin.TARGET_HEIGHT
-    # The name has the whole first line for long mob names, with the usual padding each side.
-    assert box(name)[0] + skin.BORDER == skin.PADDING
+    assert box(window)[3] == skin.TARGET_HEIGHT
+    # The name has the whole first line for long mob names, at the top with the usual padding each side.
+    assert box(name)[1] == 0 and box(name)[0] + skin.BORDER == skin.PADDING
     assert skin.TARGET_WIDTH - skin.BORDER - (box(name)[0] + box(name)[2]) == skin.PADDING
     # The number sits straight under the name's line, right-aligned, and the % hugs it.
-    assert box(number)[1] == skin.TARGET_NAME_TOP + skin.TARGET_LINE2 == box(name)[1] + box(name)[3]
+    assert box(number)[1] == skin.TARGET_LINE2 == box(name)[1] + box(name)[3]
     assert number.find('AlignRight').text == 'true'
     assert box(number)[0] + box(number)[2] == percent_box(root)[0]
     # No typed %: typed text would show even without a target.
@@ -666,9 +653,8 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
-                and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Target_ZealTick',
-                                                  'TUI_Casting_Gauge', 'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge',
-                                                  *group_percents))
+                and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
+                                                  'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', *group_percents))
                 and g.find('GaugeDrawTemplate/Fill') is not None):
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
 
@@ -689,17 +675,27 @@ def test_casting_window_is_soft_red_and_target_window_the_text_color():
     assert rgb(found['TUI_Target_HP'], 'FillTint') == rgb(found['TUI_Target_HPPercent'], 'FillTint') == skin.TEXT_RGB
 
 
-def test_server_tick_is_the_other_bars_track_color_with_no_track():
-    # The user wanted the tick itself in the color of the other bars' faint track ("shadow"), and no track
-    # behind it: a white tint over a fill of exactly the tracks' color.
+def test_server_tick_is_a_solid_soft_red_line_under_the_mana_bar():
+    # Zeal's tick drains to empty when mana comes in, so it sits with mana, where casters look while they med
+    # (at the top of the target window players didn't notice it). Solid, in the casting bar's soft red, with no
+    # track, 2px (the user's picks), and only in the player window.
     root = everything()
-    tick = parts(root)['TUI_Target_ZealTick']
+    ticks = [g for g in root.iter('Gauge') if g.findtext('EQType') == '24']
+    assert [g.get('item') for g in ticks] == ['TUI_PW_ZealTick']
+    tick = ticks[0]
+    assert tick.findtext('ScreenID') == 'ZealTick' and number(tick, 'TextOffsetY') == 8000  # its seconds hidden
+    assert rgb(tick, 'FillTint') == skin.SPELL_RGB
     anims = items(root, 'Ui2DAnimation')
-    assert rgb(tick, 'FillTint') == skin.TICK_RGB == (255, 255, 255)
-    track = colors(anims[parts(root)['TUI_Target_HP'].findtext('GaugeDrawTemplate/Background')])
-    assert colors(anims[tick.findtext('GaugeDrawTemplate/Fill')]) == track == {skin.EDGE_FADED}
+    assert colors(anims[tick.findtext('GaugeDrawTemplate/Fill')]) == {skin.WHITE}
     assert tick.find('GaugeDrawTemplate/Background') is None
-    assert 'TUI_TickTrack' not in anims
+    # As wide as the mana bar, a pixel under it, like a pet's bar under its name.
+    player, _ = screen(skin.PLAYER_FILE)
+    mana = box(parts(player)['TUI_PW_PlayerMana'])
+    assert box(tick) == (mana[0], mana[1] + mana[3] + skin.PET_BAR_GAP, mana[2], skin.TICK_HEIGHT)
+    assert skin.TICK_HEIGHT == 2 and skin.PET_BAR_GAP == 1
+    # The XP/h line's ink two paddings under the tick, as under the sections' bars.
+    xp = box(parts(player)['TUI_PW_ExpPerHourCaption'])
+    assert 2 * skin.PADDING <= xp[1] + skin.TEXT_INK_TOP - (box(tick)[1] + box(tick)[3]) < 2 * skin.PADDING + 1
 
 
 def test_target_bar_is_thin_and_level_with_the_health_digits_beside_it():
@@ -877,17 +873,15 @@ def test_casting_window_shows_casting_the_spell_and_its_progress():
 
 
 def test_casting_window_is_the_target_windows_size_with_a_full_width_bar():
-    # The same size as the target window without its server tick, the bar at the height of its health
-    # bar, as if there were text on the second line to center it on, but across the whole width (the
-    # user's request).
+    # The same size as the target window, the bar at the height of its health bar, as if there were text on
+    # the second line to center it on, but across the whole width (the user's request).
     root = everything()
     cast = parts(root)['TUI_Casting_Gauge']
-    health = without_tick(box(parts(root)['TUI_Target_HP']))
+    health = box(parts(root)['TUI_Target_HP'])
     assert box(cast)[1] == health[1] and box(cast)[3] == health[3]
     assert box(cast)[0] == skin.LEFT and box(cast)[0] + box(cast)[2] == skin.TARGET_RIGHT
-    width, height = box(screen(skin.TARGET_FILE)[1])[2:]
-    assert height - skin.TARGET_NAME_TOP == skin.TARGET_HEIGHT
-    assert box(screen(skin.CASTING_FILE)[1])[2:] == (width, skin.TARGET_HEIGHT)
+    assert box(screen(skin.CASTING_FILE)[1])[2:] == box(screen(skin.TARGET_FILE)[1])[2:]
+    assert box(screen(skin.TARGET_FILE)[1])[3] == skin.TARGET_HEIGHT
 
 
 def test_air_window_is_the_casting_windows_twin_in_soft_cyan():
@@ -928,7 +922,7 @@ def test_pet_window_is_the_target_windows_shape_with_its_commands():
     assert health.find('EQType').text == '16'
     assert (number(health, 'TextOffsetX'), number(health, 'TextOffsetY')) == (0, 0)
     assert health.find('Text').text == 'No Pet'
-    target_bar = without_tick(box(parts(everything_root)['TUI_Target_HP']))
+    target_bar = box(parts(everything_root)['TUI_Target_HP'])
     x, y, w, h = box(health)
     assert (x + number(health, 'GaugeOffsetX'), y + number(health, 'GaugeOffsetY')) == target_bar[:2]
     assert (w, h - number(health, 'GaugeOffsetY')) == (target_bar[2] + shift, target_bar[3])
@@ -937,12 +931,12 @@ def test_pet_window_is_the_target_windows_shape_with_its_commands():
     # have a pet.
     number_label = by_id['PIW_PetHPLabel']
     assert number_label.find('EQType').text == '69'
-    target_number = without_tick(box(parts(everything_root)['TUI_Target_HPLabel']))
+    target_number = box(parts(everything_root)['TUI_Target_HPLabel'])
     assert box(number_label) == (target_number[0] + shift, *target_number[1:])
     assert box(number_label)[0] - (x + w) == skin.PADDING
     clips = items(root, 'Screen')
     percent = box(clips['TUI_PIW_HPPercent_Clip'])
-    target_percent = without_tick(box(items(everything_root, 'Screen')['TUI_Target_HPPercent_Clip']))
+    target_percent = box(items(everything_root, 'Screen')['TUI_Target_HPPercent_Clip'])
     assert percent == (target_percent[0] + shift, *target_percent[1:])
     assert skin.PET_WIDTH - skin.BORDER - (percent[0] + percent[2]) == skin.PADDING
     hidden = found[clips['TUI_PIW_HPPercent_Clip'].find('Pieces').text]
@@ -2080,15 +2074,16 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     assert columns[0][0] == skin.LEFT and columns[-1][0] + columns[-1][1] == skin.PLAYER_RIGHT
     assert all(a[0] + a[1] == b[0] for a, b in zip(columns, columns[1:]))
     # XP/hour on its own line under Mana (the user's pick), like a section with no bar: its caption's ink two
-    # paddings under the mana bar (the user asked for it less grouped with Health and Mana). Zeal's label 81
+    # paddings under the server tick, which is under the mana bar (the user asked for it less grouped with
+    # Health and Mana; see the server tick test). Zeal's label 81
     # (a whole percent of a level an hour) counts regular XP only, so it stayed 0 with AA at 100%, and the
     # user had the AA rate (label 86) share the line. Each rate is a pair, its caption a padding before its
     # number (for 3 digits) and its %: "XP/h" at the line's start, "AA/h" ending at the window's padding. Lined
     # up with the columns above, XP's value sat nearer "AA/h" than its own caption ("spacing is weird"). The
     # numbers and %s in the values' green; the % shows while your own health is above 0, so always.
-    mana_bar = box(by_id['PlayerMana'])
-    xp_top = skin.PLAYER_SECTIONS_TOP + 2 * skin.PLAYER_SECTION_PITCH
-    assert 2 * skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (mana_bar[1] + mana_bar[3]) < 2 * skin.PADDING + 1
+    tick = box(by_id['ZealTick'])
+    xp_top = skin.PLAYER_XP_TOP
+    assert 2 * skin.PADDING <= xp_top + skin.TEXT_INK_TOP - (tick[1] + tick[3]) < 2 * skin.PADDING + 1
     assert skin.RATE_CAPTION_WIDTH == 26  # "XP/h" and "AA/h" in Arial 12
     pairs = []
     for item, caption, eq_type, left in (
@@ -2126,9 +2121,8 @@ def test_player_window_shows_hp_mana_xp_and_aa_rates_and_resists_only():
     assert rgb(name, 'TextColor') == skin.TEXT_RGB and name.findtext('AlignLeft') == 'true'
     # 6px more under the name (the user's request).
     assert box(labels['TUI_PW_PlayerHPCaption'])[1] == box(name)[1] + skin.TEXT_HEIGHT + skin.PADDING
-    # The name at the top like the other windows' first lines: the server tick moved to the target window
-    # (the user's request).
-    assert box(name)[1] == 0 and 'ZealTick' not in by_id
+    # The name at the top like the other windows' first lines.
+    assert box(name)[1] == 0
     # Nothing else: no stamina, experience bar or other stats. The name, Health's and Mana's five labels each,
     # the XP and AA rates' two each, and the resists'.
     assert len(labels) == 1 + 2 * 5 + 2 * 2 + 2 * len(skin.RESISTS)
@@ -2344,8 +2338,8 @@ def test_merchant_window_follows_the_spacing_standard():
     # window's edge is a padding under them.
     assert buy == sell and buy[0] == skin.LEFT and buy[0] + buy[2] + skin.BUTTON_GAP == done[0]
     assert buy[1] == done[1] == item[1] + item[3] + skin.BUTTON_ROW_GAP and skin.BUTTON_ROW_GAP == skin.PADDING
-    assert {buy[3], done[3], recharge[3]} == {skin.BUTTON_HEIGHT}
-    assert box(window)[3] == 2 * skin.BORDER + done[1] + skin.BUTTON_HEIGHT + skin.BOTTOM_GAP
+    assert {buy[3], done[3], recharge[3]} == {skin.TEXT_BUTTON_HEIGHT}
+    assert box(window)[3] == 2 * skin.BORDER + done[1] + skin.TEXT_BUTTON_HEIGHT + skin.BOTTOM_GAP
     assert skin.BORDER + skin.BOTTOM_GAP == skin.PADDING
 
 
@@ -2358,19 +2352,15 @@ def test_merchant_recharge_group_shares_the_item_labels_spot_and_leaves_quarm_it
         text = found[screen_id]
         assert text.tag == 'Label' and text.findtext('Text') == '' and text.find('EQType') is None
         assert number(text, 'Font') == skin.TEXT_FONT and rgb(text, 'TextColor') == skin.TEXT_RGB
-    # Recharge in our lettering, with no tooltip of ours: Quarm writes the price per charge there.
-    recharge = found['MW_Recharge_Button']
-    assert recharge.find('TooltipReference') is None and recharge.findtext('Text') == ''
-    art = skin.button_art(*box(recharge)[2:], 'Recharge', 'Normal')
-    assert recharge.findtext('ButtonDrawTemplate/Normal') == f'TUI_{art}'
+    # Every button is the confirmation dialog's kind (the user's pick). Recharge has no tooltip of ours: Quarm writes
+    # the price per charge there.
+    check_confirmation_button(found['MW_Recharge_Button'], 'Recharge')
     # Buy and Sell share a spot (the client shows one), each with the client's own tooltip; Done has none.
     buttons = {screen_id: (text, tooltip) for screen_id, text, tooltip, _ in skin.MERCHANT_BUTTONS}
     assert buttons == {'MW_Buy_Button': ('Buy', 'Purchase considered item'),
                        'MW_Sell_Button': ('Sell', 'Sell considered item'), 'DoneButton': ('Done', None)}
     for screen_id, (text, tooltip) in buttons.items():
-        b = found[screen_id]
-        assert b.findtext('TooltipReference') == tooltip and b.findtext('Text') == ''
-        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], text, "Normal")}'
+        check_confirmation_button(found[screen_id], text, tooltip)
     # The considered item's square: the plain square, with the item's icon over all of it (the stock item icons,
     # which the client sets).
     item = found['MW_SelectedItem']
@@ -2650,12 +2640,12 @@ def give_parts():
     return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
 
 
-def check_confirmation_button(button, name):
+def check_confirmation_button(button, name, tooltip=None):
     """button is the confirmation dialog's kind (the user's pick, where the lettering read too small): its name its own
-    text in the Actions window's font and the text's color, as tall as Yes, on the plain wash at its size, with no
-    tooltip."""
+    text in the Actions window's font and the text's color, as tall as Yes, on the plain wash at its size, with tooltip
+    (none unless given)."""
     yes = {e.findtext('ScreenID'): e for e in parse(skin.CONFIRM_FILE).iter('Button')}['Yes_Button']
-    assert button.findtext('Text') == name and button.find('TooltipReference') is None
+    assert button.findtext('Text') == name and button.findtext('TooltipReference') == tooltip
     assert button.findtext('Font') == yes.findtext('Font') == str(skin.ACTION_FONT)
     assert rgb(button, 'TextColor') == rgb(yes, 'TextColor') == skin.TEXT_RGB
     assert box(button)[3] == box(yes)[3] == skin.TEXT_BUTTON_HEIGHT
@@ -2664,62 +2654,71 @@ def check_confirmation_button(button, name):
 
 def check_coin_caption(root, window, coin, caption):
     """The piece drawn right after the coin box is its coin's name: a label over the box a padding in from its left, in
-    the confirmation dialog's buttons' font and the text's color."""
+    the amount's font and the text's color."""
     pieces = direct_pieces(root, window)
     label = pieces[pieces.index(coin) + 1]
     x, y = box(coin)[:2]
     assert label.tag == 'Label' and label.find('ScreenID') is None and label.find('EQType') is None
-    assert label.findtext('Text') == caption and label.findtext('Font') == str(skin.ACTION_FONT)
+    assert label.findtext('Text') == caption and label.findtext('Font') == coin.findtext('Font') == str(skin.TEXT_FONT)
     assert rgb(label, 'TextColor') == skin.TEXT_RGB and label.findtext('NoWrap') == 'true'
-    assert box(label) == (x + skin.PADDING, y + skin.COIN_CAPTION_TOP, skin.COIN_CAPTION_WIDTH, skin.CAPTION_HEIGHT)
+    assert box(label) == (x + skin.PADDING, y + skin.COIN_CAPTION_TOP, skin.COIN_CAPTION_WIDTH, skin.TEXT_HEIGHT)
 
 
 def test_give_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the NPC's name, the four item slots, the four coin buttons, Give and Cancel, and nothing
-    # else: all of the stock window's controls, every one shown, each coin box followed by its name. As wide as the hot
-    # button window, with no title bar or close box (it drags by its background, and Cancel closes it).
+    # else: all of the stock window's controls, every one shown, each coin box followed by its name, and a divider of
+    # ours over the buttons. As wide as one side of the trade window (the user's pick), with no title bar or close box
+    # (it drags by its background, and Cancel closes it).
     root, window = check_inside_frame(skin.GIVE_FILE, skin.GIVE_WIDTH)
     assert window.get('item') == 'GiveWnd' and window.findtext('Text') == 'Give'
     assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
     assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.HOT_WIDTH, skin.GIVE_HEIGHT) == (174, 143)
+    assert box(window)[2:] == (skin.GIVE_WIDTH, skin.GIVE_HEIGHT) == (90, 244)
+    assert skin.GIVE_WIDTH == skin.TRADE_SIDE_WIDTH + 2 * skin.PADDING
     pieces = direct_pieces(root, window)
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
         ('Label', 'GVW_NPCName'), *(('InvSlot', f'GVW_MyItemSlot{n}') for n in range(4)),
         *(piece for n in range(4) for piece in (('Button', f'GVW_MyMoney{n}'), ('Label', None))),
-        ('Button', 'GVW_Give_Button'), ('Button', 'GVW_Cancel_Button')]
+        ('StaticAnimation', None), ('Button', 'GVW_Give_Button'), ('Button', 'GVW_Cancel_Button')]
     assert [number(e, 'EQType') for e in pieces if e.tag == 'InvSlot'] == [3000, 3001, 3002, 3003]
     assert all(box(e)[2:] != (0, 0) for e in pieces)
 
 
 def test_give_window_follows_the_spacing_standard():
-    _, window, found = give_parts()
+    root, window, found = give_parts()
     b = skin.BORDER
     # The name's line at the inside's top, across the content row: its ink starts 7.5px under the window's edge, the
     # closest the frame allows (a label placed into it isn't drawn), as in the player window.
     name = box(found['GVW_NPCName'])
     assert name == (skin.LEFT, 0, skin.GIVE_CONTENT_WIDTH, skin.TEXT_HEIGHT)
     assert b + name[1] + skin.TEXT_INK_TOP == 7.5
-    # The slots a padding under the name's capitals and digits, on the hot bar's squares a padding apart, filling the
-    # row from the window's padding to its padding.
+    # The slots two across in reading order (the user's pick), a padding under the name's capitals and digits, on the
+    # hot bar's squares a padding apart, filling the row from the window's padding to its padding.
     top = name[1] + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT + skin.PADDING
     slots = [box(found[f'GVW_MyItemSlot{n}']) for n in range(4)]
-    assert slots == [(skin.LEFT + n * skin.HOT_PITCH, top, skin.HOT_SIZE, skin.HOT_SIZE) for n in range(4)]
+    assert slots == [(skin.LEFT + n % 2 * skin.HOT_PITCH, top + n // 2 * skin.HOT_PITCH, skin.HOT_SIZE, skin.HOT_SIZE)
+                     for n in range(4)]
     assert slots[-1][0] + skin.HOT_SIZE == skin.GIVE_RIGHT
     assert skin.GIVE_WIDTH - 2 * b - skin.GIVE_RIGHT == skin.LEFT and b + skin.LEFT == skin.PADDING
-    # The coins two to a row a padding under the slots, then Give and Cancel a padding under them, each row two halves
-    # a padding apart filling it.
+    # The coins stacked a padding apart from platinum down to copper (the user's pick), a padding under the slots, each
+    # across the content row.
     coins = [box(found[f'GVW_MyMoney{n}']) for n in range(4)]
+    assert coins[0][1] == slots[-1][1] + skin.HOT_SIZE + skin.BUTTON_ROW_GAP
+    for above, coin in zip(coins, coins[1:]):
+        assert coin[1] == above[1] + above[3] + skin.BUTTON_ROW_GAP
+    assert {(c[0], c[2], c[3]) for c in coins} == {(skin.LEFT, skin.GIVE_CONTENT_WIDTH, skin.TEXT_BUTTON_HEIGHT)}
+    # The row divider across the content row a padding under the coins (the user's request), in its color.
+    [divider] = [e for e in direct_pieces(root, window) if e.tag == 'StaticAnimation']
+    line_box = box(divider)
+    assert line_box == (skin.LEFT, coins[-1][1] + coins[-1][3] + skin.PADDING, skin.GIVE_CONTENT_WIDTH, 1)
+    line = cut(decode(files()[skin.PIECES_TEXTURE]), items(everything(), 'Ui2DAnimation')[divider.findtext('Animation')])
+    assert line.size == line_box[2:] and set(pixels(line)) == {skin.ROW_DIVIDER_RGBA}
+    # Give and Cancel a padding under it, two halves a padding apart filling the row.
     give, cancel = box(found['GVW_Give_Button']), box(found['GVW_Cancel_Button'])
-    rows = [coins[:2], coins[2:], [give, cancel]]
-    assert rows[0][0][1] == top + skin.HOT_SIZE + skin.BUTTON_ROW_GAP
-    for above, row in zip(rows, rows[1:]):
-        assert row[0][1] == above[0][1] + above[0][3] + skin.BUTTON_ROW_GAP
-    for left, right in rows:
-        assert left[1] == right[1] and left[3] == right[3]
-        assert left[0] == skin.LEFT and left[0] + left[2] + skin.BUTTON_GAP == right[0]
-        assert right[0] + right[2] == skin.GIVE_RIGHT and left[2] == right[2] == 78
-    assert {c[3] for c in coins} == {skin.TEXT_BUTTON_HEIGHT} and give[3] == cancel[3] == skin.TEXT_BUTTON_HEIGHT
+    assert give[1] == cancel[1] == line_box[1] + line_box[3] + skin.BUTTON_ROW_GAP
+    assert give[0] == skin.LEFT and give[0] + give[2] + skin.BUTTON_GAP == cancel[0]
+    assert cancel[0] + cancel[2] == skin.GIVE_RIGHT and give[2] == cancel[2] == 36
+    assert give[3] == cancel[3] == skin.TEXT_BUTTON_HEIGHT
     # The window's edge a padding under the buttons.
     assert box(window)[3] - (b + give[1] + give[3]) == skin.PADDING
 
@@ -2741,9 +2740,9 @@ def test_give_name_slots_and_buttons_take_what_the_game_puts_there():
 
 
 def test_give_coin_boxes_are_the_slots_wash_with_their_coin_named_over_them():
-    # Platinum, gold, silver and copper, in the stock window's order (its coin decals), read left to right and down.
-    # The game writes the amount as each box's text, centered, in font 3, and the coin's name is a label over the box
-    # (the user's picks: over the stock coin pictures, then as big as the confirmation dialog's buttons' names).
+    # Platinum, gold, silver and copper, in the stock window's order (its coin decals), from the top down. The game
+    # writes the amount as each box's text, centered, in font 3, and the coin's name is a label over the box (the
+    # user's picks: over the stock coin pictures, then as big as the amount).
     root, window, found = give_parts()
     assert [caption for _, caption in skin.GIVE_COINS] == ['pp', 'gp', 'sp', 'cp']
     for n, (screen_id, caption) in enumerate(skin.GIVE_COINS):
@@ -2768,16 +2767,20 @@ def test_give_coin_boxes_are_the_slots_wash_with_their_coin_named_over_them():
                    for x in range(skin.COIN_WIDTH) for y in range(skin.COIN_HEIGHT)), state
 
 
-def test_coin_names_sit_on_the_amounts_line_clear_of_six_digits():
-    # The game centers the amount's line in the box, so its digits' ink ends TEXT_INK_TOP and their 9px down that line.
-    # The name's baseline, the bottom of font 2's capitals, is on it, above it by less than a pixel.
-    digits_bottom = skin.COIN_TEXT_TOP + skin.TEXT_INK_TOP + 9
-    baseline = skin.COIN_CAPTION_TOP + skin.CAPTION_INK_TOP + skin.CAPTION_CAP_HEIGHT
-    assert skin.COIN_TEXT_TOP == (skin.COIN_HEIGHT - skin.TEXT_HEIGHT) // 2 and digits_bottom == 15.5
-    assert 0 <= digits_bottom - baseline < 1
-    # Six digits of an amount, centered, start where the name's label ends, and its line ends inside the box's edge.
-    assert (skin.COIN_WIDTH - 6 * skin.DIGIT_WIDTH) / 2 >= skin.PADDING + skin.COIN_CAPTION_WIDTH
-    assert skin.COIN_CAPTION_TOP + skin.CAPTION_HEIGHT < skin.COIN_HEIGHT
+def test_coin_names_are_level_with_the_amount_in_the_middle_of_the_box_clear_of_five_digits():
+    # The game centers the amount's line in the box, so its digits' ink runs TEXT_INK_TOP down that line for 9px. The
+    # names' lowercase ink (the x-height to the descenders) is as tall, LOWERCASE_DROP further down its line, so it runs
+    # from the digits' top to their bottom (the user found them low on the amount's line): both in the box's middle,
+    # within the pixel the game's centering of the amount's line leaves.
+    digits = (skin.COIN_TEXT_TOP + skin.TEXT_INK_TOP, skin.COIN_TEXT_TOP + skin.TEXT_INK_TOP + 9)
+    name = (skin.COIN_CAPTION_TOP + skin.TEXT_INK_TOP + skin.LOWERCASE_DROP,
+            skin.COIN_CAPTION_TOP + skin.TEXT_INK_TOP + 9 + skin.LOWERCASE_DROP)
+    assert skin.COIN_TEXT_TOP == (skin.COIN_HEIGHT - skin.TEXT_HEIGHT) // 2 and digits == name == (6.5, 15.5)
+    assert abs((name[0] + name[1]) / 2 - skin.COIN_HEIGHT / 2) <= 1
+    # Five digits of an amount (the stock placeholder's 60000), centered, start where the name's label ends, and its
+    # line ends inside the box's edge.
+    assert (skin.COIN_WIDTH - 5 * skin.DIGIT_WIDTH) / 2 >= skin.PADDING + skin.COIN_CAPTION_WIDTH
+    assert 0 < skin.COIN_CAPTION_TOP and skin.COIN_CAPTION_TOP + skin.TEXT_HEIGHT < skin.COIN_HEIGHT
 
 
 def trade_parts():
@@ -3415,11 +3418,16 @@ def test_preview_fills_in_what_the_game_writes_in_the_give_window(tmp_path):
     for screen_id, _ in skin.GIVE_COINS:
         assert bright(region(screen_id, right=name_end)) and bright(region(screen_id, name_end)), screen_id
     # A button's text is lowered to the game's ink like a label's, so the amount's digits are where the game draws them
-    # (see COIN_CAPTION_TOP), within half a pixel.
-    amount = region('GVW_MyMoney0', name_end)
-    rows = [y for y in range(amount.height) if bright(amount.crop((0, y, amount.width, y + 1)))]
+    # (see COIN_CAPTION_TOP), within half a pixel, and the name's ink is level with them.
+    def ink_rows(part):
+        rows = [y for y in range(part.height) if bright(part.crop((0, y, part.width, y + 1)))]
+        return rows[0], rows[-1] + 1
+
+    amount = ink_rows(region('GVW_MyMoney0', name_end))
     ink_top = skin.COIN_TEXT_TOP + skin.TEXT_INK_TOP
-    assert ink_top - 0.5 <= rows[0] and rows[-1] + 1 <= ink_top + 9 + 0.5
+    assert ink_top - 0.5 <= amount[0] and amount[1] <= ink_top + 9 + 0.5
+    for screen_id, _ in skin.GIVE_COINS:
+        assert ink_rows(region(screen_id, skin.PADDING, name_end)) == amount, screen_id
     assert preview.GIVE_ITEMS == 2
     slots = [pixels(region(f'GVW_MyItemSlot{n}')) for n in range(4)]
     assert slots[0] != slots[3] and slots[1] != slots[3] and slots[2] == slots[3]

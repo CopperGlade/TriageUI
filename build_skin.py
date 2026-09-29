@@ -173,21 +173,13 @@ GLYPH_STROKE = 1.15
 PERCENT_RINGS = ((2.4, 2.4), (8.6, 6.6))  # centers; each ring is 1.75 x 2.0 across its radii
 PERCENT_RING_RADII = (1.75, 2.0)
 PERCENT_SLASH = ((8.3, 0.3), (2.7, 8.7))
-# Zeal's server tick (gauge 24, which Zeal fills in any window) as a thin bar along the top of the target
-# window's inside, as wide as the name's line, the name's ink a padding under it. It was in the player
-# window first, in the same spot, and moved here at the user's request. The user wanted it along the top
-# border: in the frame itself it didn't show, since the client draws nothing outside a window's inside area.
-# The rest of the target window moves down with the name, so it is TARGET_NAME_TOP taller than the casting
-# and pet windows, which keep TARGET_HEIGHT.
+# Zeal's server tick (gauge 24, which Zeal fills in any window): it drains to empty at each tick, when mana
+# comes in, so it sits a pixel under the mana bar (see MANA_TICK_TOP), where casters look while they med.
+# Solid, in the casting bar's soft red, with no track (the user's picks). Along the top of the target window,
+# players didn't notice it, in the overlay's grey, the mana bar's blue or the tracks' faint color; along the
+# top border it didn't show, since the client draws nothing outside a window's inside area.
 TICK_TYPE = 24
 TICK_HEIGHT = 2
-TICK_TOP = 0
-TICK_WIDTH = TARGET_RIGHT - LEFT
-# The tick itself in the color of the other bars' faint track, with no track behind it (the user's requests:
-# the overlay's grey, solid, at first; then the mana bar's blue; then this). Its fill is the track's color
-# and the tint white, so it shows exactly that.
-TICK_RGB = WHITE[:3]
-TARGET_NAME_TOP = TICK_TOP + TICK_HEIGHT + math.ceil(PADDING - PERCENT_INK_TOP - PERCENT_SUBPIXEL)
 # Things shown only with a target are a target health gauge whose fill, this wide, is clipped to the
 # thing's spot. The client draws a fill's width times the gauge's value, so any health above 0 shows
 # the whole spot, and no target (value 0) shows nothing. duxaUI colors its bars the same way.
@@ -584,7 +576,7 @@ CLIENT_SLOTS = 15
 # pixel apart with a divider between. Under each name, Zeal's countdown to that gem's recast as a thin bar
 # like the other windows' (the user asked for it plain white, not subdued), and along the top Zeal's global
 # recovery after a cast, the master timer over them all, in the casting window's soft red (the user's idea;
-# the server tick's subdued look at first, then white); under the rows, the spellbook's button as an icon
+# the tracks' faint color at first, then white); under the rows, the spellbook's button as an icon
 # toggle like the selector's, but across the window with the book in its middle: it gets clicked in a hurry,
 # so the user asked for a bigger target. A divider closes the last gem's row too, and the book has a row of its
 # own under it, for balance. No gem numbers (the user's calls). The client looks up only the eight gems and the
@@ -614,7 +606,7 @@ RECAST_TYPE = 26
 CAST_RECOVERY_TYPE = 25
 RECAST_TOP = GEM_NAME_TOP + TEXT_HEIGHT + PET_BAR_GAP  # a pixel under the name's line, like a pet's bar
 RECAST_WIDTH = SPELL_BAR_RIGHT - GEM_NAME_X
-GEMS_TOP = TICK_TOP + TICK_HEIGHT + PADDING - GEM_ICON_MARGIN  # the first icon a padding under the global bar
+GEMS_TOP = TICK_HEIGHT + PADDING - GEM_ICON_MARGIN  # the first icon a padding under the global bar
 # The book's toggle a padding under the divider that closes the last gem's row, from padding to padding across
 # the window. Under it, a padding of clear pixels over the window's 1px edge line (EDGE_LINE), as over the
 # divider: the usual padding to the window's outer edge counts the edge line, which left the gap under the book
@@ -717,12 +709,13 @@ PLAYER_WIDTH = HOT_WIDTH
 PLAYER_RIGHT = PLAYER_WIDTH - 2 * BORDER - LEFT
 PLAYER_CONTENT_WIDTH = PLAYER_RIGHT - LEFT
 PLAYER_NAME_TYPE = 1  # your name, the first line (the user's request)
-# At the top, like the other windows' first lines, since the server tick moved to the target window.
-PLAYER_NAME_TOP = 0
+PLAYER_NAME_TOP = 0  # at the top, like the other windows' first lines
 PLAYER_SECTIONS_TOP = PLAYER_NAME_TOP + TEXT_HEIGHT + PADDING  # the user asked for 6px more under the name
 # Two paddings from a bar to the next caption's ink, as from XP/hour to the resists: the user asked for the
 # sections set apart, less cluttered.
 PLAYER_SECTION_PITCH = BAR_TOP + BAR_HEIGHT + math.ceil(2 * PADDING - PERCENT_INK_TOP - PERCENT_SUBPIXEL)
+# The server tick in the mana section, a pixel under its bar like a pet's bar under its name (see TICK_TYPE).
+MANA_TICK_TOP = BAR_TOP + BAR_HEIGHT + PET_BAR_GAP
 # The health bar: '#8fd19e', the soft green the current HP number had at first (the user's pick).
 HP_RGB = (143, 209, 158)
 # The values: the current number, "/" and the max, as separate labels (the current right-aligned against
@@ -743,7 +736,7 @@ CAPTION_HEIGHT = 12
 # them in the overlay's subdued grey.
 CAPTION_RGB = TEXT_RGB
 # XP/hour (the user's request), on its own line under the mana bar like a section with no bar (the user's pick
-# from a mockup), two paddings under it like the sections: Zeal's label 81, the percent of a level you gain an
+# from a mockup), two paddings under its tick like the sections: Zeal's label 81, the percent of a level you gain an
 # hour, a whole number from 0 to 600, averaged over up to the last two hours (/resetexp and /load start it
 # over), with the drawn % after it. It counts regular XP only, so it stays 0 with AA at 100% (the user's
 # "doesn't seem to be working"), and Zeal's label 86, the percent of an AA point an hour, shares the line
@@ -756,7 +749,7 @@ AA_PER_HOUR_TYPE = 86
 # caption grows a digit's width each, since the number hugs its %.
 RATE_CAPTION_WIDTH = 26  # "XP/h" and "AA/h" in font 3 (Arial 12px)
 RATE_PAIR_WIDTH = RATE_CAPTION_WIDTH + PADDING + NUMBER_WIDTH + PERCENT_WIDTH
-PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH
+PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH + PET_BAR_GAP + TICK_HEIGHT  # under the tick
 # The resists a padding further down than the rule's (the user's request), under the XP/hour line's ink.
 RESISTS_TOP = PLAYER_XP_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + 2 * PADDING - CAPTION_INK_TOP
 # Under the resists' numbers, whose ink ends where the drawn %'s does, the window's edge a padding away.
@@ -893,23 +886,20 @@ MERCHANT_TEXT_WIDTH = MERCHANT_RECHARGE_X - PADDING - MERCHANT_TEXT_X
 # The two lines stacked on their line height, the ink of both (the first's top to the second's digits' bottom)
 # centered on the square, as the page numbers' digits are on their arrows.
 MERCHANT_TEXT_TOP = round(HOT_SIZE / 2 - (TEXT_HEIGHT / 2 + DIGITS_INK_MIDDLE))
-MERCHANT_RECHARGE_TOP = (HOT_SIZE - BUTTON_HEIGHT) // 2  # the button centered on the square
+MERCHANT_RECHARGE_TOP = (HOT_SIZE - TEXT_BUTTON_HEIGHT) // 2  # the button centered on the square
 # The recharge group, as (ScreenID, line): the item label covers both lines.
 MERCHANT_RECHARGE = (('MW_Recharge_Charges', 0), ('MW_Recharge_Price', 1))
 MERCHANT_ITEM_LABEL = 'MW_SelectedItemLabel'
 MERCHANT_RECHARGE_BUTTON = 'MW_Recharge_Button'
-# Buy and Sell share a spot, a padding under the band, and Done has the other half of the row: (ScreenID, label,
-# tooltip, column), the client's own tooltips. Done has none.
+# Buy and Sell share a spot, a padding under the band, and Done has the other half of the row: (ScreenID, name,
+# tooltip, column), the client's own tooltips. Done has none. Every button here, Recharge too, is the confirmation
+# dialog's kind (the user's pick), its name its own text.
 MERCHANT_BUTTONS_TOP = MERCHANT_BAND_TOP + HOT_SIZE + BUTTON_ROW_GAP
 MERCHANT_BUTTONS = (('MW_Buy_Button', 'Buy', 'Purchase considered item', 0),
                     ('MW_Sell_Button', 'Sell', 'Sell considered item', 0),
                     ('DoneButton', 'Done', None, 1))
-for _screen_id, _label, _tooltip, _column in MERCHANT_BUTTONS:
-    _size = (MERCHANT_BUTTON_WIDTHS[_column], BUTTON_HEIGHT)
-    BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + (_label,)
-_size = (MERCHANT_BUTTON_WIDTHS[1], BUTTON_HEIGHT)
-BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('Recharge',)
-MERCHANT_HEIGHT = 2 * BORDER + MERCHANT_BUTTONS_TOP + BUTTON_HEIGHT + BOTTOM_GAP
+add_text_buttons(MERCHANT_BUTTON_WIDTHS)
+MERCHANT_HEIGHT = 2 * BORDER + MERCHANT_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 # The confirmation dialog: the box that asks before a resurrection, looting a NODROP item, destroying an item or a
 # translocation (Yes and No), or shows a notice (OK alone; the client never shows all three). The client looks up
 # the text (TextOutput) and the three buttons; default's static Text1 is in no skin's window and not in eqgame.exe,
@@ -1020,48 +1010,52 @@ QUANTITY_HEIGHT = 2 * BORDER + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LE
 # its text, centered, in font 3. Money0 to 3 are platinum, gold, silver and copper in every window, as the stock
 # windows' coin decals show. Each box is the slots' wash with its coin's name a padding in from its left edge (the
 # user's pick, over the stock coin pictures), as tall as the quantity window's number field and as wide as two slots
-# and the padding between them. The name is a label over the box in the buttons' font 2, as big as their names (the
-# user's pick): the box's own text is the amount. Labels let clicks through (see the Actions window's tabs), so a drop
-# on it counts.
+# and the padding between them. The name is a label over the box in the amount's font 3 (the user's pick, the
+# windows' normal text; in the buttons' font 2 on the amount's baseline it read small and low): the box's own text is
+# the amount. Labels let clicks through (see the Actions window's tabs), so a drop on it counts.
 COIN_CAPTIONS = ('pp', 'gp', 'sp', 'cp')
 COIN_WIDTH = 2 * HOT_SIZE + BUTTON_GAP
 COIN_HEIGHT = TEXT_BUTTON_HEIGHT
 COIN_TOOLTIP = 'Drop coins here'  # the stock windows', on your own coins
-# The name's baseline on the amount's: the game centers the amount's line in the box, and its digits' ink ends
-# TEXT_INK_TOP plus their 9px down it. Font 2's capitals start CAPTION_INK_TOP down its line and are CAPTION_CAP_HEIGHT
-# tall (Arial 10px's 7.2). "pp" and "gp" in font 2 are the widest, 11.1px in Arial 10px; six digits of an amount,
-# centered, start where the label ends.
-CAPTION_CAP_HEIGHT = 7
+# The name's ink level with the amount's digits, top and bottom: the game centers the amount's line in the box, so its
+# digits' ink runs from TEXT_INK_TOP down that line for 9px. The names are lowercase with a descender (p, g), 9px of
+# ink too, from the x-height, LOWERCASE_DROP under the digits' top, to the descenders, as far under their bottom. On
+# the amount's line, the names sat that much low.
+LOWERCASE_DROP = 2  # font 3 (Arial 12px)
 COIN_TEXT_TOP = (COIN_HEIGHT - TEXT_HEIGHT) // 2
-COIN_CAPTION_TOP = math.floor(COIN_TEXT_TOP + TEXT_INK_TOP + PERCENT_GLYPH_HEIGHT - math.ceil(PERCENT_SUBPIXEL)
-                              - CAPTION_INK_TOP - CAPTION_CAP_HEIGHT)
-COIN_CAPTION_WIDTH = 12
+COIN_CAPTION_TOP = COIN_TEXT_TOP - LOWERCASE_DROP
+# "pp" and "gp" are the widest, 14px in Arial 12px. Five digits of an amount (the stock windows' placeholder is
+# 60000), centered, start where the label ends; six would reach the name.
+COIN_CAPTION_WIDTH = 14
 # The give window: what opens when you hand an NPC an item or coins. eqgame.exe looks up the NPC's name (which it
 # writes), the four item slots (GVW_MyItemSlot0 to 3, EQTypes 3000 to 3003), the four coin buttons (GVW_MyMoney0 to 3:
 # platinum, gold, silver and copper, each showing the amount you give as its text), Give and Cancel, and nothing else.
-# The user's picks (2026-09-28, from mockups): the hot button window's width with the four slots in a row on its
-# squares, the NPC's name over them, the coins two to a row, each marked with its coin, then Give and Cancel.
+# The user's picks (2026-09-29, from mockups): one side of the trade window, the four slots two across on the hot
+# button window's squares under the NPC's name, the coins stacked under them, then a divider over Give and Cancel. The
+# window's content is as wide as a coin box, so a long name is cut off.
 GIVE_FILE = 'EQUI_GiveWnd.xml'
-GIVE_WIDTH = HOT_WIDTH
+GIVE_CONTENT_WIDTH = COIN_WIDTH
+GIVE_WIDTH = GIVE_CONTENT_WIDTH + 2 * PADDING
 GIVE_RIGHT = GIVE_WIDTH - 2 * BORDER - LEFT
-GIVE_CONTENT_WIDTH = GIVE_RIGHT - LEFT
 # The name's line at the inside's top, so its ink starts about 7.5px under the window's edge, like the player window's
 # name: a label placed into the frame isn't drawn. The slots a padding under its capitals' and digits' ink.
 GIVE_NAME_TOP = 0
 GIVE_SLOTS_TOP = GIVE_NAME_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
 GIVE_SLOT_TYPE = 3000
 GIVE_SLOTS = 4
+GIVE_SLOT_COLUMNS = 2  # in reading order, left to right and down, as the game fills them
+GIVE_SLOT_ROWS = -(-GIVE_SLOTS // GIVE_SLOT_COLUMNS)
+# The coin boxes (see COIN_CAPTIONS), (ScreenID, caption) from platinum down to copper, a padding under the slots.
+GIVE_COINS = tuple((f'GVW_MyMoney{n}', caption) for n, caption in enumerate(COIN_CAPTIONS))
+GIVE_COINS_TOP = GIVE_SLOTS_TOP + GIVE_SLOT_ROWS * HOT_PITCH
+GIVE_COINS_BOTTOM = GIVE_COINS_TOP + len(GIVE_COINS) * (COIN_HEIGHT + BUTTON_ROW_GAP) - BUTTON_ROW_GAP
+# The row divider across the content row a padding under the coins, and Give and Cancel a padding under it (the user's
+# request), filling the row: (ScreenID, name, column). The stock ones have no tooltips. They're the confirmation
+# dialog's buttons (the user's pick), their names their own text.
+GIVE_DIVIDER_TOP = GIVE_COINS_BOTTOM + PADDING
+GIVE_BUTTONS_TOP = GIVE_DIVIDER_TOP + DIVIDER_HEIGHT + BUTTON_ROW_GAP
 GIVE_HALF_WIDTHS = ((GIVE_CONTENT_WIDTH - BUTTON_GAP) // 2,
                     GIVE_CONTENT_WIDTH - BUTTON_GAP - (GIVE_CONTENT_WIDTH - BUTTON_GAP) // 2)
-# The coin boxes (see COIN_CAPTIONS), (ScreenID, caption) in reading order, two to a row a padding under the slots,
-# each half the row.
-GIVE_COINS = tuple((f'GVW_MyMoney{n}', caption) for n, caption in enumerate(COIN_CAPTIONS))
-GIVE_COIN_COLUMNS = 2
-GIVE_COIN_ROWS = -(-len(GIVE_COINS) // GIVE_COIN_COLUMNS)
-GIVE_COINS_TOP = GIVE_SLOTS_TOP + HOT_SIZE + BUTTON_ROW_GAP
-# Give and Cancel fill the row a padding under the coins: (ScreenID, name, column). The stock ones have no tooltips.
-# They're the confirmation dialog's buttons (the user's pick), their names their own text.
-GIVE_BUTTONS_TOP = GIVE_COINS_TOP + GIVE_COIN_ROWS * (COIN_HEIGHT + BUTTON_ROW_GAP)
 GIVE_BUTTONS = (('GVW_Give_Button', 'Give', 0), ('GVW_Cancel_Button', 'Cancel', 1))
 add_text_buttons(GIVE_HALF_WIDTHS)
 GIVE_HEIGHT = 2 * BORDER + GIVE_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
@@ -1796,7 +1790,7 @@ def pieces():
     sizes its A_GaugeFill to each gauge for the same reason), so they are exactly as big as their bar.
     The track is the edge color, like the overlay's border; fills are white for FillTint to color, softened
     to BAR_FILL's alpha, except the group window's and the mana bar's (solid, each exactly its names' color)
-    and the server tick's (the track's own color, with no track behind it).
+    and the server tick's (solid, with no track behind it).
     """
     # Each icon's (coverage, button width, button height).
     icons = {name: (icon_coverage(shape), TOGGLE_SIZE, TOGGLE_SIZE) for name, shape in ICONS.items()}
@@ -1815,7 +1809,7 @@ def pieces():
         'PlayerTrack': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, EDGE_FADED),
         'PlayerFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, BAR_FILL),
         'PlayerSolidFill': Texture(PLAYER_CONTENT_WIDTH, BAR_HEIGHT, WHITE),
-        'TickFill': Texture(TICK_WIDTH, TICK_HEIGHT, EDGE_FADED),  # the tracks' color (see TICK_RGB)
+        'TickFill': Texture(PLAYER_CONTENT_WIDTH, TICK_HEIGHT, WHITE),
         **{button_art(width, height, label, state): labeled_button_art(width, height, label, state)
            for (width, height), labels in BUTTON_LABELS.items() for label in labels for state in BUTTON_LOOKS},
         **{f'Scroll{way}{state}': chevron(way == 'Up', alpha)
@@ -1827,6 +1821,7 @@ def pieces():
         'GroupDivider': Texture(GROUP_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the group window's width
         'ActionsDivider': Texture(ACTIONS_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the Actions window's width
         'MerchantDivider': Texture(MERCHANT_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the merchant window's
+        'GiveDivider': Texture(GIVE_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the give window's
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
         'GemSlot': clear_texture(GEM_ROW_WIDTH, GEM_ROW_HEIGHT),  # a spell gem's row, clear (see spell_gem())
@@ -2210,9 +2205,9 @@ def shown_with_target(name, art, rect, eq_type=6, tint=TEXT_RGB):
     return hidden, clip(f'{name}_Clip', rect, [hidden])
 
 
-def twin_bar(name, screen_id, eq_type, top=0):
-    """The target's thin health bar on its second line, with its track, top further down (under the tick)."""
-    return gauge(name, screen_id, eq_type, (LEFT, top + TWIN_BAR_TOP, TWIN_BAR_WIDTH, TWIN_BAR_HEIGHT),
+def twin_bar(name, screen_id, eq_type):
+    """The target's thin health bar on its second line, with its track."""
+    return gauge(name, screen_id, eq_type, (LEFT, TWIN_BAR_TOP, TWIN_BAR_WIDTH, TWIN_BAR_HEIGHT),
                  'TUI_TwinFill', TEXT_RGB, track='TUI_TwinTrack')
 
 
@@ -2379,17 +2374,13 @@ def stretched(tag, name, screen_id, template, offsets, top_from_bottom, extra):
 # The windows
 
 def target_window():
-    """Zeal's server tick along the top; under it the target's name across the first line, and a thin
-    HP bar, then the HP %, on the second."""
-    top = TARGET_NAME_TOP
+    """The target's name across the first line, and a thin HP bar, then the HP %, on the second."""
     # Zeal blanks the number without a target, and the drawn % hides with it. The name, bar and health %
     # are in the text's color (the user tried a soft red, '#e88080', and went back).
-    percent, readout = health_readout('TUI_Target', 29, 6, top + TARGET_LINE2, TARGET_RIGHT, 'HPLabel')
-    return window('TargetWindow', 'Target', top + TARGET_HEIGHT, [
-        gauge('TUI_Target_ZealTick', 'ZealTick', TICK_TYPE, (LEFT, TICK_TOP, TICK_WIDTH, TICK_HEIGHT),
-              'TUI_TickFill', TICK_RGB),
-        label('TUI_Target_Name', 28, (LEFT, top, TARGET_RIGHT - LEFT, TEXT_HEIGHT), 'TargetName'),
-        twin_bar('TUI_Target_HP', 'TargetHP', 6, top),
+    percent, readout = health_readout('TUI_Target', 29, 6, TARGET_LINE2, TARGET_RIGHT, 'HPLabel')
+    return window('TargetWindow', 'Target', TARGET_HEIGHT, [
+        label('TUI_Target_Name', 28, (LEFT, 0, TARGET_RIGHT - LEFT, TEXT_HEIGHT), 'TargetName'),
+        twin_bar('TUI_Target_HP', 'TargetHP', 6),
         *readout,
     ], tooltip='Your Current Target', width=TARGET_WIDTH, inner=[percent])
 
@@ -2695,8 +2686,9 @@ def listbox(name, screen_id, rect, tooltip, columns):
 
 
 def player_window():
-    """Your name, then Health and Mana, each a line with its %, its "current/max" and a bar under it, a line
-    with your XP and AA rates, and the resists under them as a small table."""
+    """Your name, then Health and Mana, each a line with its %, its "current/max" and a bar under it, Zeal's
+    server tick under the mana bar, a line with your XP and AA rates, and the resists under them as a small
+    table."""
     parts = [label('TUI_PW_Name', PLAYER_NAME_TYPE, (LEFT, PLAYER_NAME_TOP, PLAYER_CONTENT_WIDTH, TEXT_HEIGHT), '')]
     max_x = PLAYER_RIGHT - PLAYER_NUMBER_WIDTH
     slash_x = max_x - PLAYER_SLASH_WIDTH
@@ -2729,6 +2721,9 @@ def player_window():
             gauge(f'TUI_PW_{screen_id}', screen_id, eq_type, (LEFT, top + BAR_TOP, PLAYER_CONTENT_WIDTH, BAR_HEIGHT),
                   fill, tint, track='TUI_PlayerTrack'),
         ]
+    parts.append(gauge('TUI_PW_ZealTick', 'ZealTick', TICK_TYPE,
+                       (LEFT, PLAYER_SECTIONS_TOP + PLAYER_SECTION_PITCH + MANA_TICK_TOP, PLAYER_CONTENT_WIDTH,
+                        TICK_HEIGHT), 'TUI_TickFill', SPELL_RGB))
     # XP/h and its % at the line's start, AA/h and its % ending at its end (see RATE_PAIR_WIDTH). The numbers
     # and their %s in the values' green. The drawn % needs a gauge above 0 to show: your own health, so it
     # always shows, 0% too.
@@ -2798,7 +2793,7 @@ def spell_bar_window():
         recasts.append(gauge(f'TUI_CSPW_Spell{n}_Recast', f'CSPW_Spell{n}_Recast', RECAST_TYPE + n,
                              (GEM_NAME_X, top + RECAST_TOP, RECAST_WIDTH, TICK_HEIGHT), 'TUI_RecastFill', TEXT_RGB))
     recovery = gauge('TUI_CSPW_Global_Recast', 'CSPW_Global_Recast', CAST_RECOVERY_TYPE,
-                     (LEFT, TICK_TOP, SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT), 'TUI_CastRecoveryFill', SPELL_RGB)
+                     (LEFT, 0, SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT), 'TUI_CastRecoveryFill', SPELL_RGB)
     book = toggle_button('TUI_CSPW_SpellBook', 'CSPW_SpellBook', LEFT, BOOK_TOP, 'Opens and closes Your Spellbook',
                          'Book', BOOK_WIDTH)
     # The names and bars over the gems, which are solid, as duxaUI's names are over its gems.
@@ -2957,12 +2952,14 @@ def merchant_window():
                       screen_id=screen_id)
                 for screen_id, line in MERCHANT_RECHARGE]
     # No tooltip of ours: Quarm writes the price per charge there.
-    recharge.append(button(f'TUI_{MERCHANT_RECHARGE_BUTTON}', MERCHANT_RECHARGE_BUTTON, 'Recharge', MERCHANT_RECHARGE_X,
-                           top + MERCHANT_RECHARGE_TOP, MERCHANT_BUTTON_WIDTHS[1]))
-    buttons = [button(f'TUI_MW_{screen_id}', screen_id, label_text,
+    recharge.append(button(f'TUI_{MERCHANT_RECHARGE_BUTTON}', MERCHANT_RECHARGE_BUTTON, '', MERCHANT_RECHARGE_X,
+                           top + MERCHANT_RECHARGE_TOP, MERCHANT_BUTTON_WIDTHS[1], TEXT_BUTTON_HEIGHT,
+                           font=ACTION_FONT, text='Recharge'))
+    buttons = [button(f'TUI_MW_{screen_id}', screen_id, '',
                       LEFT + sum(MERCHANT_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP, MERCHANT_BUTTONS_TOP,
-                      MERCHANT_BUTTON_WIDTHS[column], tooltip=tooltip)
-               for screen_id, label_text, tooltip, column in MERCHANT_BUTTONS]
+                      MERCHANT_BUTTON_WIDTHS[column], TEXT_BUTTON_HEIGHT, tooltip=tooltip, font=ACTION_FONT,
+                      text=button_name)
+               for screen_id, button_name, tooltip, column in MERCHANT_BUTTONS]
     name = hidden_label('TUI_MW_MerchantName', 'MW_MerchantName')
     return window('MerchantWnd', 'Merchant', MERCHANT_HEIGHT,
                   [panel, divider, item, item_label, *recharge, *buttons, name], width=MERCHANT_WIDTH, inner=slots)
@@ -3090,8 +3087,8 @@ def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True):
         node('ButtonDrawTemplate', [node(state, f'TUI_Coin{BUTTON_ART[state] if lit else "Normal"}')
                                     for state in BUTTON_STATES]),
     ], name)
-    caption_box = (x + PADDING, y + COIN_CAPTION_TOP, COIN_CAPTION_WIDTH, CAPTION_HEIGHT)
-    return [box, label(f'{name}_Caption', None, caption_box, caption, font=ACTION_FONT)]
+    caption_box = (x + PADDING, y + COIN_CAPTION_TOP, COIN_CAPTION_WIDTH, TEXT_HEIGHT)
+    return [box, label(f'{name}_Caption', None, caption_box, caption)]
 
 
 def vertical_divider(name, x, y, height):
@@ -3110,22 +3107,24 @@ def vertical_divider(name, x, y, height):
 
 
 def give_window():
-    """What you hand an NPC: its name, then your four item slots in a row on the hot bar's squares, the coin boxes two
-    to a row, and Give and Cancel (see GIVE_FILE)."""
+    """What you hand an NPC: its name, then your four item slots two across on the hot bar's squares, the coin boxes
+    stacked under them, a divider, and Give and Cancel (see GIVE_FILE)."""
     name = label('TUI_GVW_NPCName', None, (LEFT, GIVE_NAME_TOP, GIVE_CONTENT_WIDTH, TEXT_HEIGHT), '',
                  screen_id='GVW_NPCName')
     slots = [inv_slot(f'TUI_GVW_MyItemSlot{n}', f'GVW_MyItemSlot{n}', GIVE_SLOT_TYPE + n,
-                      (LEFT + n * HOT_PITCH, GIVE_SLOTS_TOP), 'TUI_HotButtonNormal')
+                      (LEFT + n % GIVE_SLOT_COLUMNS * HOT_PITCH, GIVE_SLOTS_TOP + n // GIVE_SLOT_COLUMNS * HOT_PITCH),
+                      'TUI_HotButtonNormal')
              for n in range(GIVE_SLOTS)]
     coins = [part for n, (screen_id, caption) in enumerate(GIVE_COINS)
-             for part in coin_box(f'TUI_GVW_{screen_id}', screen_id, caption,
-                                  LEFT + sum(GIVE_HALF_WIDTHS[:n % GIVE_COIN_COLUMNS]) + n % GIVE_COIN_COLUMNS * BUTTON_GAP,
-                                  GIVE_COINS_TOP + n // GIVE_COIN_COLUMNS * (COIN_HEIGHT + BUTTON_ROW_GAP))]
+             for part in coin_box(f'TUI_GVW_{screen_id}', screen_id, caption, LEFT,
+                                  GIVE_COINS_TOP + n * (COIN_HEIGHT + BUTTON_ROW_GAP))]
+    # The Effects window's divider, at the content row's width.
+    divider = picture('TUI_GVW_Divider', 'TUI_GiveDivider', (LEFT, GIVE_DIVIDER_TOP, GIVE_CONTENT_WIDTH, DIVIDER_HEIGHT))
     buttons = [button(f'TUI_GVW_{screen_id}', screen_id, '',
                       LEFT + sum(GIVE_HALF_WIDTHS[:column]) + column * BUTTON_GAP, GIVE_BUTTONS_TOP,
                       GIVE_HALF_WIDTHS[column], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
                for screen_id, button_name, column in GIVE_BUTTONS]
-    return window('GiveWnd', 'Give', GIVE_HEIGHT, [name, *slots, *coins, *buttons], width=GIVE_WIDTH)
+    return window('GiveWnd', 'Give', GIVE_HEIGHT, [name, *slots, *coins, divider, *buttons], width=GIVE_WIDTH)
 
 
 def trade_window():
