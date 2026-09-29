@@ -1350,9 +1350,12 @@ INV_SECTION_STEP = math.ceil(PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + 2 * PADDIN
 INV_WHO_TOP = math.ceil(LEFT + HOT_SIZE + PADDING - TEXT_INK_TOP)
 INV_XP_TOP = INV_WHO_TOP + 2 * TEXT_HEIGHT + INV_SECTION_STEP
 INV_AA_TOP = INV_XP_TOP + PLAYER_SECTION_PITCH
-# (caption's ScreenID, caption, % label, gauge's ScreenID, gauge EQType, top)
+# (caption's ScreenID, caption, % label, gauge's ScreenID, gauge EQType, top). The client looks up AltAdvLabel and
+# AltAdvGauge and hid both in game, leaving AA's line a bare 0%; the user wants the line always, so AA's caption and bar
+# have no ScreenID (the bar works by its EQType) and the stock two stay, hidden (INV_HIDDEN_AA).
 INV_PROGRESS = (('NextLevelLabel', 'XP', 26, 'ExpGauge', 4, INV_XP_TOP),
-                ('AltAdvLabel', 'AA', 27, 'AltAdvGauge', 5, INV_AA_TOP))
+                (None, 'AA', 27, None, 5, INV_AA_TOP))
+INV_HIDDEN_AA = ('AltAdvLabel', 'AltAdvGauge')
 INV_LEVEL_WIDTH = 2 * DIGIT_WIDTH  # the level, right-aligned against the class a space after it
 # The column on the right, three slots wide, the row divider standing between it and the worn slots a padding from each.
 INV_DIVIDER_X = LEFT + INV_DOLL_WIDTH + PADDING
@@ -1366,11 +1369,17 @@ INV_CONTENT_WIDTH = INV_RIGHT - LEFT
 # keeps its stock ScreenID, the caption's and 'NumberLabel'.
 INV_STATS = (('STR', 5), ('STA', 6), ('AGI', 8), ('DEX', 7), ('WIS', 9), ('INT', 10), ('CHA', 11))
 INV_STATS_TOP = 0
-# Under the stats (the user moved them here from the middle), each a section two paddings under the digits above: AC
-# and ATK, as the stats (caption, label EQType), then the weight as the player window's current/max (labels 24 and 25).
-INV_NUMBERS_TOP = INV_STATS_TOP + (len(INV_STATS) - 1) * TEXT_HEIGHT + INV_SECTION_STEP
+# Under the stats (the user moved them here from the middle): AC and ATK, as the stats (caption, label EQType), then the
+# weight as the player window's current/max (labels 24 and 25). Each is set apart from what's above by the row divider
+# across the column (the user's request), a padding under the digits above and a padding over the next ink, as the
+# group window's members are.
+INV_DIGITS_BOTTOM = PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT  # down a line of font 3 to its digits' bottom
+INV_STATS_DIVIDER_TOP = INV_STATS_TOP + (len(INV_STATS) - 1) * TEXT_HEIGHT + INV_DIGITS_BOTTOM + PADDING
+INV_NUMBERS_TOP = INV_STATS_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME
 INV_NUMBERS = (('AC', 22), ('ATK', 23))
-INV_WEIGHT_TOP = INV_NUMBERS_TOP + (len(INV_NUMBERS) - 1) * TEXT_HEIGHT + INV_SECTION_STEP
+INV_NUMBERS_DIVIDER_TOP = INV_NUMBERS_TOP + (len(INV_NUMBERS) - 1) * TEXT_HEIGHT + INV_DIGITS_BOTTOM + PADDING
+INV_WEIGHT_TOP = INV_NUMBERS_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME
+INV_COLUMN_DIVIDERS = (('TUI_IW_StatsDivider', INV_STATS_DIVIDER_TOP), ('TUI_IW_NumbersDivider', INV_NUMBERS_DIVIDER_TOP))
 # The coin boxes stacked at the column's foot, the last level with the worn slots' bottom. The column is as wide as the
 # bank's coin boxes, so they share its art.
 INV_COIN_PITCH = COIN_HEIGHT + BUTTON_ROW_GAP
@@ -2209,6 +2218,7 @@ def pieces():
         'ActionsDivider': Texture(ACTIONS_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the Actions window's width
         'MerchantDivider': Texture(MERCHANT_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the merchant window's
         'GiveDivider': Texture(GIVE_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the give window's
+        'InvDivider': Texture(INV_COLUMN_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the inventory's column's
         'TradeDivider': Texture(TRADE_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the same, the trade window's
         'HelpfulRow': Texture(SLOT_WIDTH, ROW_HEIGHT, HELPFUL_RGBA),
         'HarmfulRow': harmful_row(),
@@ -2246,6 +2256,7 @@ def pieces():
         'ListHeaderWash': Texture(PIECE_LENGTH, RAID_HEADER_HEIGHT, HEADER_RGBA),  # see LIST_HEADER
         'FieldEdge': Texture(1, 1, EDGE_FADED),
         'Clear': clear_texture(1, 1),
+        'ClassAnim': clear_texture(1, 1),  # the inventory's class picture's own (see inventory_window())
         # The Actions window's tabs, and its tab and page border templates' clear pieces (see TAB_BORDER).
         **{f'Tab{icon}{state}': tab_art(icons[icon][0], state, width)
            for (*_, icon), width in zip(ACTIONS_PAGES, TAB_WIDTHS) for state in ('Normal', 'Pressed')},
@@ -3746,21 +3757,26 @@ def inventory_window():
     percents = []
     readout_x = right - PERCENT_WIDTH - NUMBER_WIDTH
     for caption_id, caption, percent_type, gauge_id, gauge_type, top in INV_PROGRESS:
-        percent, readout = percent_readout(f'TUI_IW_{gauge_id}Percent', f'TUI_IW_{gauge_id}PercentSign', percent_type,
+        percent, readout = percent_readout(f'TUI_IW_{caption}Percent', f'TUI_IW_{caption}PercentSign', percent_type,
                                            1, top, right, rgb=VALUE_RGB)
         percents.append(percent)
         parts += [
-            label(f'TUI_IW_{caption_id}', None, (x, top, readout_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
+            label(f'TUI_IW_{caption}Caption', None, (x, top, readout_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
             *readout,
-            gauge(f'TUI_IW_{gauge_id}', gauge_id, gauge_type, (x, top + BAR_TOP, INV_MIDDLE_WIDTH, BAR_HEIGHT),
+            gauge(f'TUI_IW_{caption}Bar', gauge_id, gauge_type, (x, top + BAR_TOP, INV_MIDDLE_WIDTH, BAR_HEIGHT),
                   'TUI_InvFill', TEXT_RGB, track='TUI_InvTrack'),
         ]
-    # The column: the stats, then AC and ATK, then the weight as the player window's current/max, every value in the
-    # game's green ending at the column's right; the coins at its foot.
+    # The column: the stats, then AC and ATK, then the weight as the player window's current/max, a divider across over
+    # each of the last two, every value in the game's green ending at the column's right; the coins at its foot.
     parts.append(vertical_divider('TUI_IW_Divider', INV_DIVIDER_X, LEFT, INV_DOLL_HEIGHT))
+    parts += [picture(name, 'TUI_InvDivider', (INV_COLUMN_X, top, INV_COLUMN_WIDTH, DIVIDER_HEIGHT))
+              for name, top in INV_COLUMN_DIVIDERS]
     max_x = INV_RIGHT - PLAYER_NUMBER_WIDTH
-    slash_x = max_x - PLAYER_SLASH_WIDTH
-    current_x = slash_x - PLAYER_NUMBER_WIDTH
+    # The weight's numbers each in room for three digits (the max is about your STR), both right-aligned, so the max
+    # ends at the column's right like every value above it (the user: left-aligned, it stopped short).
+    weight_max_x = INV_RIGHT - NUMBER_WIDTH
+    slash_x = weight_max_x - PLAYER_SLASH_WIDTH
+    current_x = slash_x - NUMBER_WIDTH
     lines = [(caption, eq_type, INV_STATS_TOP + n * TEXT_HEIGHT) for n, (caption, eq_type) in enumerate(INV_STATS)]
     lines += [(caption, eq_type, INV_NUMBERS_TOP + n * TEXT_HEIGHT) for n, (caption, eq_type) in enumerate(INV_NUMBERS)]
     for caption, eq_type, top in lines:
@@ -3773,11 +3789,12 @@ def inventory_window():
     parts += [
         label('TUI_IW_Weight', None, (INV_COLUMN_X, INV_WEIGHT_TOP, current_x - INV_COLUMN_X, TEXT_HEIGHT), 'Weight',
               screen_id='WeightLabel'),
-        label('TUI_IW_WeightCurrent', 24, (current_x, INV_WEIGHT_TOP, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '',
+        label('TUI_IW_WeightCurrent', 24, (current_x, INV_WEIGHT_TOP, NUMBER_WIDTH, TEXT_HEIGHT), '',
               align_right=True, screen_id='WeightNumberLabel', rgb=VALUE_RGB),
         label('TUI_IW_WeightSlash', None, (slash_x, INV_WEIGHT_TOP, PLAYER_SLASH_WIDTH, TEXT_HEIGHT), '/',
               align_center=True),
-        label('TUI_IW_WeightMax', 25, (max_x, INV_WEIGHT_TOP, PLAYER_NUMBER_WIDTH, TEXT_HEIGHT), '', rgb=VALUE_RGB),
+        label('TUI_IW_WeightMax', 25, (weight_max_x, INV_WEIGHT_TOP, NUMBER_WIDTH, TEXT_HEIGHT), '', align_right=True,
+              rgb=VALUE_RGB),
     ]
     parts += [part for n, caption in enumerate(COIN_CAPTIONS)
               for part in coin_box(f'TUI_IW_Money{n}', f'IW_Money{n}', caption, INV_COLUMN_X,
@@ -3786,9 +3803,12 @@ def inventory_window():
     parts += [button(f'TUI_IW_{screen_id}', screen_id, '', LEFT + sum(INV_BUTTON_WIDTHS[:column]) + column * BUTTON_GAP,
                      INV_BUTTONS_TOP, INV_BUTTON_WIDTHS[column], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
               for screen_id, button_name, column in INV_BUTTONS]
-    parts += [hidden_label(f'TUI_IW_{screen_id}', screen_id) for screen_id in INV_HIDDEN_LABELS]
-    # The client sets the picture to the class's (A_ClassAnim%02d); with no size it shows nothing.
-    parts.append(picture('TUI_IW_ClassAnim', 'TUI_Clear', (0, 0, 0, 0), screen_id='ClassAnim'))
+    parts += [hidden_label(f'TUI_IW_{screen_id}', screen_id) for screen_id in (*INV_HIDDEN_LABELS, INV_HIDDEN_AA[0])]
+    parts.append(hidden_gauge('TUI_IW_AltAdvGauge', INV_HIDDEN_AA[1], 5))
+    # With no size, the class picture shows nothing. When the window opens, the client puts the class's picture
+    # (A_ClassAnim%02d) into the animation ClassAnim names, not just into ClassAnim: on the shared TUI_Clear, it showed
+    # stretched over every control drawn with TUI_Clear (the spell gems, the chat input) in game. So it has its own.
+    parts.append(picture('TUI_IW_ClassAnim', 'TUI_ClassAnim', (0, 0, 0, 0), screen_id='ClassAnim'))
     return window('InventoryWindow', 'Inventory', INV_HEIGHT, parts, tooltip='Inventory', width=INV_WIDTH,
                   inner=percents)
 

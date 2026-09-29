@@ -102,7 +102,7 @@ An empty slot shows a large, faint icon of what goes there, like the hot button 
 The middle shows your name, your level and class, and your deity in grey. Under them are your **XP** and **AA**, each with the % of the way to your next level or AA point and a bar under it. Drop an item anywhere in the middle to equip it.
 
 On the right, past a thin line:
-- your stats, then your **AC** and **ATK**, then your **Weight**, with the numbers in green as in the player window;
+- your stats, then your **AC** and **ATK**, then your **Weight**, each group under a thin line, with the numbers in green as in the player window;
 - your coin boxes, marked **pp**, **gp**, **sp** and **cp** as in the give window. They're wide enough for a large amount of platinum; click one to pick up some coins.
 
 Your HP and resists are in the player window, and your bag slots in the hot button window.

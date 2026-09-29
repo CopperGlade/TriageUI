@@ -659,13 +659,14 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     # (The group window's drawn % is its soft blue: see the group window's test. The inventory's are the values' green,
     # as the player window's.)
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
-    inventory_percents = tuple(f'TUI_IW_{gauge_id}PercentSign' for *_, gauge_id, _, _ in skin.INV_PROGRESS)
+    inventory_percents = tuple(f'TUI_IW_{caption}PercentSign' for _, caption, *_ in skin.INV_PROGRESS)
     for g in everything().iter('Gauge'):
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
                                                   'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', 'TUI_SBW_Memorize',
                                                   'TUI_SBW_Scribe', *group_percents, *inventory_percents))
-                and g.find('GaugeDrawTemplate/Fill') is not None):
+                and g.find('GaugeDrawTemplate/Fill') is not None
+                and box(g)[2:] != (0, 0)):  # not the hidden ones, which draw nothing
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
 
 
@@ -3779,7 +3780,7 @@ def test_inventory_middle_shows_who_you_are_and_your_progress():
     assert 0 <= skin.INV_XP_TOP + skin.TEXT_INK_TOP - (box(deity)[1] + digits) - 2 * skin.PADDING < 1
     bars = []
     for caption_id, caption, percent_type, gauge_id, gauge_type, top in skin.INV_PROGRESS:
-        label, bar = found[caption_id], found[gauge_id]
+        label, bar = found[caption_id or f'TUI_IW_{caption}Caption'], found[gauge_id or f'TUI_IW_{caption}Bar']
         assert label.findtext('Text') == caption and box(label)[:2] == (skin.INV_MIDDLE_X, top)
         assert number(bar, 'EQType') == gauge_type
         assert box(bar) == (skin.INV_MIDDLE_X, top + skin.BAR_TOP, skin.INV_MIDDLE_WIDTH, skin.BAR_HEIGHT)
@@ -3789,8 +3790,14 @@ def test_inventory_middle_shows_who_you_are_and_your_progress():
         assert len(percent) == 1 and rgb(percent[0], 'TextColor') == skin.VALUE_RGB
         assert box(percent[0])[0] + box(percent[0])[2] + skin.PERCENT_WIDTH == skin.INV_MIDDLE_RIGHT
         bars.append(box(bar))
-    assert [(c, t) for c, _, t, g, e, _ in skin.INV_PROGRESS] == [('NextLevelLabel', 26), ('AltAdvLabel', 27)]
-    assert [(g, e) for _, _, _, g, e, _ in skin.INV_PROGRESS] == [('ExpGauge', 4), ('AltAdvGauge', 5)]
+    # XP keeps the stock ScreenIDs, which nothing looks up. The client looks up AltAdvLabel and AltAdvGauge and hid
+    # them in game, so AA's caption and bar have none and show always (the user); the stock two stay, hidden.
+    assert [(c, t) for c, _, t, g, e, _ in skin.INV_PROGRESS] == [('NextLevelLabel', 26), (None, 27)]
+    assert [(g, e) for _, _, _, g, e, _ in skin.INV_PROGRESS] == [('ExpGauge', 4), (None, 5)]
+    assert found['TUI_IW_AACaption'].find('ScreenID') is None and found['TUI_IW_AABar'].find('ScreenID') is None
+    for screen_id in skin.INV_HIDDEN_AA:
+        assert box(found[screen_id])[2:] == (0, 0)
+    assert found['AltAdvGauge'].tag == 'Gauge' and number(found['AltAdvGauge'], 'EQType') == 5
     assert 0 <= skin.INV_AA_TOP + skin.TEXT_INK_TOP - (bars[0][1] + bars[0][3]) - 2 * skin.PADDING < 1
     # The AA bar a padding or more over Legs and Feet, inside the middle.
     assert bars[1][1] + bars[1][3] <= skin.INV_MIDDLE_TOP + skin.INV_MIDDLE_HEIGHT
@@ -3801,10 +3808,10 @@ def test_inventory_middle_shows_who_you_are_and_your_progress():
 
 def test_inventory_column_has_your_stats_numbers_and_coins():
     # Right of a divider a padding from the worn slots and from the column: the stats one to a line from the inside's
-    # top (their ink 7.5px under the edge, like the bank window's names), then AC and ATK, then the weight as the player
-    # window's current/max (the user moved them here), two paddings apart like the player window's sections, the values
-    # in the game's green ending at the column's right; and the coin boxes stacked with the last one level with the worn
-    # slots' bottom, as wide as the bank's so they share its art.
+    # top (their ink 7.5px under the edge, like the bank window's names), then AC and ATK, then the weight (the user moved
+    # them here), each under the row divider across the column (the user's request) a padding from the digits above and
+    # from the next ink, the values in the game's green ending at the column's right; and the coin boxes stacked with the
+    # last one level with the worn slots' bottom, as wide as the bank's so they share its art.
     root, window, found = inventory_parts()
     divider = box(found['TUI_IW_Divider'])
     assert divider == (skin.LEFT + skin.INV_DOLL_WIDTH + skin.PADDING, skin.LEFT, skin.DIVIDER_HEIGHT,
@@ -3826,16 +3833,29 @@ def test_inventory_column_has_your_stats_numbers_and_coins():
     assert skin.INV_NUMBERS == (('AC', 22), ('ATK', 23))
     weight = found['WeightLabel']
     assert weight.findtext('Text') == 'Weight' and box(weight)[:2] == (skin.INV_COLUMN_X, skin.INV_WEIGHT_TOP)
+    # The weight's current and max each in room for three digits, right-aligned, so the max ends at the column's right
+    # like the values above it (left-aligned in the player window's room for four, it stopped short: the user).
     current, slash, most = found['WeightNumberLabel'], found['TUI_IW_WeightSlash'], found['TUI_IW_WeightMax']
     assert (number(current, 'EQType'), number(most, 'EQType')) == (24, 25)
+    assert box(current)[2] == box(most)[2] == skin.NUMBER_WIDTH
+    assert current.findtext('AlignRight') == most.findtext('AlignRight') == 'true'
     assert box(current)[0] + box(current)[2] == box(slash)[0] and box(slash)[0] + box(slash)[2] == box(most)[0]
     assert box(most)[0] + box(most)[2] == skin.INV_RIGHT and slash.findtext('Text') == '/'
     assert rgb(current, 'TextColor') == rgb(most, 'TextColor') == skin.VALUE_RGB
     assert len({box(e)[1] for e in (weight, current, slash, most)}) == 1
     digits = skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
     last_stat = lines[len(skin.INV_STATS) - 1][2]
-    assert 0 <= skin.INV_NUMBERS_TOP + skin.TEXT_INK_TOP - (last_stat + digits) - 2 * skin.PADDING < 1
-    assert 0 <= skin.INV_WEIGHT_TOP + skin.TEXT_INK_TOP - (lines[-1][2] + digits) - 2 * skin.PADDING < 1
+    for (name, top), above, below in zip(skin.INV_COLUMN_DIVIDERS, (last_stat, lines[-1][2]),
+                                         (skin.INV_NUMBERS_TOP, skin.INV_WEIGHT_TOP)):
+        line = found[name]
+        assert line.tag == 'StaticAnimation' and line.findtext('Animation') == 'TUI_InvDivider'
+        assert box(line) == (skin.INV_COLUMN_X, top, skin.INV_COLUMN_WIDTH, skin.DIVIDER_HEIGHT)
+        assert top - (above + digits) == skin.PADDING
+        assert 0 <= below + skin.TEXT_INK_TOP - (top + skin.DIVIDER_HEIGHT) - skin.PADDING < 1
+    assert [name for name, _ in skin.INV_COLUMN_DIVIDERS] == ['TUI_IW_StatsDivider', 'TUI_IW_NumbersDivider']
+    anims = items(everything(), 'Ui2DAnimation')
+    assert rect_of(anims['TUI_InvDivider'])[2:] == (skin.INV_COLUMN_WIDTH, 1)
+    assert colors(anims['TUI_InvDivider']) == {skin.ROW_DIVIDER_RGBA}
     coins = [found[f'IW_Money{n}'] for n in range(4)]
     assert [box(c) for c in coins] == [
         (skin.INV_COLUMN_X, skin.INV_COINS_TOP + n * (skin.COIN_HEIGHT + skin.BUTTON_ROW_GAP), skin.INV_COLUMN_WIDTH,
@@ -3869,12 +3889,16 @@ def test_inventory_buttons_fill_the_row_under_the_worn_slots():
 
 
 def test_inventory_hides_the_class_picture_hp_and_the_resists():
-    # The client sets ClassAnim to the class's picture; with no size it shows nothing (the user didn't want it). HP and
-    # the resists are the player window's (the user); their stock labels stay, with no size and no text, and the max
-    # HP's, which has no stock ScreenID, is left out.
+    # The client sets ClassAnim to the class's picture; with no size it shows nothing (the user didn't want it). The
+    # client puts the picture into the animation ClassAnim names, so every control drawn with the same one showed it,
+    # stretched (on TUI_Clear: the spell gems and the chat input, in game): its animation is its own. HP and the resists
+    # are the player window's (the user); their stock labels stay, with no size and no text, and the max HP's, which has
+    # no stock ScreenID, is left out.
     root, _, found = inventory_parts()
     picture = found['ClassAnim']
     assert picture.tag == 'StaticAnimation' and box(picture)[2:] == (0, 0)
+    assert picture.findtext('Animation') == 'TUI_ClassAnim'
+    assert len([e for e in everything().iter() if (e.text or '').strip() == 'TUI_ClassAnim']) == 1
     for screen_id in skin.INV_HIDDEN_LABELS:
         label = found[screen_id]
         assert label.tag == 'Label' and box(label)[2:] == (0, 0) and label.findtext('Text') == ''
@@ -4360,10 +4384,18 @@ def test_preview_fills_in_the_inventory_window(tmp_path):
                 'WeightNumberLabel', 'TUI_IW_WeightMax', 'STRNumberLabel', 'CHANumberLabel'):
         assert inked(region(key)), key
     assert preview.LABELS[3] == 'Shadow Knight' and preview.LABELS[4] == 'Mithaniel Marr'
-    for gauge_id, value in (('ExpGauge', 0.45), ('AltAdvGauge', 0.12)):
-        bar = region(gauge_id)
-        assert preview.GAUGES[number(found[gauge_id], 'EQType')] == value
-        assert bar.getpixel((0, 0)) != bar.getpixel((bar.width - 1, 0)), gauge_id
+    for key, value in (('ExpGauge', 0.45), ('TUI_IW_AABar', 0.12)):
+        bar = region(key)
+        assert preview.GAUGES[number(found[key], 'EQType')] == value
+        assert bar.getpixel((0, 0)) != bar.getpixel((bar.width - 1, 0)), key
+    assert inked(region('TUI_IW_AACaption')) and inked(region('TUI_IW_WeightMax'))
+    # The weight's max ends where the stats' values do (150 and CHA's 60 share their last digit's column).
+    weight_max, cha = region('TUI_IW_WeightMax'), region('CHANumberLabel')
+
+    def last_column(part):
+        return max(x for x in range(part.width) if any(part.getpixel((x, y)) != panel for y in range(part.height)))
+
+    assert last_column(weight_max) + box(found['TUI_IW_WeightMax'])[0] == last_column(cha) + box(found['CHANumberLabel'])[0]
     name_end = skin.PADDING + skin.COIN_CAPTION_WIDTH
     assert preview.BUTTON_TEXT['IW_Money0'] == '123456'
     assert not bright(region('IW_Money0', name_end, name_end + skin.PADDING))
