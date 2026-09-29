@@ -10,7 +10,7 @@ They all sit on the overlays' dark panel, with no title bar, like the overlays w
 
 The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
 
-Buttons are a faint wash over the panel with a thin outline, and turn solid slate while you point at them. Their labels are TriageUI's own crisp pixel lettering with room between the letters, since EverQuest's small font looks squished. Buttons side by side are as far apart as the window's edge is from its text.
+Buttons are a faint wash over the panel with a thin outline, and turn solid slate while you point at them. Most buttons' labels are TriageUI's own crisp pixel lettering with room between the letters. The actions window, the confirmation dialog and the quantity, give, trade and loot windows have taller buttons that show their names in EverQuest's own small font instead, which is easier to read. Buttons side by side are as far apart as the window's edge is from its text.
 
 ## The target window
 
@@ -119,7 +119,7 @@ The number takes digits only. What you type is added after the number that's the
 
 ## The give window
 
-What opens when you hand an NPC an item or some coins. The NPC's name is along the top, so you can see who gets them. Under it, your four item slots sit in a row on the hot button window's squares. Then come the coin boxes, two to a row, each marked **pp**, **gp**, **sp** or **cp** and showing how many of that coin you're giving. To give coins, pick them up from your inventory and drop them on their box. **Give** and **Cancel** are along the bottom. The window is as wide as the hot button window and has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
+What opens when you hand an NPC an item or some coins. The NPC's name is along the top, so you can see who gets them. Under it, your four item slots sit in a row on the hot button window's squares. Then come the coin boxes, two to a row, each marked **pp**, **gp**, **sp** or **cp** in the buttons' font and showing how many of that coin you're giving. To give coins, pick them up from your inventory and drop them on their box. **Give** and **Cancel** are along the bottom. The window is as wide as the hot button window and has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
 
 ## The trade window
 

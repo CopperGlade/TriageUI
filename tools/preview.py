@@ -403,9 +403,10 @@ class Preview:
                                              at[1] + number(element, 'DecalOffset/Y')))
         text = element.findtext('Text') or BUTTON_TEXT.get(screen_id, '')
         if text and element.find('Font') is not None:
-            face = self.font(number(element, 'Font', 3))
-            ImageDraw.Draw(layer).text((at[0] + size[0] / 2, at[1] + size[1] / 2), text, font=face, anchor='mm',
-                                       fill=(*color(element, 'TextColor'), 255))
+            # Centered, lowered to the game's ink like a label's text (see INK_SHIFT).
+            size_n = number(element, 'Font', 3)
+            ImageDraw.Draw(layer).text((at[0] + size[0] / 2, at[1] + size[1] / 2 + INK_SHIFT.get(size_n, 0)), text,
+                                       font=self.font(size_n), anchor='mm', fill=(*color(element, 'TextColor'), 255))
 
     @staticmethod
     def effect(screen_id, defined):

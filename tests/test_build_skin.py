@@ -2650,20 +2650,44 @@ def give_parts():
     return root, window, {e.findtext('ScreenID'): e for e in direct_pieces(root, window)}
 
 
+def check_confirmation_button(button, name):
+    """button is the confirmation dialog's kind (the user's pick, where the lettering read too small): its name its own
+    text in the Actions window's font and the text's color, as tall as Yes, on the plain wash at its size, with no
+    tooltip."""
+    yes = {e.findtext('ScreenID'): e for e in parse(skin.CONFIRM_FILE).iter('Button')}['Yes_Button']
+    assert button.findtext('Text') == name and button.find('TooltipReference') is None
+    assert button.findtext('Font') == yes.findtext('Font') == str(skin.ACTION_FONT)
+    assert rgb(button, 'TextColor') == rgb(yes, 'TextColor') == skin.TEXT_RGB
+    assert box(button)[3] == box(yes)[3] == skin.TEXT_BUTTON_HEIGHT
+    assert button.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(button)[2:], "", "Normal")}'
+
+
+def check_coin_caption(root, window, coin, caption):
+    """The piece drawn right after the coin box is its coin's name: a label over the box a padding in from its left, in
+    the confirmation dialog's buttons' font and the text's color."""
+    pieces = direct_pieces(root, window)
+    label = pieces[pieces.index(coin) + 1]
+    x, y = box(coin)[:2]
+    assert label.tag == 'Label' and label.find('ScreenID') is None and label.find('EQType') is None
+    assert label.findtext('Text') == caption and label.findtext('Font') == str(skin.ACTION_FONT)
+    assert rgb(label, 'TextColor') == skin.TEXT_RGB and label.findtext('NoWrap') == 'true'
+    assert box(label) == (x + skin.PADDING, y + skin.COIN_CAPTION_TOP, skin.COIN_CAPTION_WIDTH, skin.CAPTION_HEIGHT)
+
+
 def test_give_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the NPC's name, the four item slots, the four coin buttons, Give and Cancel, and nothing
-    # else: all of the stock window's controls, every one shown. As wide as the hot button window, with no title bar or
-    # close box (it drags by its background, and Cancel closes it).
+    # else: all of the stock window's controls, every one shown, each coin box followed by its name. As wide as the hot
+    # button window, with no title bar or close box (it drags by its background, and Cancel closes it).
     root, window = check_inside_frame(skin.GIVE_FILE, skin.GIVE_WIDTH)
     assert window.get('item') == 'GiveWnd' and window.findtext('Text') == 'Give'
     assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
     assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.HOT_WIDTH, skin.GIVE_HEIGHT) == (174, 139)
+    assert box(window)[2:] == (skin.HOT_WIDTH, skin.GIVE_HEIGHT) == (174, 143)
     pieces = direct_pieces(root, window)
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
         ('Label', 'GVW_NPCName'), *(('InvSlot', f'GVW_MyItemSlot{n}') for n in range(4)),
-        *(('Button', f'GVW_MyMoney{n}') for n in range(4)), ('Button', 'GVW_Give_Button'),
-        ('Button', 'GVW_Cancel_Button')]
+        *(piece for n in range(4) for piece in (('Button', f'GVW_MyMoney{n}'), ('Label', None))),
+        ('Button', 'GVW_Give_Button'), ('Button', 'GVW_Cancel_Button')]
     assert [number(e, 'EQType') for e in pieces if e.tag == 'InvSlot'] == [3000, 3001, 3002, 3003]
     assert all(box(e)[2:] != (0, 0) for e in pieces)
 
@@ -2695,7 +2719,7 @@ def test_give_window_follows_the_spacing_standard():
         assert left[1] == right[1] and left[3] == right[3]
         assert left[0] == skin.LEFT and left[0] + left[2] + skin.BUTTON_GAP == right[0]
         assert right[0] + right[2] == skin.GIVE_RIGHT and left[2] == right[2] == 78
-    assert {c[3] for c in coins} == {skin.TEXT_BUTTON_HEIGHT} and give[3] == cancel[3] == skin.BUTTON_HEIGHT
+    assert {c[3] for c in coins} == {skin.TEXT_BUTTON_HEIGHT} and give[3] == cancel[3] == skin.TEXT_BUTTON_HEIGHT
     # The window's edge a padding under the buttons.
     assert box(window)[3] - (b + give[1] + give[3]) == skin.PADDING
 
@@ -2710,24 +2734,18 @@ def test_give_name_slots_and_buttons_take_what_the_game_puts_there():
     # Empty slots are the hot bar's plain square, as in the bag and merchant windows.
     for n in range(4):
         assert found[f'GVW_MyItemSlot{n}'].findtext('Background') == 'TUI_HotButtonNormal'
-    # Give and Cancel are lettered buttons, with no tooltips (the stock ones have none).
-    for screen_id, label_text, _ in skin.GIVE_BUTTONS:
-        b = found[screen_id]
-        assert b.findtext('Text') == '' and b.find('Font') is None and b.find('TooltipReference') is None
-        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], label_text, "Normal")}'
-    assert [label_text for _, label_text, _ in skin.GIVE_BUTTONS] == ['Give', 'Cancel']
+    # Give and Cancel are the confirmation dialog's buttons, with no tooltips (the stock ones have none).
+    for screen_id, button_name, _ in skin.GIVE_BUTTONS:
+        check_confirmation_button(found[screen_id], button_name)
+    assert [button_name for _, button_name, _ in skin.GIVE_BUTTONS] == ['Give', 'Cancel']
 
 
-def test_give_coin_boxes_are_the_slots_wash_lettered_with_their_coin():
+def test_give_coin_boxes_are_the_slots_wash_with_their_coin_named_over_them():
     # Platinum, gold, silver and copper, in the stock window's order (its coin decals), read left to right and down.
-    # Each box has its coin in our lettering a padding in from its left edge, placed down it as a label is in a
-    # button, and the game writes the amount as its text, centered, in font 3 (the user's pick, over the stock coin
-    # pictures).
-    _, _, found = give_parts()
-    anims = items(everything(), 'Ui2DAnimation')
-    atlas = decode(files()[skin.PIECES_TEXTURE])
+    # The game writes the amount as each box's text, centered, in font 3, and the coin's name is a label over the box
+    # (the user's picks: over the stock coin pictures, then as big as the confirmation dialog's buttons' names).
+    root, window, found = give_parts()
     assert [caption for _, caption in skin.GIVE_COINS] == ['pp', 'gp', 'sp', 'cp']
-    ink_rgb = skin.snapped((*skin.TEXT_RGB, 255))[:3]
     for n, (screen_id, caption) in enumerate(skin.GIVE_COINS):
         coin = found[screen_id]
         assert screen_id == f'GVW_MyMoney{n}'
@@ -2736,30 +2754,30 @@ def test_give_coin_boxes_are_the_slots_wash_lettered_with_their_coin():
         assert coin.findtext('TooltipReference') == 'Drop coins here'  # the stock window's
         assert coin.findtext('Style_Checkbox') == 'false'
         assert [(e.tag, e.text) for e in coin.find('ButtonDrawTemplate')] == [
-            (state, f'TUI_Coin{caption}{skin.BUTTON_ART[state]}') for state in skin.BUTTON_STATES]
-        width, height = box(coin)[2:]
-        text_width, ink = skin.lettering(caption)
-        top = (height - skin.LABEL_HEIGHT) // 2
-        assert top == skin.LABEL_TOP + (height - skin.BUTTON_HEIGHT) // 2
-        # Six digits of an amount, centered, still clear the caption.
-        assert (width - 6 * skin.DIGIT_WIDTH) / 2 > skin.PADDING + text_width
-        plain = skin.solid(skin.labeled_button_art(width, height, '', 'Normal'))
-        for state in skin.BUTTON_LOOKS:
-            image = cut(atlas, anims[f'TUI_Coin{caption}{state}'])
-            assert image.size == (width, height)
-            # Solid, like the slots, so a drop anywhere on the box counts.
-            assert {a for *_, a in pixels(image)} == {255}, (caption, state)
-            if skin.LABEL_ALPHA[state] == 255:
-                inked = {(x, y) for x in range(width) for y in range(height)
-                         if image.getpixel((x, y))[:3] == ink_rgb}
-                assert inked == {(skin.PADDING + x, top + y) for x, y in ink}, (caption, state)
-        # At rest, the slots' plain square at the box's size under the caption.
-        normal = cut(atlas, anims[f'TUI_Coin{caption}Normal'])
-        drawn = {(skin.PADDING + x, top + y) for x, y in ink}
-        for x in range(width):
-            for y in range(height):
-                if (x, y) not in drawn:
-                    assert normal.getpixel((x, y)) == plain.rows[y][x], (caption, x, y)
+            (state, f'TUI_Coin{skin.BUTTON_ART[state]}') for state in skin.BUTTON_STATES]
+        check_coin_caption(root, window, coin, caption)
+    # Every box is the slots' plain wash in each look, solid like the slots, so a drop anywhere on one counts.
+    anims = items(everything(), 'Ui2DAnimation')
+    atlas = decode(files()[skin.PIECES_TEXTURE])
+    for state in skin.BUTTON_LOOKS:
+        image = cut(atlas, anims[f'TUI_Coin{state}'])
+        plain = skin.solid(skin.labeled_button_art(skin.COIN_WIDTH, skin.COIN_HEIGHT, '', state))
+        assert image.size == (skin.COIN_WIDTH, skin.COIN_HEIGHT)
+        assert {a for *_, a in pixels(image)} == {255}, state
+        assert all(image.getpixel((x, y)) == plain.rows[y][x]
+                   for x in range(skin.COIN_WIDTH) for y in range(skin.COIN_HEIGHT)), state
+
+
+def test_coin_names_sit_on_the_amounts_line_clear_of_six_digits():
+    # The game centers the amount's line in the box, so its digits' ink ends TEXT_INK_TOP and their 9px down that line.
+    # The name's baseline, the bottom of font 2's capitals, is on it, above it by less than a pixel.
+    digits_bottom = skin.COIN_TEXT_TOP + skin.TEXT_INK_TOP + 9
+    baseline = skin.COIN_CAPTION_TOP + skin.CAPTION_INK_TOP + skin.CAPTION_CAP_HEIGHT
+    assert skin.COIN_TEXT_TOP == (skin.COIN_HEIGHT - skin.TEXT_HEIGHT) // 2 and digits_bottom == 15.5
+    assert 0 <= digits_bottom - baseline < 1
+    # Six digits of an amount, centered, start where the name's label ends, and its line ends inside the box's edge.
+    assert (skin.COIN_WIDTH - 6 * skin.DIGIT_WIDTH) / 2 >= skin.PADDING + skin.COIN_CAPTION_WIDTH
+    assert skin.COIN_CAPTION_TOP + skin.CAPTION_HEIGHT < skin.COIN_HEIGHT
 
 
 def trade_parts():
@@ -2770,17 +2788,18 @@ def trade_parts():
 def test_trade_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the two names, the 16 slots (0 to 7 yours, 8 to 15 theirs), each side's four coin buttons,
     # Trade and Cancel, and nothing else: all of the stock window's controls, every one shown, in its order, over the
-    # divider. With no title bar or close box: it drags by its background, and Cancel closes it.
+    # divider, each coin box followed by its name. With no title bar or close box: it drags by its background, and
+    # Cancel closes it.
     root, window = check_inside_frame(skin.TRADE_FILE, skin.TRADE_WIDTH)
     assert window.get('item') == 'TradeWnd' and window.findtext('Text') == 'Trade'
     assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
     assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.TRADE_WIDTH, skin.TRADE_HEIGHT) == (181, 317)
+    assert box(window)[2:] == (skin.TRADE_WIDTH, skin.TRADE_HEIGHT) == (181, 321)
     pieces = direct_pieces(root, window)
 
     def side(prefix, first):
         return [('Label', f'TRDW_{prefix}Name'), *(('InvSlot', f'TRDW_TradeSlot{first + n}') for n in range(8)),
-                *(('Button', f'TRDW_{prefix}Money{n}') for n in range(4))]
+                *(piece for n in range(4) for piece in (('Button', f'TRDW_{prefix}Money{n}'), ('Label', None)))]
 
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
         ('Screen', None), *side('His', 8), *side('My', 0), ('Button', 'TRDW_Trade_Button'),
@@ -2808,12 +2827,10 @@ def test_trade_sides_are_theirs_then_yours_each_two_slots_across_under_its_name(
         assert name.findtext('Text') == '' and name.find('EQType') is None
         assert name.findtext('Font') == str(skin.TEXT_FONT) and rgb(name, 'TextColor') == skin.TEXT_RGB
         assert name.findtext('AlignCenter') == name.findtext('NoWrap') == 'true'
-    # Trade and Cancel are lettered buttons, with no tooltips (the stock ones have none).
-    for screen_id, label_text, _ in skin.TRADE_BUTTONS:
-        b = found[screen_id]
-        assert b.findtext('Text') == '' and b.find('Font') is None and b.find('TooltipReference') is None
-        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], label_text, "Normal")}'
-    assert [label_text for _, label_text, _ in skin.TRADE_BUTTONS] == ['Trade', 'Cancel']
+    # Trade and Cancel are the confirmation dialog's buttons, with no tooltips (the stock ones have none).
+    for screen_id, button_name, _ in skin.TRADE_BUTTONS:
+        check_confirmation_button(found[screen_id], button_name)
+    assert [button_name for _, button_name, _ in skin.TRADE_BUTTONS] == ['Trade', 'Cancel']
 
 
 def test_trade_window_follows_the_spacing_standard():
@@ -2851,7 +2868,7 @@ def test_trade_window_follows_the_spacing_standard():
     assert trade[1] == cancel[1] == bottom + skin.BUTTON_ROW_GAP
     assert trade[0] == skin.LEFT and trade[0] + trade[2] + skin.BUTTON_GAP == cancel[0]
     assert cancel[0] + cancel[2] == skin.TRADE_RIGHT and cancel[2] - trade[2] in (0, 1)
-    assert trade[3] == cancel[3] == skin.BUTTON_HEIGHT
+    assert trade[3] == cancel[3] == skin.TEXT_BUTTON_HEIGHT
     assert box(window)[3] - (b + trade[1] + trade[3]) == skin.PADDING
 
 
@@ -2870,10 +2887,10 @@ def test_trade_divider_is_the_row_divider_standing_up():
 
 
 def test_trade_coin_boxes_are_the_give_windows_and_only_yours_take_coins():
-    # Platinum, gold, silver and copper down each side, in the give window's lettered boxes (see COIN_CAPTIONS): the
-    # game writes each amount, centered, in font 3. Yours light up under the pointer and say coins go there, as the
-    # give window's do; theirs take nothing, so they keep their resting look and have no tooltip.
-    _, _, found = trade_parts()
+    # Platinum, gold, silver and copper down each side, in the give window's boxes with their coins' names over them (see
+    # COIN_CAPTIONS): the game writes each amount, centered, in font 3. Yours light up under the pointer and say coins go
+    # there, as the give window's do; theirs take nothing, so they keep their resting look and have no tooltip.
+    root, window, found = trade_parts()
     give = give_parts()[2]
     assert skin.COIN_CAPTIONS == ('pp', 'gp', 'sp', 'cp')
     for prefix, _, _ in skin.TRADE_SIDES:
@@ -2887,8 +2904,9 @@ def test_trade_coin_boxes_are_the_give_windows_and_only_yours_take_coins():
                 assert art == [(e.tag, e.text) for e in given.find('ButtonDrawTemplate')]
                 assert coin.findtext('TooltipReference') == given.findtext('TooltipReference') == 'Drop coins here'
             else:
-                assert art == [(state, f'TUI_Coin{caption}Normal') for state in skin.BUTTON_STATES]
+                assert art == [(state, 'TUI_CoinNormal') for state in skin.BUTTON_STATES]
                 assert coin.find('TooltipReference') is None
+            check_coin_caption(root, window, coin, caption)
 
 
 def loot_parts():
@@ -2904,7 +2922,7 @@ def test_loot_window_keeps_every_control_the_client_and_zeal_look_for():
     assert window.get('item') == 'LootWnd' and window.findtext('Text') == 'Loot'
     assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
     assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.LOOT_WIDTH, skin.LOOT_HEIGHT) == (258, 255)
+    assert box(window)[2:] == (skin.LOOT_WIDTH, skin.LOOT_HEIGHT) == (258, 259)
     pieces = direct_pieces(root, window)
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
         ('Label', 'LW_CorpseName'), ('Screen', 'LootInvWnd'), ('Button', 'LinkAllButton'),
@@ -2957,7 +2975,7 @@ def test_loot_window_follows_the_spacing_standard():
     assert buttons[0][0] == skin.LEFT and buttons[-1][0] + buttons[-1][2] == skin.LOOT_RIGHT
     for left, right in zip(buttons, buttons[1:]):
         assert left[0] + left[2] + skin.BUTTON_GAP == right[0]
-    assert {button[2:] for button in buttons} == {(78, skin.BUTTON_HEIGHT)}
+    assert {button[2:] for button in buttons} == {(78, skin.TEXT_BUTTON_HEIGHT)}
     assert box(window)[3] - (b + buttons[0][1] + buttons[0][3]) == skin.PADDING
 
 
@@ -2968,12 +2986,11 @@ def test_loot_name_and_buttons_take_what_the_game_and_zeal_put_there():
     assert name.findtext('Text') == '' and name.find('EQType') is None
     assert name.findtext('Font') == str(skin.TEXT_FONT) and rgb(name, 'TextColor') == skin.TEXT_RGB
     assert name.findtext('AlignLeft') == name.findtext('NoWrap') == 'true'
-    # duxaUI's three buttons in its order, lettered, with no tooltips (neither the stock Done nor duxaUI's have one).
-    for screen_id, label_text, _ in skin.LOOT_BUTTONS:
-        b = found[screen_id]
-        assert b.findtext('Text') == '' and b.find('Font') is None and b.find('TooltipReference') is None
-        assert b.findtext('ButtonDrawTemplate/Normal') == f'TUI_{skin.button_art(*box(b)[2:], label_text, "Normal")}'
-    assert [(screen_id, label_text) for screen_id, label_text, _ in skin.LOOT_BUTTONS] == [
+    # duxaUI's three buttons in its order, the confirmation dialog's kind, with no tooltips (neither the stock Done nor
+    # duxaUI's have one).
+    for screen_id, button_name, _ in skin.LOOT_BUTTONS:
+        check_confirmation_button(found[screen_id], button_name)
+    assert [(screen_id, button_name) for screen_id, button_name, _ in skin.LOOT_BUTTONS] == [
         ('LinkAllButton', 'Link All'), ('LootAllButton', 'Loot All'), ('DoneButton', 'Done')]
 
 
@@ -3379,30 +3396,38 @@ def test_preview_saves_each_window_scaled_on_a_backdrop(tmp_path):
 
 
 def test_preview_fills_in_what_the_game_writes_in_the_give_window(tmp_path):
-    # The NPC's name (a label with no EQType, sampled by its ScreenID), each coin's amount in the middle of its box, and
-    # items in the first slots.
+    # The NPC's name (a label with no EQType, sampled by its ScreenID), each coin's name and its amount in the middle of
+    # its box, and items in the first slots.
     preview = preview_module()
     [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.GIVE_FILE)
     _, _, found = give_parts()
 
-    def region(screen_id, left=0):
+    def region(screen_id, left=0, right=None):
         x, y, width, height = box(found[screen_id])
-        return image.crop((skin.BORDER + x + left, skin.BORDER + y, skin.BORDER + x + width, skin.BORDER + y + height))
+        right = width if right is None else right
+        return image.crop((skin.BORDER + x + left, skin.BORDER + y, skin.BORDER + x + right, skin.BORDER + y + height))
 
     def bright(part):
         return sum(1 for p in pixels(part) if min(p[:3]) > 150)
 
     assert preview.LABEL_TEXT['GVW_NPCName'] == 'Captain Tillin' and bright(region('GVW_NPCName'))
-    for screen_id, caption in skin.GIVE_COINS:
-        assert bright(region(screen_id, skin.PADDING + skin.lettering(caption)[0] + 1)), screen_id
+    name_end = skin.PADDING + skin.COIN_CAPTION_WIDTH
+    for screen_id, _ in skin.GIVE_COINS:
+        assert bright(region(screen_id, right=name_end)) and bright(region(screen_id, name_end)), screen_id
+    # A button's text is lowered to the game's ink like a label's, so the amount's digits are where the game draws them
+    # (see COIN_CAPTION_TOP), within half a pixel.
+    amount = region('GVW_MyMoney0', name_end)
+    rows = [y for y in range(amount.height) if bright(amount.crop((0, y, amount.width, y + 1)))]
+    ink_top = skin.COIN_TEXT_TOP + skin.TEXT_INK_TOP
+    assert ink_top - 0.5 <= rows[0] and rows[-1] + 1 <= ink_top + 9 + 0.5
     assert preview.GIVE_ITEMS == 2
     slots = [pixels(region(f'GVW_MyItemSlot{n}')) for n in range(4)]
     assert slots[0] != slots[3] and slots[1] != slots[3] and slots[2] == slots[3]
 
 
 def test_preview_fills_in_what_the_game_writes_in_the_trade_window(tmp_path):
-    # Both names, each coin's amount beside its caption, the first slots on each side holding items, and the divider
-    # drawn from its template's background.
+    # Both names, each coin's amount beside its name, the first slots on each side holding items, and the divider drawn
+    # from its template's background.
     preview = preview_module()
     [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.TRADE_FILE)
     _, _, found = trade_parts()
@@ -3417,8 +3442,9 @@ def test_preview_fills_in_what_the_game_writes_in_the_trade_window(tmp_path):
     assert preview.LABEL_TEXT['TRDW_MyName'] == 'Sebik'
     assert bright(region('TRDW_HisName')) and bright(region('TRDW_MyName'))
     for prefix, _, first in skin.TRADE_SIDES:
-        for n, caption in enumerate(skin.COIN_CAPTIONS):
-            assert bright(region(f'TRDW_{prefix}Money{n}', skin.PADDING + skin.lettering(caption)[0] + 1))
+        for n in range(len(skin.COIN_CAPTIONS)):
+            coin = f'TRDW_{prefix}Money{n}'
+            assert bright(region(coin, skin.PADDING + skin.COIN_CAPTION_WIDTH)) and bright(region(f'TUI_{coin}_Caption'))
         slots = [pixels(region(f'TRDW_TradeSlot{first + n}')) for n in range(8)]
         assert slots[0] != slots[7] and slots[2:] == [slots[7]] * 6
     panel = image.getpixel((skin.BORDER + skin.TRADE_DIVIDER_X + 1, skin.BORDER + skin.TRADE_COINS_TOP - 3))
