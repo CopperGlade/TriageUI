@@ -158,6 +158,20 @@ def font(size):
     return ImageFont.load_default(FONT_PX.get(size, 12))
 
 
+def button_text_center(size, font_size):
+    """Where a button's own text is centered (anchor 'mm'), from the button's top left: its middle, lowered to the
+    game's ink like a label's text (see INK_SHIFT)."""
+    return size[0] / 2, size[1] / 2 + INK_SHIFT.get(font_size, 0)
+
+
+def button_text_mask(text, size, font_size):
+    """A button's own text as drawn here, as its ink's coverage on an L image the button's size: the builder paints
+    Close's name from it (skin.CLOSE_INK), since the game writes nothing on a close box."""
+    mask = Image.new('L', size, 0)
+    ImageDraw.Draw(mask).text(button_text_center(size, font_size), text, font=font(font_size), anchor='mm', fill=255)
+    return mask
+
+
 def tinted(image, rgb):
     r, g, b, a = image.split()
     channels = [c.point(lambda v, t=t: v * t // 255) for c, t in zip((r, g, b), rgb)]
@@ -403,10 +417,10 @@ class Preview:
                                              at[1] + number(element, 'DecalOffset/Y')))
         text = element.findtext('Text') or BUTTON_TEXT.get(screen_id, '')
         if text and element.find('Font') is not None:
-            # Centered, lowered to the game's ink like a label's text (see INK_SHIFT).
             size_n = number(element, 'Font', 3)
-            ImageDraw.Draw(layer).text((at[0] + size[0] / 2, at[1] + size[1] / 2 + INK_SHIFT.get(size_n, 0)), text,
-                                       font=self.font(size_n), anchor='mm', fill=(*color(element, 'TextColor'), 255))
+            x, y = button_text_center(size, size_n)
+            ImageDraw.Draw(layer).text((at[0] + x, at[1] + y), text, font=self.font(size_n), anchor='mm',
+                                       fill=(*color(element, 'TextColor'), 255))
 
     @staticmethod
     def effect(screen_id, defined):

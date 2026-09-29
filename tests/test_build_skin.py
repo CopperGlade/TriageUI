@@ -533,12 +533,14 @@ def test_stock_names_we_use_exist_in_the_default_skin():
 
 # The windows
 
-def check_inside_frame(name, expected_width=skin.WINDOW_WIDTH):
+def check_inside_frame(name, expected_width=skin.WINDOW_WIDTH, bar=0):
+    """Every control within the window's inside: the window within its border, less its title bar, bar tall (none
+    unless given)."""
     root, window = screen(name)
     width, height = box(window)[2:]
     assert width == expected_width
-    assert window.find('Style_Titlebar').text == 'false'
-    inner_width, inner_height = width - 2 * skin.BORDER, height - 2 * skin.BORDER
+    assert window.find('Style_Titlebar').text == ('true' if bar else 'false')
+    inner_width, inner_height = width - 2 * skin.BORDER, height - 2 * skin.BORDER - bar
     for element in direct_pieces(root, window):
         if element.findtext('AutoStretch') == 'true':
             continue  # placed by its anchors, as the window's size comes out (see the bag window's tests)
@@ -675,24 +677,25 @@ def test_casting_window_is_soft_red_and_target_window_the_text_color():
     assert rgb(found['TUI_Target_HP'], 'FillTint') == rgb(found['TUI_Target_HPPercent'], 'FillTint') == skin.TEXT_RGB
 
 
-def test_server_tick_is_a_solid_soft_red_line_under_the_mana_bar():
+def test_server_tick_is_a_solid_white_line_under_the_mana_bar():
     # Zeal's tick drains to empty when mana comes in, so it sits with mana, where casters look while they med
-    # (at the top of the target window players didn't notice it). Solid, in the casting bar's soft red, with no
-    # track, 2px (the user's picks), and only in the player window.
+    # (at the top of the target window players didn't notice it). Solid, in the text's white (the casting bar's
+    # soft red hurt the eyes beside the mana bar's blue), with no track, 2px (the user's picks), and only in the
+    # player window.
     root = everything()
     ticks = [g for g in root.iter('Gauge') if g.findtext('EQType') == '24']
     assert [g.get('item') for g in ticks] == ['TUI_PW_ZealTick']
     tick = ticks[0]
     assert tick.findtext('ScreenID') == 'ZealTick' and number(tick, 'TextOffsetY') == 8000  # its seconds hidden
-    assert rgb(tick, 'FillTint') == skin.SPELL_RGB
+    assert rgb(tick, 'FillTint') == skin.TICK_RGB == skin.TEXT_RGB
     anims = items(root, 'Ui2DAnimation')
     assert colors(anims[tick.findtext('GaugeDrawTemplate/Fill')]) == {skin.WHITE}
     assert tick.find('GaugeDrawTemplate/Background') is None
-    # As wide as the mana bar, a pixel under it, like a pet's bar under its name.
+    # As wide as the mana bar, two clear pixels under it (the user's pick: with one, they read as touching).
     player, _ = screen(skin.PLAYER_FILE)
     mana = box(parts(player)['TUI_PW_PlayerMana'])
-    assert box(tick) == (mana[0], mana[1] + mana[3] + skin.PET_BAR_GAP, mana[2], skin.TICK_HEIGHT)
-    assert skin.TICK_HEIGHT == 2 and skin.PET_BAR_GAP == 1
+    assert box(tick) == (mana[0], mana[1] + mana[3] + skin.TICK_GAP, mana[2], skin.TICK_HEIGHT)
+    assert skin.TICK_HEIGHT == skin.TICK_GAP == 2
     # The XP/h line's ink two paddings under the tick, as under the sections' bars.
     xp = box(parts(player)['TUI_PW_ExpPerHourCaption'])
     assert 2 * skin.PADDING <= xp[1] + skin.TEXT_INK_TOP - (box(tick)[1] + box(tick)[3]) < 2 * skin.PADDING + 1
@@ -2458,15 +2461,16 @@ def test_item_window_keeps_only_the_stock_windows_two_controls_in_its_order():
     assert window.findtext('Style_Minimizebox') == window.findtext('Style_Sizable') == 'false'
     assert window.findtext('DrawTemplate') == skin.ITEM_TEMPLATE
     assert window.findtext('Font') == str(skin.TEXT_FONT) == '3'
-    assert box(window)[2:] == (skin.ITEM_WIDTH, skin.ITEM_HEIGHT) == (400, 206)
+    assert box(window)[2:] == (skin.ITEM_WIDTH, skin.ITEM_HEIGHT) == (400, 210)
     # The game writes the item's name over its own placeholder. The stock window's tooltip.
     assert window.findtext('Text') == 'Item Display'
     assert window.findtext('TooltipReference') == 'This is an Item Display window'
 
 
-def test_item_title_bar_is_the_chat_bars_look_with_a_lettered_close_button():
+def test_item_title_bar_is_the_chat_bars_look_with_the_dialogs_close_button():
     # The usual frame with the chat bar's look (the panel, a row divider along the bottom), tall enough for the
-    # Close button (the user's pick; the close box is the only button the game lets close the window).
+    # Close button (the user's pick; the close box is the only button the game lets close the window). The quantity
+    # window has the same.
     templates = items(everything(), 'WindowDrawTemplate')
     item, usual = templates[skin.ITEM_TEMPLATE], templates[skin.FRAME_TEMPLATE]
     assert item.findtext('Background') == usual.findtext('Background') == skin.BACKGROUND_TEXTURE
@@ -2475,21 +2479,33 @@ def test_item_title_bar_is_the_chat_bars_look_with_a_lettered_close_button():
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
     atlas = decode(files()[skin.PIECES_TEXTURE])
     bar = cut(atlas, anims['TUI_ItemTitleBar'])
-    assert bar.size == (skin.TITLE_PIECE_WIDTH, skin.ITEM_TITLE_HEIGHT) and skin.ITEM_TITLE_HEIGHT == 25
+    assert bar.size == (skin.TITLE_PIECE_WIDTH, skin.ITEM_TITLE_HEIGHT) and skin.ITEM_TITLE_HEIGHT == 29
     rows = [set(bar.getpixel((x, y)) for x in range(bar.width)) for y in range(bar.height)]
     assert rows[:-1] == [{skin.PANEL_RGBA}] * (skin.ITEM_TITLE_HEIGHT - 1) and rows[-1] == {skin.TITLE_DIVIDER_RGBA}
-    # The close box in every state: clear rows, then the lettered Close button in that state's look.
-    assert set('Close') <= set(skin.LABEL_GLYPHS)
+    # The close box in every state: clear rows, then the Close button, the dialogs' plain wash at the size of the
+    # quantity window's Accept, which it sits over there. Its name is painted on in the text's color (the game writes
+    # nothing on a close box; see CLOSE_INK), centered across it, dimmed like the lettering while disabled.
+    assert skin.CLOSE_WIDTH == skin.QUANTITY_ROW_WIDTHS[1] == 72
+    left, top = skin.CLOSE_INK_AT
+    ink_width = len(skin.CLOSE_INK[0])
+    assert {len(row) for row in skin.CLOSE_INK} == {ink_width} and abs(left + ink_width / 2 - skin.CLOSE_WIDTH / 2) <= 0.5
     close = item.find('CloseBox')
     assert [e.tag for e in close] == list(skin.BUTTON_STATES)
     for state in close:
         look = skin.BUTTON_ART[state.tag]
         assert state.text == f'TUI_ItemClose{look}'
         art = cut(atlas, anims[state.text])
-        assert art.size == (skin.CLOSE_WIDTH, skin.CLOSE_CLEAR + skin.BUTTON_HEIGHT)
+        assert art.size == (skin.CLOSE_WIDTH, skin.CLOSE_CLEAR + skin.TEXT_BUTTON_HEIGHT)
         assert {art.getpixel((x, y))[3] for x in range(art.width) for y in range(skin.CLOSE_CLEAR)} == {0}
-        button = skin.labeled_button_art(skin.CLOSE_WIDTH, skin.BUTTON_HEIGHT, 'Close', look)
-        assert pixels(art.crop((0, skin.CLOSE_CLEAR, art.width, art.height))) == pixels(as_image(button))
+        button = art.crop((0, skin.CLOSE_CLEAR, art.width, art.height))
+        wash = as_image(skin.labeled_button_art(skin.CLOSE_WIDTH, skin.TEXT_BUTTON_HEIGHT, '', look))
+        name_color = (*skin.TEXT_RGB, skin.LABEL_ALPHA[look])
+        for y in range(button.height):
+            for x in range(button.width):
+                inked = 0 <= y - top < len(skin.CLOSE_INK) and 0 <= x - left < ink_width
+                coverage = int(skin.CLOSE_INK[y - top][x - left], 16) / 15 if inked else 0
+                expected = skin.snapped(skin.over(name_color, coverage, wash.getpixel((x, y))))
+                assert button.getpixel((x, y)) == expected, (look, x, y)
     # The other windows keep the stock box, which none of them shows.
     assert usual.findtext('CloseBox/Normal') == 'A_CloseBtnNormal'
 
@@ -2504,7 +2520,7 @@ def test_item_window_follows_the_spacing_standard_where_the_game_lets_it():
     assert skin.ITEM_WIDTH - (skin.ITEM_WIDTH - b - skin.CLOSE_BOX_INSET) == 11
     # A padding under the button, the divider (the bar's bottom row), then a padding to the icon.
     divider = b + skin.ITEM_TITLE_HEIGHT - 1
-    assert divider - (button_top + skin.BUTTON_HEIGHT) == skin.PADDING
+    assert divider - (button_top + skin.TEXT_BUTTON_HEIGHT) == skin.PADDING
     root, window = screen(skin.ITEM_FILE)
     text, icon = direct_pieces(root, window)
     top = b + skin.ITEM_TITLE_HEIGHT  # the controls' inside, in the window
@@ -2551,32 +2567,40 @@ def quantity_parts():
 
 def test_quantity_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the slider, the number field and Accept, and uses the first two unchecked: a missing one
-    # would crash the game. The field's strip is ours, with no ScreenID. As wide as the hot button window, with no
-    # title bar (it drags by its background, and Esc closes it).
-    root, window = check_inside_frame(skin.QUANTITY_FILE, skin.QUANTITY_WIDTH)
+    # would crash the game. The field's strip is ours, with no ScreenID. As wide as the hot button window, with the
+    # item window's title bar and Close (the user's pick): the close box is the only button the game lets close it,
+    # and Esc closes it too. The game writes nothing over its title.
+    root, window = check_inside_frame(skin.QUANTITY_FILE, skin.QUANTITY_WIDTH, bar=skin.ITEM_TITLE_HEIGHT)
     assert window.get('item') == 'QuantityWnd' and window.findtext('Text') == 'Quantity'
-    assert window.findtext('Style_Sizable') == 'false' and window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.HOT_WIDTH, skin.QUANTITY_HEIGHT) == (174, 71)
+    assert window.findtext('Style_Titlebar') == window.findtext('Style_Closebox') == 'true'
+    assert window.findtext('Style_Minimizebox') == window.findtext('Style_Sizable') == 'false'
+    assert window.findtext('DrawTemplate') == skin.ITEM_TEMPLATE and window.findtext('Font') == str(skin.TEXT_FONT)
+    assert box(window)[2:] == (skin.HOT_WIDTH, skin.QUANTITY_HEIGHT) == (174, 104)
     _, _, pieces = quantity_parts()
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
         ('Slider', 'QTYW_Slider'), ('Screen', None), ('Editbox', 'QTYW_SliderInput'), ('Button', 'QTYW_Accept_Button')]
 
 
 def test_quantity_window_has_a_dialogs_room_around_the_slider_and_the_row_under_it():
-    # The user picked the dialog padding: the knob two paddings from the window's top edge, the row under it two
-    # paddings further down, and the window's edge two paddings under the row. The slider spans the row, and the field
-    # and Accept each take half of it, a padding apart.
+    # The user picked the dialog padding: the knob two paddings under the title bar's line and from the window's side
+    # edges, the row under it two paddings further down, and the window's edge two paddings under the row. The slider
+    # spans the row, and the field and Accept each take half of it, a padding apart.
     _, window, (slider, strip, number_box, accept) = quantity_parts()
     edge = skin.BORDER
+    top = edge + skin.ITEM_TITLE_HEIGHT  # the controls' inside, in the window, under the bar's line
     sx, sy, sw, sh = box(slider)
-    assert edge + sx == edge + sy == skin.DIALOG_PADDING and sx + sw == skin.QUANTITY_RIGHT
+    assert edge + sx == sy == skin.DIALOG_PADDING and sx + sw == skin.QUANTITY_RIGHT
     assert sh == skin.SLIDER_HEIGHT  # the knob's height: the slider shows nothing above or below it
     fx, fy, fw, fh = box(strip)
     ax, ay, aw, ah = box(accept)
     assert fy == ay == sy + sh + skin.DIALOG_PADDING
     assert fx == skin.DIALOG_LEFT and fx + fw + skin.BUTTON_GAP == ax and ax + aw == skin.QUANTITY_RIGHT
     assert fw == aw == 72 and fh == ah == skin.INPUT_HEIGHT == skin.TEXT_BUTTON_HEIGHT
-    assert box(window)[3] - edge - (ay + ah) == skin.DIALOG_PADDING
+    assert box(window)[3] - (top + ay + ah) == skin.DIALOG_PADDING
+    # Close on the bar, Accept's size, a pixel further right than Accept: the game's inset (see the item window).
+    width = box(window)[2]
+    close_right = width - edge - skin.CLOSE_BOX_INSET
+    assert skin.CLOSE_WIDTH == aw and close_right - (edge + ax + aw) == 1
 
 
 def test_quantity_slider_is_a_knob_on_the_bars_faint_track():
@@ -2667,14 +2691,14 @@ def check_coin_caption(root, window, coin, caption):
 def test_give_window_keeps_every_control_the_client_looks_for():
     # eqgame.exe looks up the NPC's name, the four item slots, the four coin buttons, Give and Cancel, and nothing
     # else: all of the stock window's controls, every one shown, each coin box followed by its name, and a divider of
-    # ours over the buttons. As wide as one side of the trade window (the user's pick), with no title bar or close box
-    # (it drags by its background, and Cancel closes it).
+    # ours over the buttons. As wide as the hot button window (the user's pick, so Give and Cancel have room), with no
+    # title bar or close box (it drags by its background, and Cancel closes it).
     root, window = check_inside_frame(skin.GIVE_FILE, skin.GIVE_WIDTH)
     assert window.get('item') == 'GiveWnd' and window.findtext('Text') == 'Give'
     assert window.findtext('Style_Sizable') == window.findtext('Style_Closebox') == 'false'
     assert window.findtext('DrawTemplate') == skin.FRAME_TEMPLATE
-    assert box(window)[2:] == (skin.GIVE_WIDTH, skin.GIVE_HEIGHT) == (90, 244)
-    assert skin.GIVE_WIDTH == skin.TRADE_SIDE_WIDTH + 2 * skin.PADDING
+    assert box(window)[2:] == (skin.GIVE_WIDTH, skin.GIVE_HEIGHT) == (174, 150)
+    assert skin.GIVE_WIDTH == skin.HOT_WIDTH
     pieces = direct_pieces(root, window)
     assert [(e.tag, e.findtext('ScreenID')) for e in pieces] == [
         ('Label', 'GVW_NPCName'), *(('InvSlot', f'GVW_MyItemSlot{n}') for n in range(4)),
@@ -2692,21 +2716,21 @@ def test_give_window_follows_the_spacing_standard():
     name = box(found['GVW_NPCName'])
     assert name == (skin.LEFT, 0, skin.GIVE_CONTENT_WIDTH, skin.TEXT_HEIGHT)
     assert b + name[1] + skin.TEXT_INK_TOP == 7.5
-    # The slots two across in reading order (the user's pick), a padding under the name's capitals and digits, on the
+    # The slots in one row in reading order (the user's pick), a padding under the name's capitals and digits, on the
     # hot bar's squares a padding apart, filling the row from the window's padding to its padding.
     top = name[1] + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT + skin.PADDING
     slots = [box(found[f'GVW_MyItemSlot{n}']) for n in range(4)]
-    assert slots == [(skin.LEFT + n % 2 * skin.HOT_PITCH, top + n // 2 * skin.HOT_PITCH, skin.HOT_SIZE, skin.HOT_SIZE)
-                     for n in range(4)]
+    assert slots == [(skin.LEFT + n * skin.HOT_PITCH, top, skin.HOT_SIZE, skin.HOT_SIZE) for n in range(4)]
     assert slots[-1][0] + skin.HOT_SIZE == skin.GIVE_RIGHT
     assert skin.GIVE_WIDTH - 2 * b - skin.GIVE_RIGHT == skin.LEFT and b + skin.LEFT == skin.PADDING
-    # The coins stacked a padding apart from platinum down to copper (the user's pick), a padding under the slots, each
-    # across the content row.
+    # The coins two across a padding apart, platinum to copper in reading order (pp gp, then sp cp: the user's pick), a
+    # padding under the slots, each two slots wide, so the pair fills the content row.
     coins = [box(found[f'GVW_MyMoney{n}']) for n in range(4)]
-    assert coins[0][1] == slots[-1][1] + skin.HOT_SIZE + skin.BUTTON_ROW_GAP
-    for above, coin in zip(coins, coins[1:]):
-        assert coin[1] == above[1] + above[3] + skin.BUTTON_ROW_GAP
-    assert {(c[0], c[2], c[3]) for c in coins} == {(skin.LEFT, skin.GIVE_CONTENT_WIDTH, skin.TEXT_BUTTON_HEIGHT)}
+    coins_top = slots[0][1] + skin.HOT_SIZE + skin.BUTTON_ROW_GAP
+    pitch = skin.COIN_WIDTH + skin.BUTTON_GAP, skin.COIN_HEIGHT + skin.BUTTON_ROW_GAP
+    assert coins == [(skin.LEFT + n % 2 * pitch[0], coins_top + n // 2 * pitch[1], skin.COIN_WIDTH,
+                      skin.TEXT_BUTTON_HEIGHT) for n in range(4)]
+    assert coins[1][0] + coins[1][2] == skin.GIVE_RIGHT
     # The row divider across the content row a padding under the coins (the user's request), in its color.
     [divider] = [e for e in direct_pieces(root, window) if e.tag == 'StaticAnimation']
     line_box = box(divider)
@@ -2717,7 +2741,7 @@ def test_give_window_follows_the_spacing_standard():
     give, cancel = box(found['GVW_Give_Button']), box(found['GVW_Cancel_Button'])
     assert give[1] == cancel[1] == line_box[1] + line_box[3] + skin.BUTTON_ROW_GAP
     assert give[0] == skin.LEFT and give[0] + give[2] + skin.BUTTON_GAP == cancel[0]
-    assert cancel[0] + cancel[2] == skin.GIVE_RIGHT and give[2] == cancel[2] == 36
+    assert cancel[0] + cancel[2] == skin.GIVE_RIGHT and give[2] == cancel[2] == 78
     assert give[3] == cancel[3] == skin.TEXT_BUTTON_HEIGHT
     # The window's edge a padding under the buttons.
     assert box(window)[3] - (b + give[1] + give[3]) == skin.PADDING
@@ -2740,7 +2764,7 @@ def test_give_name_slots_and_buttons_take_what_the_game_puts_there():
 
 
 def test_give_coin_boxes_are_the_slots_wash_with_their_coin_named_over_them():
-    # Platinum, gold, silver and copper, in the stock window's order (its coin decals), from the top down. The game
+    # Platinum, gold, silver and copper, in the stock window's order (its coin decals), in reading order. The game
     # writes the amount as each box's text, centered, in font 3, and the coin's name is a label over the box (the
     # user's picks: over the stock coin pictures, then as big as the amount).
     root, window, found = give_parts()
@@ -3396,6 +3420,20 @@ def test_preview_saves_each_window_scaled_on_a_backdrop(tmp_path):
     assert path.name == 'EQUI_QuantityWnd.png'
     assert image.size == (2 * (width + 2 * preview.MARGIN), 2 * (height + 2 * preview.MARGIN))
     assert image.convert('RGBA').getpixel((0, 0)) == preview.BACKDROP
+
+
+def test_close_is_painted_as_the_preview_draws_a_buttons_own_text():
+    # The game writes nothing on a close box, so Close's name is painted into its art in font 2's look (see CLOSE_INK):
+    # the ink's coverage as this tool draws Accept's kind of text (font 2) on a button Close's size, at the 16 alpha
+    # steps, from its top left.
+    preview = preview_module()
+    if not any(Path(path).is_file() for path in preview.ARIAL):
+        pytest.skip('no Arial to draw font 2 with')
+    mask = preview.button_text_mask('Close', (skin.CLOSE_WIDTH, skin.TEXT_BUTTON_HEIGHT), skin.ACTION_FONT)
+    left, top, right, bottom = mask.getbbox()
+    assert (left, top) == skin.CLOSE_INK_AT
+    assert skin.CLOSE_INK == tuple(''.join(f'{round(mask.getpixel((x, y)) / skin.STEP):x}' for x in range(left, right))
+                                   for y in range(top, bottom))
 
 
 def test_preview_fills_in_what_the_game_writes_in_the_give_window(tmp_path):

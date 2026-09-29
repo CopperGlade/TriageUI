@@ -125,7 +125,7 @@ CHAT_FILE = 'EQUI_ChatWindow.xml'
 # from 0 (small) to 6 (large), with nothing in between; the user likes 3. Button labels are our own
 # lettering instead (see LABEL_GLYPHS): 2 looked squished, 3 too big. The dialogs' buttons and the give, trade
 # and loot windows' show their names in font 2 on taller buttons instead (see add_text_buttons()): the lettering
-# read too small there (the user's call).
+# read too small there (the user's call). So does Close, painted in font 2's look (see CLOSE_INK).
 TEXT_FONT = 3
 WINDOW_WIDTH = 200  # the group and casting windows; the target window is narrower
 LEFT = PADDING - BORDER
@@ -174,12 +174,16 @@ PERCENT_RINGS = ((2.4, 2.4), (8.6, 6.6))  # centers; each ring is 1.75 x 2.0 acr
 PERCENT_RING_RADII = (1.75, 2.0)
 PERCENT_SLASH = ((8.3, 0.3), (2.7, 8.7))
 # Zeal's server tick (gauge 24, which Zeal fills in any window): it drains to empty at each tick, when mana
-# comes in, so it sits a pixel under the mana bar (see MANA_TICK_TOP), where casters look while they med.
-# Solid, in the casting bar's soft red, with no track (the user's picks). Along the top of the target window,
-# players didn't notice it, in the overlay's grey, the mana bar's blue or the tracks' faint color; along the
-# top border it didn't show, since the client draws nothing outside a window's inside area.
+# comes in, so it sits TICK_GAP under the mana bar (see MANA_TICK_TOP), where casters look while they med.
+# Solid, in the text's white, with no track (the user's picks): the health and mana bars have their own colors,
+# and the casting bar's soft red, beside the mana bar's blue, hurt the eyes. Two clear pixels under the bar: with
+# one, the two read as touching. Along the top of the target window, players didn't notice it, in the overlay's
+# grey, the mana bar's blue or the tracks' faint color; along the top border it didn't show, since the client
+# draws nothing outside a window's inside area.
 TICK_TYPE = 24
 TICK_HEIGHT = 2
+TICK_GAP = 2
+TICK_RGB = TEXT_RGB
 # Things shown only with a target are a target health gauge whose fill, this wide, is clipped to the
 # thing's spot. The client draws a fill's width times the gauge's value, so any health above 0 shows
 # the whole spot, and no target (value 0) shows nothing. duxaUI colors its bars the same way.
@@ -714,8 +718,8 @@ PLAYER_SECTIONS_TOP = PLAYER_NAME_TOP + TEXT_HEIGHT + PADDING  # the user asked 
 # Two paddings from a bar to the next caption's ink, as from XP/hour to the resists: the user asked for the
 # sections set apart, less cluttered.
 PLAYER_SECTION_PITCH = BAR_TOP + BAR_HEIGHT + math.ceil(2 * PADDING - PERCENT_INK_TOP - PERCENT_SUBPIXEL)
-# The server tick in the mana section, a pixel under its bar like a pet's bar under its name (see TICK_TYPE).
-MANA_TICK_TOP = BAR_TOP + BAR_HEIGHT + PET_BAR_GAP
+# The server tick in the mana section, TICK_GAP under its bar (see TICK_TYPE).
+MANA_TICK_TOP = BAR_TOP + BAR_HEIGHT + TICK_GAP
 # The health bar: '#8fd19e', the soft green the current HP number had at first (the user's pick).
 HP_RGB = (143, 209, 158)
 # The values: the current number, "/" and the max, as separate labels (the current right-aligned against
@@ -749,7 +753,7 @@ AA_PER_HOUR_TYPE = 86
 # caption grows a digit's width each, since the number hugs its %.
 RATE_CAPTION_WIDTH = 26  # "XP/h" and "AA/h" in font 3 (Arial 12px)
 RATE_PAIR_WIDTH = RATE_CAPTION_WIDTH + PADDING + NUMBER_WIDTH + PERCENT_WIDTH
-PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH + PET_BAR_GAP + TICK_HEIGHT  # under the tick
+PLAYER_XP_TOP = PLAYER_SECTIONS_TOP + 2 * PLAYER_SECTION_PITCH + TICK_GAP + TICK_HEIGHT  # under the tick
 # The resists a padding further down than the rule's (the user's request), under the XP/hour line's ink.
 RESISTS_TOP = PLAYER_XP_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + 2 * PADDING - CAPTION_INK_TOP
 # Under the resists' numbers, whose ink ends where the drawn %'s does, the window's edge a padding away.
@@ -946,8 +950,9 @@ CONFIRM_HEIGHT = 2 * BORDER + CONFIRM_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + DIALOG_
 # (0x425d69). Zeal makes its own item windows (ZealItemDisplay0 to 4 in the character's ini) from the same XML, links
 # only ItemDescription and then IconButton as their children, and keeps no size for them, so they open at the XML's.
 # The user's picks (2026-09-27, from mockups): a title bar with the name in font 3, the icon at the top left with
-# the text in a column to its right, a lettered Close button on the bar (the close box: the game handles no other
-# button here, so none inside the window could close it), and a fixed size.
+# the text in a column to its right, a Close button on the bar (the close box: the game handles no other button here,
+# so none inside the window could close it), and a fixed size. Close is the dialogs' kind of button (2026-09-29, the
+# user's pick), the quantity window's Accept's size with its name in font 2's look (see CLOSE_INK).
 ITEM_FILE = 'EQUI_ItemDisplay.xml'
 ITEM_TEMPLATE = 'WDT_TriageItem'
 ITEM_WIDTH = 400  # the stock window's
@@ -965,12 +970,27 @@ ITEM_TEXT_LINES = 12
 # is active (0x5729b0). So the Close button's right edge is 11px from the window's (the user accepted it, forced).
 CLOSE_BOX_TOP = 1
 CLOSE_BOX_INSET = 7
-CLOSE_WIDTH = 50  # the pet window's buttons', whose names are as long
+CLOSE_WIDTH = 72  # the quantity window's Accept's, which it sits over there
 # Clear rows over the Close button in its art, so it starts a padding under the window's top edge. More would center
 # it on the name (about 2px lower, by the game's rule and an estimate of font 3's height), at the padding's cost.
 CLOSE_CLEAR = PADDING - BORDER - CLOSE_BOX_TOP
+# The Close button's name. The game draws a close box's art and writes nothing on it, so the name is painted into
+# the art in font 2's look, like the text the game writes on Accept: the ink's coverage as tools/preview.py draws font 2
+# (Arial 10px) on a button Close's size, a hex digit a pixel (0 to f, the 16 alpha steps), CLOSE_INK_AT from the
+# button's top left. A test draws it again. If it differs from Accept's name in game, copy the game's letters from a
+# lossless screenshot instead.
+CLOSE_INK_AT = (23, 7)
+CLOSE_INK = (
+    '02bee805800000000000000000',
+    '1d612b65800000000000000000',
+    '6a00012580aed402cfc209ed30',
+    '7800000587a13d17a2006913d0',
+    '5a00025589400b22bfd39ffff1',
+    '1d612b7587a13e100188791000',
+    '03cee80581aed505dfc20aee90',
+)
 # The bar: the Close button, a padding under it, then the divider as the bar's bottom row.
-ITEM_TITLE_HEIGHT = CLOSE_BOX_TOP + CLOSE_CLEAR + BUTTON_HEIGHT + PADDING + DIVIDER_HEIGHT
+ITEM_TITLE_HEIGHT = CLOSE_BOX_TOP + CLOSE_CLEAR + TEXT_BUTTON_HEIGHT + PADDING + DIVIDER_HEIGHT
 ITEM_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + ITEM_TEXT_TOP + ITEM_TEXT_LINES * TEXT_HEIGHT + LEFT
 # The quantity window: what the game asks with when you pick up part of a stack or of your coins. From eqgame.exe
 # (CQuantityWnd, 0x42F1A0): it looks up the slider, the number field and Accept, nothing else, and uses the first two
@@ -980,7 +1000,8 @@ ITEM_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + ITEM_TEXT_TOP + ITEM_TEXT_LINES *
 # digits and caps the number at the stack; Enter or Accept takes it. It never moves or resizes anything inside. The
 # user's picks (2026-09-28, from mockups): the stock arrangement, the slider across the window over the field and
 # Accept side by side; the slider a knob on the bars' faint track; a dialog's room inside (DIALOG_PADDING). As wide as
-# the hot button window, like the other small windows.
+# the hot button window, like the other small windows. The item window's title bar with its Close (2026-09-29, the
+# user's pick): the close box is the only button the game lets close it; Esc closes it too.
 QUANTITY_FILE = 'EQUI_QuantityWnd.xml'
 QUANTITY_WIDTH = HOT_WIDTH
 QUANTITY_RIGHT = QUANTITY_WIDTH - 2 * BORDER - DIALOG_LEFT
@@ -996,16 +1017,17 @@ SLIDER_TEMPLATE = 'TUI_Slider'
 SLIDER_KNOB_WIDTH = 10
 SLIDER_HEIGHT = 15  # the knob's, odd so the 3px track centers on it
 SLIDER_TRACK_TOP = (SLIDER_HEIGHT - TWIN_BAR_HEIGHT) // 2
-QUANTITY_SLIDER_TOP = DIALOG_LEFT
+# The knob a dialog padding under the title bar's line, the bar's bottom row, where the controls' inside starts.
+QUANTITY_SLIDER_TOP = DIALOG_PADDING
 # The number field (the chat input's strip) and Accept (the confirmation dialog's buttons) share the row a dialog
-# padding under the knob, each half of it.
+# padding under the knob, each half of it. Close, over Accept, sits a pixel further right: the game's inset.
 QUANTITY_ROW_TOP = QUANTITY_SLIDER_TOP + SLIDER_HEIGHT + DIALOG_PADDING
 QUANTITY_ROW_WIDTHS = ((QUANTITY_CONTENT_WIDTH - BUTTON_GAP) // 2,
                        QUANTITY_CONTENT_WIDTH - BUTTON_GAP - (QUANTITY_CONTENT_WIDTH - BUTTON_GAP) // 2)
 QUANTITY_ACCEPT_X = QUANTITY_RIGHT - QUANTITY_ROW_WIDTHS[1]
 _size = (QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT)  # no label of ours: the button's text is its name
 BUTTON_LABELS[_size] = BUTTON_LABELS.get(_size, ()) + ('',)
-QUANTITY_HEIGHT = 2 * BORDER + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
+QUANTITY_HEIGHT = 2 * BORDER + ITEM_TITLE_HEIGHT + QUANTITY_ROW_TOP + TEXT_BUTTON_HEIGHT + DIALOG_LEFT
 # Coin boxes (the give and trade windows, see coin_box()): the buttons the game writes an amount of one coin on, as
 # its text, centered, in font 3. Money0 to 3 are platinum, gold, silver and copper in every window, as the stock
 # windows' coin decals show. Each box is the slots' wash with its coin's name a padding in from its left edge (the
@@ -1030,11 +1052,13 @@ COIN_CAPTION_WIDTH = 14
 # The give window: what opens when you hand an NPC an item or coins. eqgame.exe looks up the NPC's name (which it
 # writes), the four item slots (GVW_MyItemSlot0 to 3, EQTypes 3000 to 3003), the four coin buttons (GVW_MyMoney0 to 3:
 # platinum, gold, silver and copper, each showing the amount you give as its text), Give and Cancel, and nothing else.
-# The user's picks (2026-09-29, from mockups): one side of the trade window, the four slots two across on the hot
-# button window's squares under the NPC's name, the coins stacked under them, then a divider over Give and Cancel. The
-# window's content is as wide as a coin box, so a long name is cut off.
+# The user's picks (2026-09-29, from mockups): the four slots in a row on the hot button window's squares under the
+# NPC's name, the coins two across under them, then a divider over Give and Cancel. As wide as the hot button
+# window, so Give and Cancel have room around their names and a cancel isn't mistaken for Give: as wide as one side
+# of the trade window, with the slots two across and the coins stacked, they were no wider than "Cancel".
 GIVE_FILE = 'EQUI_GiveWnd.xml'
-GIVE_CONTENT_WIDTH = COIN_WIDTH
+GIVE_SLOT_COLUMNS = 4  # in reading order, left to right, as the game fills them
+GIVE_CONTENT_WIDTH = GIVE_SLOT_COLUMNS * HOT_SIZE + (GIVE_SLOT_COLUMNS - 1) * BUTTON_GAP
 GIVE_WIDTH = GIVE_CONTENT_WIDTH + 2 * PADDING
 GIVE_RIGHT = GIVE_WIDTH - 2 * BORDER - LEFT
 # The name's line at the inside's top, so its ink starts about 7.5px under the window's edge, like the player window's
@@ -1043,12 +1067,14 @@ GIVE_NAME_TOP = 0
 GIVE_SLOTS_TOP = GIVE_NAME_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
 GIVE_SLOT_TYPE = 3000
 GIVE_SLOTS = 4
-GIVE_SLOT_COLUMNS = 2  # in reading order, left to right and down, as the game fills them
 GIVE_SLOT_ROWS = -(-GIVE_SLOTS // GIVE_SLOT_COLUMNS)
-# The coin boxes (see COIN_CAPTIONS), (ScreenID, caption) from platinum down to copper, a padding under the slots.
+# The coin boxes (see COIN_CAPTIONS), (ScreenID, caption) from platinum to copper in reading order, two across (pp gp,
+# then sp cp) a padding apart, a padding under the slots.
 GIVE_COINS = tuple((f'GVW_MyMoney{n}', caption) for n, caption in enumerate(COIN_CAPTIONS))
+GIVE_COIN_COLUMNS = 2
+GIVE_COIN_ROWS = -(-len(GIVE_COINS) // GIVE_COIN_COLUMNS)
 GIVE_COINS_TOP = GIVE_SLOTS_TOP + GIVE_SLOT_ROWS * HOT_PITCH
-GIVE_COINS_BOTTOM = GIVE_COINS_TOP + len(GIVE_COINS) * (COIN_HEIGHT + BUTTON_ROW_GAP) - BUTTON_ROW_GAP
+GIVE_COINS_BOTTOM = GIVE_COINS_TOP + GIVE_COIN_ROWS * (COIN_HEIGHT + BUTTON_ROW_GAP) - BUTTON_ROW_GAP
 # The row divider across the content row a padding under the coins, and Give and Cancel a padding under it (the user's
 # request), filling the row: (ScreenID, name, column). The stock ones have no tooltips. They're the confirmation
 # dialog's buttons (the user's pick), their names their own text.
@@ -1736,9 +1762,17 @@ def title_piece(height=TITLE_HEIGHT):
 
 
 def close_box_art(state):
-    """The item window's close box in one state: the lettered Close button under CLOSE_CLEAR clear rows."""
-    art = clear_texture(CLOSE_WIDTH, CLOSE_CLEAR + BUTTON_HEIGHT)
-    art.rows[CLOSE_CLEAR:] = labeled_button_art(CLOSE_WIDTH, BUTTON_HEIGHT, 'Close', state).rows
+    """The item and quantity windows' close box in one state: the Close button under CLOSE_CLEAR clear rows, the
+    dialogs' plain wash with its name painted on in the text's color (see CLOSE_INK)."""
+    button = labeled_button_art(CLOSE_WIDTH, TEXT_BUTTON_HEIGHT, '', state)
+    color = (*TEXT_RGB, LABEL_ALPHA[state])
+    left, top = CLOSE_INK_AT
+    for y, row in enumerate(CLOSE_INK):
+        for x, digit in enumerate(row):
+            pixel = button.rows[top + y][left + x]
+            button.rows[top + y][left + x] = over(color, int(digit, 16) / 15, pixel)
+    art = clear_texture(CLOSE_WIDTH, CLOSE_CLEAR + TEXT_BUTTON_HEIGHT)
+    art.rows[CLOSE_CLEAR:] = snapped_art(button).rows
     return art
 
 
@@ -1990,7 +2024,7 @@ def frame_template(name=FRAME_TEMPLATE, background=BACKGROUND_TEXTURE, edge=None
     for every side and corner of the border instead of the panel's rounded one. title, when given, is
     the animation for the title bar's left, middle and right (the chat windows' thin bar); otherwise the
     stock rounded title bar, which no other TriageUI window shows. close, when given, is the close box's
-    animation for each of BUTTON_STATES (the item window's Close button); otherwise the stock box."""
+    animation for each of BUTTON_STATES (the item and quantity windows' Close button); otherwise the stock box."""
     border = {side: edge or f'TUI_Frame{piece}' for side, piece in BORDER_PIECES.items()}
     title_bar = {side: title or f'A_RoundedFrameTitle{side}' for side in ('Right', 'Left', 'Middle')}
     close_box = (node('CloseBox', [node(state, close[state]) for state in BUTTON_STATES]) if close
@@ -2030,8 +2064,8 @@ def shared_definitions(rects):
         frame_template(),
         # The chat windows' frame: the same, with the thin title bar to drag them by (see TITLE_HEIGHT).
         frame_template(CHAT_TEMPLATE, title='TUI_TitleBar'),
-        # The item window's: the same with a title bar tall enough for its Close button, the close box (see
-        # ITEM_FILE).
+        # The item and quantity windows': the same with a title bar tall enough for their Close button, the close box
+        # (see ITEM_FILE).
         frame_template(ITEM_TEMPLATE, title='TUI_ItemTitleBar',
                        close={state: f'TUI_ItemClose{BUTTON_ART[state]}' for state in BUTTON_STATES}),
         # The chat input's field: a plain strip darker than the panel, outlined by a 1px line in the
@@ -2313,7 +2347,7 @@ def window(item, title, height, parts, tooltip=None, width=WINDOW_WIDTH, inner=(
     title None leaves the window's name to the client, as for chat windows. inner are defined first but
     aren't pieces of the window: they belong to clips or tab pages among the parts. title_bar draws template's title
     bar (the chat windows' thin one); font is the window's own, for the name the client writes on it. close_box
-    puts template's close box on the bar (the item window's Close button).
+    puts template's close box on the bar (the item and quantity windows' Close button).
     """
     children = [node('ScreenID')]
     if font is not None:
@@ -2723,7 +2757,7 @@ def player_window():
         ]
     parts.append(gauge('TUI_PW_ZealTick', 'ZealTick', TICK_TYPE,
                        (LEFT, PLAYER_SECTIONS_TOP + PLAYER_SECTION_PITCH + MANA_TICK_TOP, PLAYER_CONTENT_WIDTH,
-                        TICK_HEIGHT), 'TUI_TickFill', SPELL_RGB))
+                        TICK_HEIGHT), 'TUI_TickFill', TICK_RGB))
     # XP/h and its % at the line's start, AA/h and its % ending at its end (see RATE_PAIR_WIDTH). The numbers
     # and their %s in the values' green. The drawn % needs a gauge above 0 to show: your own health, so it
     # always shows, 0% too.
@@ -3029,8 +3063,8 @@ def item_display_window():
 
 
 def quantity_window():
-    """How many of a stack to take: the slider across the window, and under it the number field and Accept side by
-    side, with a dialog's room inside (see QUANTITY_FILE)."""
+    """How many of a stack to take: the item window's title bar with Close, the slider across the window, and under it
+    the number field and Accept side by side, with a dialog's room inside (see QUANTITY_FILE)."""
     slider = node('Slider', [
         node('ScreenID', 'QTYW_Slider'),
         node('RelativePosition', True),
@@ -3063,7 +3097,8 @@ def quantity_window():
     # The confirmation dialog's button: its name its own text, in the Actions window's font.
     accept = button('TUI_QTYW_Accept_Button', 'QTYW_Accept_Button', '', QUANTITY_ACCEPT_X, QUANTITY_ROW_TOP,
                     QUANTITY_ROW_WIDTHS[1], TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Accept')
-    return window('QuantityWnd', 'Quantity', QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH)
+    return window('QuantityWnd', 'Quantity', QUANTITY_HEIGHT, [slider, strip, number, accept], width=QUANTITY_WIDTH,
+                  template=ITEM_TEMPLATE, title_bar=True, font=TEXT_FONT, close_box=True)
 
 
 def coin_box(name, screen_id, caption, x, y, tooltip=COIN_TOOLTIP, lit=True):
@@ -3107,8 +3142,8 @@ def vertical_divider(name, x, y, height):
 
 
 def give_window():
-    """What you hand an NPC: its name, then your four item slots two across on the hot bar's squares, the coin boxes
-    stacked under them, a divider, and Give and Cancel (see GIVE_FILE)."""
+    """What you hand an NPC: its name, then your four item slots in a row on the hot bar's squares, the coin boxes two
+    across under them, a divider, and Give and Cancel (see GIVE_FILE)."""
     name = label('TUI_GVW_NPCName', None, (LEFT, GIVE_NAME_TOP, GIVE_CONTENT_WIDTH, TEXT_HEIGHT), '',
                  screen_id='GVW_NPCName')
     slots = [inv_slot(f'TUI_GVW_MyItemSlot{n}', f'GVW_MyItemSlot{n}', GIVE_SLOT_TYPE + n,
@@ -3116,8 +3151,9 @@ def give_window():
                       'TUI_HotButtonNormal')
              for n in range(GIVE_SLOTS)]
     coins = [part for n, (screen_id, caption) in enumerate(GIVE_COINS)
-             for part in coin_box(f'TUI_GVW_{screen_id}', screen_id, caption, LEFT,
-                                  GIVE_COINS_TOP + n * (COIN_HEIGHT + BUTTON_ROW_GAP))]
+             for part in coin_box(f'TUI_GVW_{screen_id}', screen_id, caption,
+                                  LEFT + n % GIVE_COIN_COLUMNS * (COIN_WIDTH + BUTTON_GAP),
+                                  GIVE_COINS_TOP + n // GIVE_COIN_COLUMNS * (COIN_HEIGHT + BUTTON_ROW_GAP))]
     # The Effects window's divider, at the content row's width.
     divider = picture('TUI_GVW_Divider', 'TUI_GiveDivider', (LEFT, GIVE_DIVIDER_TOP, GIVE_CONTENT_WIDTH, DIVIDER_HEIGHT))
     buttons = [button(f'TUI_GVW_{screen_id}', screen_id, '',
