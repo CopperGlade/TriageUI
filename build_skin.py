@@ -2913,11 +2913,418 @@ def root_picture():
             fill(roots, bevel(linear((5, 1), (11, 15), [(0, (184, 128, 74)), (1, (116, 72, 38))]), (58, 32, 14), 0.7, 0.55))]
 
 
+# Batch 2: hands, body and mind. More objects the pictures share first.
+
+WOOD = ((204, 158, 100), (146, 100, 56), (70, 44, 20))
+LIPS = ((252, 128, 138), (196, 34, 54), (100, 10, 24))
+CAT_FUR = ((255, 224, 140), (216, 160, 62), (110, 70, 20))
+RED_HEART = ((255, 176, 176), (228, 40, 60), (110, 6, 20))
+DRAINED_HEART = ((130, 96, 104), (72, 36, 46), (30, 8, 16))
+BRAINS = {  # (light, mid, rim) of a brain in each of duxaUI's colors
+    'lavender': ((220, 204, 252), (150, 116, 214), (66, 44, 128)),
+    'pink': ((252, 208, 216), (214, 138, 158), (116, 58, 78)),
+    'blue': ((208, 224, 255), (120, 150, 232), (44, 62, 150)),
+    'pale': ((244, 232, 236), (194, 164, 174), (100, 76, 86)),
+}
+
+
+def union(*shapes):
+    """The shapes as one: each point's distance to the nearest."""
+    return lambda u, v: min(shape(u, v) for shape in shapes)
+
+
+def tilted(shape, degrees, cx=8.0, cy=8.0):
+    """shape turned by degrees about (cx, cy)."""
+    return lambda u, v: shape(*turned(u, v, degrees, cx, cy))
+
+
+def star(cx, cy, points, outer, inner):
+    """A star of points points, outer to their tips and inner to the notches between, one tip straight up."""
+    corners = [(cx + (outer if k % 2 == 0 else inner) * math.cos(math.radians(-90 + 180 * k / points)),
+                cy + (outer if k % 2 == 0 else inner) * math.sin(math.radians(-90 + 180 * k / points)))
+               for k in range(2 * points)]
+    return lambda u, v: polygon_signed(u, v, corners)
+
+
+def heart(cx, cy, scale):
+    """A heart centered about (cx, cy), 2.24 scales across."""
+    def shape(u, v):
+        x, y = (u - cx) / scale, (v - cy) / scale
+        return min(circle(x, y, -0.5, -0.25, 0.62), circle(x, y, 0.5, -0.25, 0.62),
+                   polygon_signed(x, y, [(-1.08, 0.05), (1.08, 0.05), (0, 1.15)])) * scale
+    return shape
+
+
+def glossy(shape, palette, halo, shine):
+    """shape as a glossy object in palette: lit toward its shine, a (cx, cy, rx, ry, degrees) highlight, with a halo."""
+    lit, mid, rim = palette
+    highlight = lambda u, v: tilted_ellipse(u, v, *shine)  # noqa: E731
+    return [*([glow(shape, flat(halo), 2.4)] if halo else []), outline(shape),
+            fill(shape, bevel(radial((shine[0] + 0.6, shine[1] + 0.6), 6, [(0, lit), (1, mid)]), rim, 1.0, 0.6)),
+            fill(inside(shape, highlight), flat((255, 255, 255, 170)))]
+
+
+def skin_fill(shape, light=(4, 3), dark=(12, 14), width=1.1):
+    lit, mid, rim = SKIN_TONES
+    return fill(shape, bevel(linear(light, dark, [(0, lit), (1, mid)]), rim, width, 0.5))
+
+
+def glowing_hand(lit, mid, rim, halo, sparkle=None):
+    """The open hand in a spell's glowing colors, with a sparkle at its fingertips when sparkle (its rim color) is given."""
+    return hand_layers(lit, mid, rim, halo) + (sparkle_layers(12.8, 3.0, 2.8, rim=sparkle) if sparkle else [])
+
+
+def rejuvenation_picture():
+    # 0: the healing hand without its heart, glowing blue, a sparkle at its fingertips.
+    return glowing_hand((226, 238, 255), (110, 160, 250), (40, 80, 190), (130, 180, 255, 160), (170, 210, 255))
+
+
+def regeneration_picture():
+    # 118: a pale blue hand, glowing.
+    return glowing_hand((242, 248, 255), (172, 206, 250), (80, 120, 200), (170, 210, 255, 140))
+
+
+def complete_heal_picture():
+    # 119: a paler lavender hand, glowing brighter, with a sparkle.
+    return glowing_hand((250, 246, 255), (200, 190, 252), (110, 100, 200), (210, 200, 255, 180), (230, 220, 255))
+
+
+def flexed_arm(u, v):
+    # The upper arm across the bottom from the left, the bicep bulging over it, the elbow at the right, the forearm
+    # standing up from it and the fist clenched at the top, its fingers toward the bicep. Without the bulge and the
+    # fist's fingers it read as a leg.
+    return min(tapered(u, v, (-0.4, 13.0), (10.0, 12.6), 2.3, 2.2), ellipse_signed(u, v, 5.8, 10.0, 3.9, 3.1),
+               circle(u, v, 11.2, 12.2, 2.3), tapered(u, v, (11.6, 11.4), (11.2, 5.8), 2.35, 2.0),
+               rounded_rect_distance(u, v, 8.2, 0.9, 13.8, 6.4, 2.1))
+
+
+def strengthen_picture():
+    # 6: the flexed arm, in a purple-white glow.
+    lit, mid, rim = SKIN_TONES
+    under_bicep = curve((2.6, 11.6), (6.2, 13.0), (9.6, 11.2), 0.3, 0.22)
+    elbow = curve((9.4, 9.6), (9.8, 10.8), (9.4, 11.6), 0.26, 0.2)
+    fingers = lambda u, v: min(segment_distance(u, v, (8.4, y), (10.8, y)) for y in (2.4, 3.7, 5.0)) - 0.2  # noqa: E731
+    thumb = lambda u, v: tapered(u, v, (9.2, 1.6), (12.6, 2.6), 0.75, 0.6)  # noqa: E731
+    shine = lambda u, v: tilted_ellipse(u, v, 5.0, 8.4, 2.0, 0.7, -12)  # noqa: E731
+    return [glow(flexed_arm, flat((230, 190, 255, 140)), 3.0), outline(flexed_arm),
+            fill(flexed_arm, bevel(linear((4, 7), (12, 15), [(0, lit), (1, mid)]), rim, 1.2, 0.55)),
+            fill(inside(flexed_arm, under_bicep), flat((*rim, 200))), fill(inside(flexed_arm, elbow), flat((*rim, 170))),
+            fill(inside(flexed_arm, fingers), flat((*rim, 200))),
+            outline(thumb, (*rim, 220), 0.4), shaded(thumb, SKIN_TONES, (9, 1), (12, 3), 0.6, 0.45),
+            fill(shine, flat((255, 255, 255, 120)))]
+
+
+def weaken_picture():
+    # 7: the arm gone limp, sagging from the left, the forearm hanging from the elbow, the hand open, red drops falling,
+    # in a red glow. Strengthen's flexed arm in red (duxaUI's) was redrawn at the user's call; the user picked this
+    # over the arm drained grey with a red arrow down, and with red wisps drawn out of it.
+    arm = union(lambda u, v: tapered(u, v, (-0.6, 6.2), (9.8, 7.0), 2.1, 1.9),
+                lambda u, v: ellipse_signed(u, v, 5.0, 7.8, 3.4, 1.9), lambda u, v: circle(u, v, 10.6, 7.6, 1.95),
+                lambda u, v: tapered(u, v, (10.8, 8.0), (11.8, 12.4), 1.85, 1.55),
+                lambda u, v: ellipse_signed(u, v, 12.0, 13.4, 1.7, 1.5),
+                *[lambda u, v, x=x: tapered(u, v, (x, 14.0), (x - 0.5, 15.6), 0.48, 0.38) for x in (11.0, 12.0, 13.0)])
+    drops = lambda u, v: min(circle(u, v, x, y, r) for x, y, r in ((6.0, 11.4, 0.55), (4.2, 12.8, 0.4), (7.6, 13.6, 0.45)))  # noqa: E731
+    elbow = curve((9.4, 5.4), (10.2, 6.8), (9.6, 8.4), 0.26, 0.2)
+    return [glow(arm, flat((255, 120, 120, 150)), 3.0), outline(arm), skin_fill(arm, (3, 4), (12, 15)),
+            fill(inside(arm, elbow), flat((*SKIN_TONES[2], 180))), fill(drops, flat((255, 90, 90, 200)))]
+
+
+def dexterity_picture():
+    # 8: a sword balanced flat across the tip of a raised finger. duxaUI's hand pinching an upright sword's pommel read
+    # poorly; the user picked this over a hand juggling three balls and a dagger spinning over a palm.
+    fist = lambda u, v: rounded_rect_distance(u, v, 4.8, 9.6, 11.4, 15.8, 2.2)  # noqa: E731
+    finger = lambda u, v: tapered(u, v, (7.2, 10.4), (7.4, 5.8), 1.0, 0.85)  # noqa: E731
+    curled = lambda u, v: min(circle(u, v, 10.8, y, 1.05) for y in (10.8, 12.5, 14.2))  # noqa: E731
+    thumb = lambda u, v: tapered(u, v, (5.2, 13.0), (8.8, 11.4), 0.95, 0.8)  # noqa: E731
+    hand = union(fist, finger, curled)
+    lit, mid, rim = SKIN_TONES
+    return [glow(lambda u, v: segment_distance(u, v, (1, 4.4), (15, 4.4)) - 1, flat((240, 210, 255, 100)), 2.4),
+            *sword_layers((4.0, 4.4), (15.4, 4.4), (240, 210, 255, 90), half=0.85, guard=1.7, grip=1.4),
+            outline(hand), skin_fill(hand, (5, 6), (11, 16)), outline(curled, (*rim, 210), 0.35),
+            fill(curled, bevel(linear((10, 10), (11, 15), [(0, lit), (1, mid)]), rim, 0.7, 0.5)),
+            outline(thumb, (*rim, 230), 0.4), fill(thumb, bevel(linear((5, 12), (9, 12), [(0, lit), (1, mid)]), rim, 0.7, 0.45))]
+
+
+def agility_picture():
+    # 9: a spotted golden cat mid-leap.
+    body = union(lambda u, v: tilted_ellipse(u, v, 7.6, 8.2, 4.9, 1.9, -12), lambda u, v: ellipse_signed(u, v, 11.0, 7.4, 2.0, 1.8),
+                 lambda u, v: circle(u, v, 13.3, 5.8, 1.7),
+                 lambda u, v: polygon_signed(u, v, [(12.2, 4.8), (12.6, 3.0), (13.4, 4.4)]) - 0.15,
+                 lambda u, v: polygon_signed(u, v, [(13.6, 4.4), (14.6, 3.0), (14.8, 4.9)]) - 0.15,
+                 lambda u, v: ellipse_signed(u, v, 14.7, 6.4, 1.0, 0.75),
+                 lambda u, v: tapered(u, v, (11.6, 8.4), (15.3, 10.2), 0.72, 0.42),
+                 lambda u, v: tapered(u, v, (11.0, 8.8), (14.2, 11.6), 0.66, 0.4),
+                 lambda u, v: tapered(u, v, (4.4, 9.0), (0.8, 12.6), 0.95, 0.45),
+                 lambda u, v: tapered(u, v, (5.2, 9.4), (2.4, 13.8), 0.85, 0.4),
+                 curve((3.4, 7.4), (1.0, 5.8), (1.4, 3.0), 0.55, 0.3))
+    spots = lambda u, v: min(circle(u, v, x, y, r) for x, y, r in  # noqa: E731
+                             ((6.0, 7.6, 0.5), (8.2, 7.2, 0.45), (9.8, 8.4, 0.45), (7.0, 9.0, 0.4), (4.8, 8.7, 0.4)))
+    lit, mid, rim = CAT_FUR
+    return [glow(body, flat((255, 220, 150, 110)), 2.4), outline(body),
+            fill(body, bevel(linear((8, 5), (8, 12), [(0, lit), (1, mid)]), rim, 0.9, 0.5)),
+            fill(inside(body, spots), flat((90, 56, 20, 200))), fill(lambda u, v: circle(u, v, 13.9, 5.5, 0.32), flat((30, 20, 10)))]
+
+
+BIG_HEART = heart(8, 7.7, 6.3)
+
+
+def stamina_picture():
+    # 10: a glossy blue heart.
+    return glossy(BIG_HEART, ((170, 212, 255), (40, 118, 240), (10, 40, 120)), (120, 180, 255, 130), (5.4, 4.8, 1.7, 0.85, -35))
+
+
+def vampiric_embrace_picture():
+    # 140: a glossy black heart in a red glow.
+    return glossy(BIG_HEART, ((120, 116, 124), (34, 30, 36), (0, 0, 0)), (255, 90, 90, 110), (5.4, 4.8, 1.7, 0.85, -35))
+
+
+def brain(u, v):
+    # A brain from the side: the rounded cerebrum, the temporal lobe under it, the cerebellum and the brainstem.
+    return min(ellipse_signed(u, v, 8.0, 7.0, 6.6, 4.5), ellipse_signed(u, v, 4.4, 8.4, 3.6, 3.4),
+               ellipse_signed(u, v, 11.0, 8.6, 3.8, 3.0), ellipse_signed(u, v, 7.6, 10.4, 4.2, 2.0),
+               ellipse_signed(u, v, 11.6, 11.4, 2.4, 1.6), tapered(u, v, (9.8, 11.0), (10.4, 14.4), 1.0, 0.8))
+
+
+# Its grooves: short and wavy all over, none long enough to read as a line on a face (a few long ones did).
+BRAIN_FOLDS = union(
+    curve((2.6, 7.6), (3.2, 5.2), (4.8, 5.8), 0.22, 0.2), curve((4.8, 5.8), (5.6, 3.6), (7.4, 4.4), 0.22, 0.2),
+    curve((7.8, 3.2), (8.4, 5.2), (10.0, 4.4), 0.22, 0.2), curve((10.0, 4.4), (11.8, 3.8), (12.4, 5.6), 0.22, 0.2),
+    curve((13.0, 6.2), (12.0, 7.4), (13.6, 8.6), 0.22, 0.2), curve((4.2, 7.8), (5.8, 6.4), (6.6, 8.0), 0.22, 0.2),
+    curve((6.6, 8.0), (7.6, 9.2), (8.6, 7.6), 0.22, 0.2), curve((8.8, 5.8), (10.2, 7.0), (9.6, 8.6), 0.22, 0.2),
+    curve((10.8, 7.6), (11.8, 9.0), (12.8, 9.4), 0.22, 0.2), curve((3.2, 9.6), (5.8, 10.8), (9.0, 9.8), 0.3, 0.26),
+    curve((2.4, 10.4), (3.0, 11.2), (2.6, 11.8), 0.2, 0.18), curve((5.4, 11.4), (6.8, 11.2), (7.6, 12.0), 0.2, 0.18),
+    curve((10.4, 11.0), (11.8, 10.8), (13.4, 11.6), 0.18, 0.16), curve((10.8, 12.2), (12.0, 12.0), (13.0, 12.6), 0.18, 0.16))
+
+
+def brain_layers(palette, halo, sparkle=None):
+    """A brain in one of BRAINS' colors, in a halo, with a sparkle at its top left when sparkle (its rim color) is given."""
+    lit, mid, rim = BRAINS[palette]
+    return [glow(brain, flat(halo), 2.6), outline(brain),
+            fill(brain, bevel(linear((5, 3), (11, 13), [(0, lit), (1, mid)]), rim, 1.1, 0.5)),
+            fill(inside(brain, BRAIN_FOLDS), flat((*rim, 190))),
+            *(sparkle_layers(4.2, 3.6, 3.4, rim=sparkle) if sparkle else [])]
+
+
+def brilliance_picture():
+    # 11: a lavender brain.
+    return brain_layers('lavender', (200, 170, 255, 110))
+
+
+def feeblemind_picture():
+    # 12: a pink brain in a red glow.
+    return brain_layers('pink', (255, 140, 140, 110))
+
+
+def insight_picture():
+    # 13: a blue brain with a sparkle.
+    return brain_layers('blue', (150, 190, 255, 120), (190, 220, 255))
+
+
+def mind_cloud_picture():
+    # 14: a pink brain with a sparkle, in a red glow.
+    return brain_layers('pink', (255, 150, 150, 110), (255, 200, 210))
+
+
+def sathirs_gaze_picture():
+    # 36: a pale, faded brain.
+    return brain_layers('pale', (255, 200, 230, 90))
+
+
+def mana_sieve_picture():
+    # 40: a pale brain with a sparkle, in a violet glow.
+    return brain_layers('pale', (200, 170, 255, 110), (230, 210, 255))
+
+
+def charisma_picture():
+    # 15: a gold crown, five points with balls on their tips, red, blue and green jewels on its band.
+    points = [(2.6, 10.6), (2.2, 4.4), (4.4, 7.8), (5.2, 3.8), (6.6, 7.6), (8.0, 3.0), (9.4, 7.6), (10.8, 3.8),
+              (11.6, 7.8), (13.8, 4.4), (13.4, 10.6)]
+    crown = union(lambda u, v: polygon_signed(u, v, points) - 0.2,
+                  lambda u, v: rounded_rect_distance(u, v, 2.4, 10.0, 13.6, 13.6, 0.7),
+                  lambda u, v: min(circle(u, v, x, y, r) for x, y, r in
+                                   ((2.2, 4.0, 0.95), (5.2, 3.4, 0.75), (8.0, 2.4, 1.05), (10.8, 3.4, 0.75), (13.8, 4.0, 0.95))))
+    band = lambda u, v: min(abs(v - 10.3), abs(v - 13.3)) - 0.2  # noqa: E731
+    layers = [glow(crown, flat((255, 220, 130, 120)), 2.6), outline(crown),
+              fill(crown, bevel(linear((5, 2), (11, 14), [(0, GOLD[0]), (1, GOLD[1])]), GOLD[2], 1.0, 0.5)),
+              fill(inside(crown, band), flat((*GOLD[2], 170)))]
+    for x, y, r, rgb in ((8.0, 11.8, 1.0, (230, 40, 60)), (5.0, 11.8, 0.75, (60, 110, 240)), (11.0, 11.8, 0.75, (40, 190, 90))):
+        jewel = lambda u, v, x=x, y=y, r=r: circle(u, v, x, y, r)  # noqa: E731
+        layers += [outline(jewel, width=0.4),
+                   fill(jewel, radial((x - 0.3, y - 0.3), r * 1.3, [(0, (255, 255, 255)), (0.4, rgb), (1, rgb)]))]
+    return layers
+
+
+def stun_picture():
+    # 25: a steel war hammer with a gold band, swinging down to the left into a bright impact flash. duxaUI's fist was
+    # redrawn at the user's call; the user picked this over a fist punching into a burst and a ring of dizzy stars.
+    head = tilted(lambda u, v: rounded_rect_distance(u, v, 2.8, 1.8, 13.2, 6.0, 1.0), 32, 8, 9)
+    handle = tilted(lambda u, v: capsule(u, v, (8.0, 5.0), (8.0, 15.0), 0.85), 32, 8, 9)
+    band = tilted(lambda u, v: rounded_rect_distance(u, v, 6.8, 1.2, 9.2, 6.6, 0.4), 32, 8, 9)
+    flash = star(3.0, 10.4, 8, 3.6, 1.4)
+    return [glow(flash, flat((255, 220, 120, 170)), 2.2),
+            fill(flash, radial((3.0, 10.4), 3.6, [(0, (255, 255, 230)), (1, (255, 180, 70))])),
+            outline(handle), shaded(handle, WOOD, (6, 6), (12, 15), 0.7, 0.5),
+            glow(head, flat((255, 200, 200, 90)), 2.0), outline(head), shaded(head, STEEL, (3, 2), (12, 7), 1.0, 0.55),
+            outline(band, width=0.4), shaded(band, GOLD, (7, 1), (9, 7), 0.6, 0.45)]
+
+
+def puppet_control_layers():
+    # A marionette's wooden control: a long bar with a short one across it.
+    bar = lambda u, v: capsule(u, v, (1.8, 3.6), (14.2, 3.0), 0.8)  # noqa: E731
+    cross = lambda u, v: capsule(u, v, (6.6, 0.8), (9.6, 6.4), 0.7)  # noqa: E731
+    return [outline(bar), shaded(bar, WOOD, (2, 2), (14, 4), 0.7, 0.5), outline(cross), shaded(cross, WOOD, (6, 1), (10, 6), 0.7, 0.5)]
+
+
+def charm_picture():
+    # 26: a marionette's control, its strings hanging down.
+    strings = union(curve((2.4, 4.0), (2.0, 9.0), (3.0, 14.8), 0.2, 0.2), curve((5.6, 3.8), (6.4, 9.0), (5.8, 13.4), 0.2, 0.2),
+                    curve((10.4, 3.6), (9.8, 9.0), (10.6, 14.2), 0.2, 0.2), curve((13.6, 3.4), (14.2, 8.4), (13.2, 13.0), 0.2, 0.2))
+    return [fill(strings, flat((30, 22, 26))), *puppet_control_layers()]
+
+
+def dominate_undead_picture():
+    # 27: the control, its strings holding up a skull.
+    strings = union(*[lambda u, v, a=a, b=b: segment_distance(u, v, a, b) - 0.18 for a, b in
+                      (((2.4, 4.0), (6.4, 9.0)), ((5.8, 3.8), (7.2, 8.6)), ((10.4, 3.6), (8.8, 8.6)), ((13.6, 3.4), (9.8, 9.2)))])
+    return [fill(strings, flat((30, 22, 26))), *puppet_control_layers(), *skull_layers(8.0, 11.4, 1.05)]
+
+
+def pointing_hand(u, v):
+    # A hand from the left pointing right: the curled fingers' fist, the index finger straight out, the wrist.
+    return min(rounded_rect_distance(u, v, 1.2, 6.8, 8.8, 12.8, 2.3), tapered(u, v, (6.8, 8.0), (15.0, 7.6), 1.05, 0.9),
+               tapered(u, v, (-1.0, 10.4), (2.0, 10.0), 1.9, 1.9))
+
+
+def mystic_shielding_picture():
+    # 82: the pointing hand with a white sparkle behind it.
+    thumb = lambda u, v: tapered(u, v, (4.2, 7.6), (9.0, 9.2), 0.95, 0.8)  # noqa: E731
+    creases = lambda u, v: min(segment_distance(u, v, (6.2, y), (8.6, y + 0.2)) for y in (10.2, 11.6)) - 0.2  # noqa: E731
+    rim = SKIN_TONES[2]
+    return [glow(pointing_hand, flat((255, 230, 255, 110)), 3.0), *sparkle_layers(3.6, 3.6, 3.2, rim=(240, 200, 255)),
+            outline(pointing_hand), skin_fill(pointing_hand, (4, 6), (10, 13)),
+            fill(inside(pointing_hand, creases), flat((*rim, 190))),
+            outline(thumb, (*rim, 230), 0.45), shaded(thumb, SKIN_TONES, (4, 7), (9, 9.4))]
+
+
+def life_stream(start, bend, end, width=0.75):
+    """A stream of life, dark red where it's drawn out to bright where it arrives, with drops flung from it."""
+    stream = curve(start, bend, end, width, width * 0.55)
+    drops = lambda u, v: min(circle(u, v, x, y, r) for x, y, r in  # noqa: E731
+                             ((start[0] + (bend[0] - start[0]) * 0.4 - 1.0, start[1] + (bend[1] - start[1]) * 0.4 + 0.9, 0.4),
+                              (bend[0] + 0.8, bend[1] - 0.9, 0.35)))
+    return [glow(stream, flat((255, 60, 70, 170)), 1.8),
+            fill(stream, linear(start, end, [(0, (150, 10, 30)), (1, (255, 110, 110))])), fill(drops, flat((230, 40, 60)))]
+
+
+def lifetap_picture():
+    # 47, taking an enemy's life to give it to you: a drained, cracked dark heart at the lower left, its life flowing
+    # in a red stream into a bright heart at the top right. duxaUI's pointing hand didn't say so (the user); a hand
+    # taking in the stream and an enemy's skull giving it were offered too.
+    drained, bright = heart(4.4, 10.8, 3.0), heart(11.0, 5.8, 4.0)
+    crack = lambda u, v: max(min(capsule(u, v, (4.2, 8.8), (4.8, 10.4), 0.2), capsule(u, v, (4.8, 10.4), (4.0, 12.2), 0.2)), drained(u, v))  # noqa: E731
+    return [*glossy(drained, DRAINED_HEART, None, (3.4, 9.8, 0.9, 0.45, -35)), fill(crack, flat((20, 4, 8))),
+            *life_stream((5.8, 9.2), (6.2, 5.2), (8.4, 5.6)),
+            *glossy(bright, RED_HEART, (255, 90, 100, 150), (9.6, 4.4, 1.1, 0.55, -35))]
+
+
+def eyeball_layers(cx, cy, r):
+    """An eyeball looking out and a little right: the white shaded round, a green iris, the pupil and a glint."""
+    ball = lambda u, v: circle(u, v, cx, cy, r)  # noqa: E731
+    ix, iy = cx + 0.35 * r, cy + 0.1 * r
+    iris = lambda u, v: max(circle(u, v, ix, iy, r * 0.46), ball(u, v))  # noqa: E731
+    return [outline(ball),
+            fill(ball, bevel(radial((cx - r * 0.3, cy - r * 0.35), r * 1.6, [(0, (255, 255, 255)), (0.6, (234, 228, 236)),
+                                                                             (1, (176, 164, 184))]), (120, 100, 120), r * 0.35, 0.5)),
+            fill(iris, radial((ix, iy), r * 0.46, [(0, (110, 210, 170)), (0.7, (40, 140, 110)), (1, (18, 70, 54))])),
+            fill(lambda u, v: circle(u, v, ix + 0.1, iy + 0.05, r * 0.2), flat((10, 10, 14))),
+            fill(lambda u, v: circle(u, v, ix - r * 0.2, iy - r * 0.2, r * 0.11), flat((255, 255, 255, 240)))]
+
+
+def eye_of_zomm_picture():
+    # 88, summoning an eye you see through: an eyeball rising glowing from a hand held out palm up. duxaUI's pointing
+    # hand didn't say so (the user); a floating eyeball with a wisp and one on bat wings were offered too.
+    return [glow(lambda u, v: circle(u, v, 8, 5.6, 3.6), flat((255, 230, 160, 160)), 3.0),
+            *eyeball_layers(8, 5.6, 3.6), *offered_hand_layers()]
+
+
+def animate_dead_picture():
+    # 91: a hand held out, a skull glowing red over it.
+    return [glow(lambda u, v: circle(u, v, 8, 6.6, 3.4), flat((255, 80, 80, 150)), 3.0),
+            *skull_layers(8.0, 6.6, 1.2), *offered_hand_layers()]
+
+
+def voice_graft_picture():
+    # 95: full red lips, closed, with a shine on the lower one.
+    upper = lambda u, v: max(ellipse_signed(u, v, 8, 8.6, 6.8, 2.8), v - 8.6, -circle(u, v, 8, 5.4, 1.1))  # noqa: E731
+    lower = lambda u, v: max(ellipse_signed(u, v, 8, 8.6, 6.2, 3.5), 8.6 - v)  # noqa: E731
+    lips = union(upper, lower)
+    shine = lambda u, v: tilted_ellipse(u, v, 8.8, 10.4, 2.2, 0.55, -4)  # noqa: E731
+    return [glow(lips, flat((255, 100, 110, 120)), 2.4), outline(lips),
+            fill(lips, bevel(linear((8, 5), (8, 12), [(0, LIPS[0]), (1, LIPS[1])]), LIPS[2], 1.0, 0.5)),
+            fill(curve((1.4, 8.5), (8, 9.2), (14.6, 8.5), 0.32, 0.32), flat((80, 8, 20))), fill(shine, flat((255, 255, 255, 150)))]
+
+
+def call_of_the_hero_picture():
+    # 102: a hand held out, a silver medallion on a purple ribbon over it, in a magenta glow.
+    ribbon = union(lambda u, v: capsule(u, v, (5.4, 0.4), (7.6, 4.8), 0.6), lambda u, v: capsule(u, v, (10.6, 0.4), (8.4, 4.8), 0.6))
+    medal = lambda u, v: circle(u, v, 8, 7.2, 2.7)  # noqa: E731
+    emblem = lambda u, v: polygon_signed(u - 8, v - 7.2, four_point_star(0, 0, 1.9, 0.5))  # noqa: E731
+    return [glow(medal, flat((255, 140, 240, 160)), 3.0), outline(ribbon), fill(ribbon, flat((140, 40, 160))),
+            outline(medal), shaded(medal, STEEL, (6, 5), (10, 10), 1.0, 0.5), fill(emblem, flat((120, 126, 150))),
+            *offered_hand_layers()]
+
+
+def summon_corpse_picture():
+    # 109: a hand held out, a wooden coffin over it with a gold cross on the lid.
+    coffin = lambda u, v: polygon_signed(u, v, [(1.4, 6.0), (4.6, 4.0), (14.8, 5.0), (14.8, 8.8), (4.6, 9.8), (1.4, 7.8)]) - 0.2  # noqa: E731
+    lid = lambda u, v: abs(coffin(u, v) + 0.95) - 0.2  # noqa: E731
+    cross = union(lambda u, v: capsule(u, v, (5.4, 6.9), (8.4, 7.0), 0.3), lambda u, v: capsule(u, v, (6.4, 5.8), (6.4, 8.0), 0.3))
+    return [glow(coffin, flat((210, 150, 255, 110)), 2.4), outline(coffin), shaded(coffin, WOOD, (3, 4), (13, 10), 0.9, 0.5),
+            fill(inside(coffin, lid), flat((*WOOD[2], 170))), fill(cross, flat(GOLD[0])), *offered_hand_layers()]
+
+
+def silence_picture():
+    # 114: an ear, its folds shaded, with a small gold earring.
+    ear = union(lambda u, v: ellipse_signed(u, v, 8.8, 6.6, 4.4, 5.6), lambda u, v: ellipse_signed(u, v, 7.6, 11.6, 2.6, 2.8))
+    rim_fold = lambda u, v: arc_distance(u, v, 9.0, 6.8, 3.2, 150, 60) - 0.3  # noqa: E731
+    inner_fold = curve((6.4, 5.2), (9.6, 4.2), (10.6, 7.6), 0.3, 0.25)
+    bowl = lambda u, v: ellipse_signed(u, v, 8.6, 8.6, 1.5, 2.1)  # noqa: E731
+    ring = lambda u, v: abs(circle(u, v, 7.2, 14.0, 0.9)) - 0.28  # noqa: E731
+    rim = SKIN_TONES[2]
+    return [glow(ear, flat((255, 170, 150, 100)), 2.4), outline(ear), skin_fill(ear, (6, 2), (11, 14), 1.2),
+            fill(inside(ear, rim_fold), flat((*rim, 170))), fill(inside(ear, inner_fold), flat((*rim, 150))),
+            fill(bowl, flat((*rim, 190))), fill(ring, flat(GOLD[1]))]
+
+
+def illusion_picture():
+    # 163: a gold masquerade eye mask with swept-up corners, purple feathers springing from one side, a sparkle.
+    # duxaUI's bearded gold face mask was redrawn at the user's call; the user picked this over the comedy and tragedy
+    # masks and a smooth gold face mask.
+    mask = union(lambda u, v: tilted_ellipse(u, v, 5.0, 9.0, 3.8, 2.3, -14), lambda u, v: tilted_ellipse(u, v, 11.0, 9.0, 3.8, 2.3, 14),
+                 lambda u, v: polygon_signed(u, v, [(0.6, 6.4), (2.6, 8.6), (1.4, 9.6)]),
+                 lambda u, v: polygon_signed(u, v, [(15.4, 6.4), (13.4, 8.6), (14.6, 9.6)]))
+    holes = union(lambda u, v: tilted_ellipse(u, v, 5.2, 9.2, 1.6, 0.8, -8), lambda u, v: tilted_ellipse(u, v, 10.8, 9.2, 1.6, 0.8, 8))
+    layers = []
+    for f in (((12.6, 7.4), (15.2, 1.2), 0.95, 0.3), ((12.0, 7.2), (12.8, 0.6), 0.95, 0.3), ((11.4, 7.4), (10.2, 1.2), 0.85, 0.28)):
+        feather = lambda u, v, f=f: tapered(u, v, *f)  # noqa: E731
+        layers += [outline(feather, width=0.4),
+                   fill(feather, bevel(linear(f[0], f[1], [(0, (120, 50, 170)), (1, (220, 170, 255))]), (60, 20, 90), 0.6, 0.5))]
+    return [*layers, glow(mask, flat((255, 220, 140, 120)), 2.2), outline(mask), shaded(mask, GOLD, (4, 7), (12, 11), 0.9, 0.5),
+            fill(holes, flat((30, 18, 40))), *sparkle_layers(3.0, 3.4, 2.4, rim=(200, 220, 255))]
+
+
 SPELL_PICTURES = {
     161: strike_picture, 51: fire_picture, 42: poison_picture, 99: healing_picture, 56: cold_picture,
     41: disease_picture, 1: phantom_armor_picture, 153: banishing_picture, 38: summoned_weapon_picture,
     37: summoned_food_picture, 16: haste_picture, 17: slow_picture, 4: run_speed_picture, 35: mesmerize_picture,
     18: invisibility_picture, 117: root_picture,
+    0: rejuvenation_picture, 6: strengthen_picture, 7: weaken_picture, 8: dexterity_picture, 9: agility_picture,
+    10: stamina_picture, 11: brilliance_picture, 12: feeblemind_picture, 13: insight_picture, 14: mind_cloud_picture,
+    15: charisma_picture, 25: stun_picture, 26: charm_picture, 27: dominate_undead_picture, 36: sathirs_gaze_picture,
+    40: mana_sieve_picture, 47: lifetap_picture, 82: mystic_shielding_picture, 88: eye_of_zomm_picture,
+    91: animate_dead_picture, 95: voice_graft_picture, 102: call_of_the_hero_picture, 109: summon_corpse_picture,
+    114: silence_picture, 118: regeneration_picture, 119: complete_heal_picture, 140: vampiric_embrace_picture,
+    163: illusion_picture,
 }
 
 

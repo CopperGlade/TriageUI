@@ -3923,6 +3923,8 @@ def spell_icon(cell, size=skin.BOOK_ICON):
 
 
 BATCH_ONE = {161, 51, 42, 99, 56, 41, 1, 153, 38, 37, 16, 17, 4, 35, 18, 117}  # the most-used pictures, drawn first
+BATCH_TWO = {0, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 26, 27, 36, 40, 47, 82, 88, 91, 95, 102, 109, 114, 118, 119, 140,
+             163}  # hands, body and mind
 
 
 def test_every_spell_icon_cell_has_a_tile():
@@ -3933,7 +3935,7 @@ def test_every_spell_icon_cell_has_a_tile():
     assert sorted(cells) == list(range(skin.GEM_ICON_CELLS))
     assert set(skin.SPELL_TILE_CELLS) == set(skin.SPELL_TILES) and len(skin.SPELL_TILES) == 14
     assert all(len(palette) == 3 for palette in skin.SPELL_TILES.values())
-    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE <= set(skin.SPELL_PICTURES)
+    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO <= set(skin.SPELL_PICTURES)
     assert skin.SPELL_TILE[99] == 'blue' and skin.SPELL_TILE[51] == 'orange' and skin.SPELL_TILE[161] == 'red'
 
 
@@ -3994,9 +3996,9 @@ def test_spell_icons_are_rounded_tiles_with_their_edge_kept_clear(size):
 
 
 def test_a_spell_picture_is_painted_over_its_tile():
-    # A drawn cell differs from its plain tile inside the edge, at both sizes, the same picture at each.
+    # Every drawn cell differs from its plain tile inside the edge, at both sizes, the same picture at each.
     for size in (skin.BOOK_ICON, skin.GEM_ICON):
-        for cell in BATCH_ONE:
+        for cell in (c for c in skin.SPELL_PICTURES if size == skin.GEM_ICON or c < skin.SPELL_ICON_CELLS):
             icon = spell_icon(cell, size)
             bare = next(c for c in skin.SPELL_TILE_CELLS[skin.SPELL_TILE[cell]] if c not in skin.SPELL_PICTURES)
             changed = sum(a != b for a, b in zip(pixels(icon), pixels(spell_icon(bare, size))))

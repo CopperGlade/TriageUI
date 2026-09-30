@@ -267,7 +267,7 @@ The release's `TriageUI` folder is built on EverQuest's own UI files. To build i
 
 ## Credits
 
-A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, the loot window's **Link All** and **Loot All**, the bank window's **Change**, and what each spell icon pictures. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's. Its `EQUI_Animations.xml` is EverQuest's own with TriageUI's pieces added, as a skin's must be.
+A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, the loot window's **Link All** and **Loot All**, and the bank window's **Change**. The spell icons borrow duxaUI's ideas too: each is TriageUI's own drawing of what duxaUI's icon for that spell shows, such as a blue hand for a heal or a winged boot for run speed. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's. Its `EQUI_Animations.xml` is EverQuest's own with TriageUI's pieces added, as a skin's must be.
 
 ## License
 
