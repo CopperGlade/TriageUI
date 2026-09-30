@@ -4012,6 +4012,439 @@ def shrink_picture():
             fill(ant, bevel(linear((6, 1), (10, 15), [(0, (255, 255, 255)), (1, (190, 192, 200))]), (90, 90, 100), 0.6, 0.5))]
 
 
+# Batch 5: elements, nature, creatures and weapons.
+
+VINE = ((196, 146, 92), (128, 84, 44), (60, 36, 16))
+LEAF = ((170, 230, 120), (70, 150, 60), (20, 60, 20))
+PARCHMENT = ((252, 240, 206), (216, 190, 140), (120, 90, 50))
+BURLAP = ((226, 196, 146), (164, 124, 78), (80, 56, 30))
+RUBY = ((255, 170, 180), (210, 24, 56), (100, 0, 20))
+WASP = ((255, 214, 90), (224, 140, 20), (110, 60, 0))
+DRAGON_SCALES = ((176, 232, 130), (74, 150, 62), (20, 60, 20))
+LUTE_WOOD = ((236, 186, 120), (176, 116, 54), (80, 44, 14))
+NOTE_INK = (26, 20, 24)
+FIRE_STOPS = [(0, (214, 52, 26)), (0.45, (246, 128, 36)), (1, (255, 206, 80))]
+BLUE_FIRE_STOPS = [(0, (40, 60, 200)), (0.45, (90, 150, 255)), (1, (200, 240, 255))]
+
+
+def diagonal_sword_layers(halo=None):
+    """A big steel sword swept up to the right across the tile."""
+    return sword_layers((4.0, 12.0), (14.8, 1.2), halo, half=1.15, guard=2.5, grip=1.9)
+
+
+def summon_dagger_picture():
+    # 2: a sword swept up to the right, a sparkle at its top right.
+    return diagonal_sword_layers((180, 210, 255, 90)) + sparkle_layers(12.6, 3.8, 3.0, rim=(180, 210, 255))
+
+
+def shroud_of_hate_picture():
+    # 3: the sword, a sparkle at its lower right.
+    return diagonal_sword_layers((255, 160, 160, 90)) + sparkle_layers(12.4, 12.2, 3.0, rim=(255, 170, 190))
+
+
+def divine_might_picture():
+    # 104: the sword alone.
+    return diagonal_sword_layers((180, 210, 255, 100))
+
+
+def rain_of_blades_picture():
+    # 105: the sword alone, in a red glow.
+    return diagonal_sword_layers((255, 150, 150, 110))
+
+
+def jolt_picture():
+    # 110: the sword glowing red-hot, a flash along its blade.
+    return diagonal_sword_layers((255, 90, 90, 200)) + sparkle_layers(9.8, 6.0, 4.0, rim=(255, 120, 120))
+
+
+def crossed_swords_layers(halo):
+    return (sword_layers((11.6, 11.6), (1.4, 1.4), halo, half=1.0, guard=2.3, grip=1.8)
+            + sword_layers((4.4, 11.6), (14.6, 1.4), half=1.0, guard=2.3, grip=1.8))
+
+
+def frenzy_picture():
+    # 49: two swords crossed.
+    return crossed_swords_layers((180, 210, 255, 100))
+
+
+def cripple_picture():
+    # 50: two swords crossed, in a red glow.
+    return crossed_swords_layers((255, 140, 140, 110))
+
+
+def notes_layers(x, y, scale=1.0):
+    """Two beamed eighth notes, the first one's head at (x, y), dark with a light edge."""
+    heads = union(lambda u, v: tilted_ellipse(u, v, x, y, 1.15 * scale, 0.8 * scale, -22),
+                  lambda u, v: tilted_ellipse(u, v, x + 3.2 * scale, y - 0.8 * scale, 1.15 * scale, 0.8 * scale, -22))
+    stems = union(lambda u, v: capsule(u, v, (x + 0.95 * scale, y - 0.2 * scale), (x + 0.95 * scale, y - 5.2 * scale), 0.24 * scale),
+                  lambda u, v: capsule(u, v, (x + 4.15 * scale, y - 1.0 * scale), (x + 4.15 * scale, y - 6.0 * scale), 0.24 * scale))
+    beam = lambda u, v: polygon_signed(u, v, [(x + 0.7 * scale, y - 5.4 * scale), (x + 4.4 * scale, y - 6.2 * scale),  # noqa: E731
+                                              (x + 4.4 * scale, y - 5.0 * scale), (x + 0.7 * scale, y - 4.2 * scale)])
+    shape = union(heads, stems, beam)
+    return [outline(shape, (255, 255, 255, 190), 0.4), fill(shape, flat(NOTE_INK))]
+
+
+def lute_layers(halo):
+    """A lute: its round wooden body at the lower left, the neck and pegbox up to the right, the soundhole, strings."""
+    body = lambda u, v: tilted_ellipse(u, v, 5.8, 10.4, 4.2, 4.8, 40)  # noqa: E731
+    neck = lambda u, v: capsule(u, v, (8.0, 7.8), (13.4, 2.4), 0.85)  # noqa: E731
+    pegbox = lambda u, v: capsule(u, v, (13.2, 2.6), (15.0, 3.6), 0.75)  # noqa: E731
+    strings = lambda u, v: max(min(segment_distance(u, v, (3.6 + k * 0.5, 13.2 + k * 0.5), (13.2 + k * 0.4, 2.4 + k * 0.4))  # noqa: E731
+                                   for k in (0, 1)) - 0.1, -circle(u, v, 3.2, 13.8, 0.5))
+    return [glow(body, flat(halo), 2.2), outline(neck), shaded(neck, WOOD, (8, 8), (13, 2), 0.5, 0.5), outline(pegbox),
+            shaded(pegbox, WOOD, (13, 2), (15, 4), 0.5, 0.5), outline(body), shaded(body, LUTE_WOOD, (3, 7), (9, 14), 1.2, 0.55),
+            fill(lambda u, v: circle(u, v, 5.6, 10.6, 1.25), flat((40, 22, 10))), fill(strings, flat((250, 240, 220, 220)))]
+
+
+def melody_of_ervaj_picture():
+    # 43: a sword, two notes beside it.
+    return sword_layers((3.4, 12.8), (12.8, 3.4), (255, 220, 180, 90), half=0.95, guard=2.1, grip=1.6) + notes_layers(9.4, 14.2, 0.9)
+
+
+def song_of_travel_picture():
+    # 116: a lute, a pair of notes at its lower right.
+    return lute_layers((200, 210, 255, 110)) + notes_layers(10.2, 14.6, 0.8)
+
+
+def chords_of_dissonance_picture():
+    # 143: the lute in a red glow, a pair of notes at its lower right.
+    return lute_layers((255, 140, 140, 120)) + notes_layers(10.2, 14.6, 0.8)
+
+
+def terror_picture():
+    # 28: a fanged skull, its eyes burning red, in a red glow.
+    fangs = union(lambda u, v: polygon_signed(u, v, [(5.9, 12.8), (7.3, 12.8), (6.5, 15.6)]),
+                  lambda u, v: polygon_signed(u, v, [(8.7, 12.8), (10.1, 12.8), (9.5, 15.6)]))
+    eyes = lambda u, v: min(circle(u, v, 6.0, 7.8, 0.7), circle(u, v, 10.0, 7.8, 0.7))  # noqa: E731
+    return [glow(lambda u, v: circle(u, v, 8, 8.4, 5.2), flat((255, 60, 60, 150)), 2.6), *skull_layers(8, 8.4, 1.7),
+            outline(fangs, width=0.35), fill(fangs, flat((250, 244, 230))), glow(eyes, flat((255, 40, 40, 200)), 1.0),
+            fill(eyes, flat((255, 90, 70)))]
+
+
+def flame_tongue_layers(cx, cy, scale, stops, halo):
+    """The fire picture's flame at (cx, cy) and scale in the colors stops, without its heart."""
+    fire = moved(flame, cx, cy, scale)
+    return [glow(fire, flat(halo), 2.0), outline(fire, (40, 10, 10, 220), 0.5), fill(fire, linear((cx, cy - 7 * scale), (cx, cy + 7 * scale), stops))]
+
+
+def wreathed(front, stops, halo):
+    """front wreathed in flames: a big flame behind it and two smaller tongues licking up in front at its sides. With
+    only the big flame behind, it sat on the skull like a hat."""
+    return [*flame_tongue_layers(8, 7.2, 1.2, stops, halo), *front,
+            *flame_tongue_layers(3.6, 11.4, 0.55, stops, halo), *flame_tongue_layers(12.4, 11.6, 0.55, stops, halo)]
+
+
+def ignite_bones_picture():
+    # 54: a skull wreathed in flames.
+    return wreathed(skull_layers(8, 10.4, 1.15), FIRE_STOPS, (255, 120, 30, 160))
+
+
+def chill_bones_picture():
+    # 59: a skull wreathed in blue flames.
+    return wreathed(skull_layers(8, 10.4, 1.15), BLUE_FIRE_STOPS, (110, 170, 255, 160))
+
+
+def malaise_picture():
+    # 55: a wolf's face wreathed in flames.
+    return wreathed(wolf_face_layers(8, 10.2, 0.62), FIRE_STOPS, (255, 120, 30, 150))
+
+
+def violet_skull_picture():
+    # 71, a test spell: a skull in a violet glow, a crossed sparkle at its top left.
+    return [glow(lambda u, v: circle(u, v, 8, 8.8, 5.0), flat((200, 140, 255, 150)), 2.6), *skull_layers(8.4, 9.0, 1.55),
+            *sparkle_layers(3.6, 3.6, 3.0, crossed=True, rim=(220, 160, 255))]
+
+
+def valiant_companion_picture():
+    # 146: a pale skull in a cold blue glow.
+    return [glow(lambda u, v: circle(u, v, 8, 8.4, 5.2), flat((150, 200, 255, 170)), 3.0), *skull_layers(8, 8.6, 1.7)]
+
+
+def fear_picture():
+    # 154: a skull in a red glow.
+    return [glow(lambda u, v: circle(u, v, 8, 8.4, 5.0), flat((255, 50, 50, 160)), 2.8), *skull_layers(8, 8.6, 1.7)]
+
+
+def panic_the_dead_picture():
+    # 164: a blood-red skull, glowing.
+    return [glow(lambda u, v: circle(u, v, 8, 8.4, 5.0), flat((255, 80, 80, 150)), 2.6), *skull_layers(8, 8.6, 1.7),
+            fill(lambda u, v: min(circle(u, v, 8, 7.4, 5.1), rounded_rect_distance(u, v, 4.9, 9.3, 11.1, 13.9, 1.2)), flat((220, 30, 40, 110)))]
+
+
+def tashan_picture():
+    # 72: a wolf's face with a star at its top right.
+    return [glow(lambda u, v: circle(u, v, 7, 9.6, 5), flat((200, 170, 255, 110)), 2.4), *wolf_face_layers(6.8, 9.8, 0.72),
+            *sparkle_layers(12.8, 3.2, 3.2, rim=(210, 190, 255))]
+
+
+def wolf_form_picture():
+    # 81: a wolf's face.
+    return [glow(lambda u, v: circle(u, v, 8, 8.6, 5.4), flat((170, 240, 150, 110)), 2.4), *wolf_face_layers(8, 8.4, 0.95)]
+
+
+def strength_of_nature_picture():
+    # 123: a wolf's face, three claw marks slashed at its top right (duxaUI's howling wolf, drawn as the face).
+    marks = union(*[lambda u, v, k=k: tapered(u, v, (12.0 + k * 1.62, 1.4), (12.0 + (k * 1.8 - 2.4) * 0.9, 6.44), 0.54, 0.1) for k in range(3)])
+    return [glow(lambda u, v: circle(u, v, 6.6, 10, 5), flat((170, 240, 150, 110)), 2.4), *wolf_face_layers(6.6, 10.0, 0.74),
+            glow(marks, flat((240, 255, 230, 120)), 1.0), fill(marks, flat((240, 255, 230)))]
+
+
+def feral_spirit_picture():
+    # 144: a wolf's face in a violet spirit glow.
+    return [glow(lambda u, v: circle(u, v, 8, 8.6, 5.4), flat((200, 150, 255, 170)), 3.0), *wolf_face_layers(8, 8.4, 0.95)]
+
+
+def panic_animal_picture():
+    # 165: a wolf's face with a red sparkle at its top right.
+    return wolf_face_layers(6.8, 9.8, 0.72) + sparkle_layers(12.6, 3.4, 3.2, crossed=True, rim=(255, 110, 110))
+
+
+def vines_layers(halo):
+    """A tangle of woody vines with green leaves on them."""
+    stems = union(curve((1.2, 12.6), (6.0, 4.0), (11.6, 9.4), 0.9, 0.6), curve((11.6, 9.4), (15.0, 13.0), (12.6, 15.2), 0.6, 0.35),
+                  curve((2.8, 3.4), (9.6, 5.6), (7.0, 12.4), 0.85, 0.55), curve((7.0, 12.4), (5.6, 15.0), (3.0, 14.6), 0.55, 0.3),
+                  curve((14.6, 3.0), (9.6, 9.8), (4.6, 8.6), 0.8, 0.45), curve((12.4, 4.6), (14.8, 6.8), (15.2, 9.0), 0.4, 0.2))
+    layers = [glow(stems, flat(halo), 1.8), outline(stems, width=0.5),
+              fill(stems, bevel(linear((2, 2), (14, 14), [(0, VINE[0]), (1, VINE[1])]), VINE[2], 0.6, 0.55))]
+    for x, y, a in ((4.4, 6.2, -30), (10.6, 4.8, 20), (13.4, 11.6, -60), (5.6, 13.2, 40), (8.8, 10.0, 80), (2.6, 10.2, -80), (12.8, 7.6, 10)):
+        leaf = lambda u, v, x=x, y=y, a=a: tilted_ellipse(u, v, x, y, 1.5, 0.75, a)  # noqa: E731
+        rib = lambda u, v, x=x, y=y, a=a, leaf=leaf: max(abs(-(u - x) * math.sin(math.radians(a)) + (v - y) * math.cos(math.radians(a))) - 0.12, leaf(u, v))  # noqa: E731
+        layers += [outline(leaf, width=0.4), fill(leaf, bevel(flat(LEAF[0]), LEAF[1], 0.6, 0.6)), fill(rib, flat((*LEAF[2], 180)))]
+    return layers
+
+
+def snare_picture():
+    # 5: a tangle of woody vines with green leaves.
+    return vines_layers((160, 230, 140, 100))
+
+
+def grasping_chains_picture():
+    # 29: the tangle in a red glow.
+    return vines_layers((255, 130, 130, 110))
+
+
+def vengeance_of_the_glades_picture():
+    # 136 and 145: the tangle in a deep red glow.
+    return vines_layers((230, 60, 80, 120))
+
+
+def drop_layers(cx=8.0, cy=8.0, scale=1.0):
+    """A glossy blue water drop at (cx, cy) and scale."""
+    drop = moved(lambda u, v: min(circle(u, v, 8, 10.4, 4.4), polygon_signed(u, v, [(4.05, 8.6), (8, 0.8), (11.95, 8.6)])), cx, cy, scale)
+    shine = moved(lambda u, v: tilted_ellipse(u, v, 6.0, 9.6, 0.8, 1.8, 20), cx, cy, scale)
+    return [glow(drop, flat((120, 220, 255, 130)), 2.2), outline(drop, (10, 40, 70, 230)),
+            fill(drop, bevel(radial((cx - 1.4 * scale, cy + 1.2 * scale), 6 * scale, [(0, (200, 240, 255)), (0.5, (60, 170, 240)), (1, (20, 90, 180))]),
+                             (10, 50, 120), 1.2 * scale, 0.5)),
+            fill(shine, flat((255, 255, 255, 190)))]
+
+
+def enduring_breath_picture():
+    # 20: a blue water drop.
+    return drop_layers()
+
+
+def wake_of_karana_picture():
+    # 111: the drop with a sparkle at its heart.
+    return drop_layers(8, 8.4, 0.92) + sparkle_layers(8.4, 10.2, 3.2, rim=(160, 250, 250))
+
+
+def clarity_picture():
+    # 21: an eight-pointed star of blue-white light.
+    shape = star(8, 8, 8, 7.4, 2.6)
+    return [glow(shape, flat((130, 170, 255, 170)), 3.0),
+            fill(shape, radial((8, 8), 7.4, [(0, (255, 255, 255)), (0.4, (200, 220, 255)), (1, (90, 130, 255))])),
+            fill(lambda u, v: circle(u, v, 8, 8, 1.6), flat((255, 255, 255)))]
+
+
+def chorus_of_clarity_picture():
+    # 24: a big white burst of light in a blue glow.
+    return burst_layers(8, 8, 7.2, (160, 200, 255), 170)
+
+
+def flare_picture():
+    # 89: an orange burst of light.
+    return burst_layers(8, 8, 7.2, (255, 170, 80), 180)
+
+
+def cannibalize_picture():
+    # 115: a teal burst of light.
+    return burst_layers(8, 8, 7.0, (120, 240, 230), 170)
+
+
+def acumen_picture():
+    # 138: a pale gold burst of light.
+    return burst_layers(8, 8, 7.0, (250, 230, 170), 170)
+
+
+def black_symbol_picture():
+    # 139: a red burst of light.
+    return burst_layers(8, 8, 7.0, (255, 80, 90), 180)
+
+
+def intellectual_advancement_picture():
+    # 141: a small blue burst of light.
+    return burst_layers(8, 8, 5.4, (140, 170, 255), 150)
+
+
+def dim_sparkle_picture():
+    # 142, in no Quarm spell: a small dim burst of light.
+    return burst_layers(8, 8, 4.8, (150, 150, 200), 120)
+
+
+def glowing_orb_picture():
+    # 124, in no Quarm spell: a glowing pink orb.
+    return orb_layers(8, 8, 4.2)
+
+
+def dove_layers(halo):
+    """A white dove flying to the right, its wing raised, an olive twig in its beak."""
+    body = union(lambda u, v: tilted_ellipse(u, v, 7.4, 9.6, 4.2, 2.1, -18), lambda u, v: circle(u, v, 11.6, 6.6, 1.6),
+                 lambda u, v: polygon_signed(u, v, [(4.4, 10.0), (0.8, 13.0), (1.2, 10.6), (0.4, 9.4), (4.0, 9.0)]) - 0.15)
+    wing = lambda u, v: polygon_signed(u, v, [(5.6, 8.8), (3.4, 1.6), (5.4, 3.4), (6.6, 0.8), (7.8, 3.4), (9.4, 1.8), (10.0, 5.4), (9.6, 8.6)]) - 0.3  # noqa: E731
+    leaves = union(lambda u, v: tilted_ellipse(u, v, 13.4, 8.8, 0.9, 0.45, 60), lambda u, v: tilted_ellipse(u, v, 15.0, 9.8, 0.9, 0.45, -50))
+    dove = union(body, wing)
+    return [glow(dove, flat(halo), 2.4), outline(dove), shaded(dove, FEATHER, (4, 2), (11, 12), 0.9, 0.45),
+            fill(inside(dove, lambda u, v: abs(wing(u, v) + 0.2) - 0.2 if v > 7.6 else 1), flat((150, 160, 180, 200))),
+            fill(lambda u, v: circle(u, v, 12.1, 6.2, 0.3), flat((20, 20, 30))),
+            fill(lambda u, v: polygon_signed(u, v, [(12.9, 6.2), (14.6, 6.8), (12.9, 7.4)]), flat((240, 170, 60))),
+            fill(curve((14.2, 7.0), (15.0, 8.6), (14.2, 10.6), 0.24, 0.18), flat((110, 80, 40))), outline(leaves, width=0.35), fill(leaves, flat(LEAF[1]))]
+
+
+def benevolence_picture():
+    # 22: a white dove with an olive twig in its beak.
+    return dove_layers((200, 220, 255, 120))
+
+
+def pacify_picture():
+    # 39: the dove in a warm glow.
+    return dove_layers((255, 230, 170, 120))
+
+
+def wand_layers(rim):
+    """A dark red wand with gold ends, a sparkle in rim at its tip."""
+    staff = lambda u, v: capsule(u, v, (3.0, 14.0), (12.2, 4.0), 0.6)  # noqa: E731
+    foot = lambda u, v: capsule(u, v, (2.6, 14.4), (3.6, 13.3), 0.75)  # noqa: E731
+    cap = lambda u, v: capsule(u, v, (11.6, 4.7), (12.6, 3.6), 0.8)  # noqa: E731
+    return [outline(staff), shaded(staff, ((180, 60, 60), (110, 20, 30), (50, 0, 10)), (3, 14), (12, 4), 0.5, 0.5),
+            outline(foot, width=0.4), shaded(foot, GOLD, (2, 13), (4, 15), 0.5, 0.5), outline(cap, width=0.4), shaded(cap, GOLD, (11, 3), (13, 5), 0.5, 0.5),
+            *sparkle_layers(13.2, 2.8, 3.2, rim=rim)]
+
+
+def bind_affinity_picture():
+    # 30: a wand, a blue-white sparkle at its tip.
+    return wand_layers((170, 200, 255))
+
+
+def cancel_magic_picture():
+    # 32: the wand, a red sparkle at its tip.
+    return wand_layers((255, 120, 130))
+
+
+def enchant_gold_picture():
+    # 83: a gold ingot, a sparkle at its top left.
+    top = lambda u, v: polygon_signed(u, v, [(4.6, 6.4), (12.6, 6.4), (14.6, 10.2), (2.6, 10.2)])  # noqa: E731
+    front = lambda u, v: polygon_signed(u, v, [(2.6, 10.2), (14.6, 10.2), (14.6, 12.8), (2.6, 12.8)])  # noqa: E731
+    bar = union(top, front)
+    return [glow(bar, flat((255, 220, 120, 120)), 2.4), outline(bar),
+            fill(front, bevel(linear((2, 10), (2, 13), [(0, GOLD[1]), (1, GOLD[2])]), GOLD[2], 0.4, 0.5)),
+            fill(top, bevel(linear((4, 6), (12, 10), [(0, (255, 240, 170)), (1, GOLD[0])]), GOLD[1], 0.5, 0.5)),
+            *sparkle_layers(4.4, 4.6, 3.0, rim=(255, 230, 150))]
+
+
+def identify_picture():
+    # 84: a parchment scroll with writing on it, rolled at both ends.
+    sheet = lambda u, v: rounded_rect_distance(u, v, 3.6, 3.0, 12.4, 13.0, 0.3)  # noqa: E731
+    rolls = union(lambda u, v: capsule(u, v, (2.6, 3.0), (13.4, 3.0), 1.4), lambda u, v: capsule(u, v, (2.6, 13.0), (13.4, 13.0), 1.4))
+    lines = lambda u, v: max(min(capsule(u, v, (5.0, y), (11.0 - (k % 2) * 1.6, y), 0.24) for k, y in enumerate((5.6, 7.2, 8.8, 10.4))), sheet(u, v))  # noqa: E731
+    return [glow(union(sheet, rolls), flat((255, 230, 180, 100)), 2.2), outline(sheet), shaded(sheet, PARCHMENT, (4, 3), (12, 13), 0.8, 0.4),
+            fill(lines, flat((90, 60, 30, 220))), outline(rolls), shaded(rolls, PARCHMENT, (3, 2), (13, 14), 0.9, 0.55)]
+
+
+def imbue_gem_picture():
+    # 100, the enchanters' imbued gems: a faceted ruby with a sparkle.
+    outer = [(8 + 6.2 * math.cos(math.radians(22.5 + 45 * k)), 8.4 + 5.2 * math.sin(math.radians(22.5 + 45 * k))) for k in range(8)]
+    inner = [(8 + 3.2 * math.cos(math.radians(22.5 + 45 * k)), 8.0 + 2.4 * math.sin(math.radians(22.5 + 45 * k))) for k in range(8)]
+    gem = lambda u, v: polygon_signed(u, v, outer)  # noqa: E731
+    facets = lambda u, v: max(min(segment_distance(u, v, a, b) for a, b in zip(inner, outer)) - 0.15, gem(u, v))  # noqa: E731
+    return [glow(gem, flat((255, 90, 120, 140)), 2.4), outline(gem),
+            fill(gem, bevel(radial((6.4, 6.4), 7.5, [(0, RUBY[0]), (0.5, RUBY[1]), (1, RUBY[2])]), RUBY[2], 1.0, 0.5)),
+            fill(lambda u, v: polygon_signed(u, v, inner), radial((7.2, 7.2), 3.4, [(0, (255, 210, 220)), (1, (230, 70, 100))])),
+            fill(facets, flat((255, 200, 210, 150))), *sparkle_layers(4.6, 5.4, 2.6)]
+
+
+def familiar_picture():
+    # 125: a small green dragon flying to the right, its bat wings spread. With the wings drawn as one with its body,
+    # it read as a green blob.
+    wing = lambda u, v: polygon_signed(u, v, [(6.2, 9.4), (1.6, 1.6), (3.8, 4.0), (4.8, 0.8), (6.6, 3.8), (8.6, 1.2), (9.0, 4.4), (10.0, 8.6)]) - 0.15  # noqa: E731
+    bones = lambda u, v: max(min(segment_distance(u, v, (7.4, 8.8), tip) for tip in ((1.6, 1.6), (4.8, 0.8), (8.6, 1.2))) - 0.22, wing(u, v))  # noqa: E731
+    body = union(lambda u, v: tilted_ellipse(u, v, 7.8, 10.2, 3.6, 1.55, -8), curve((10.6, 9.4), (12.6, 9.0), (13.0, 6.8), 1.0, 0.8),
+                 lambda u, v: tilted_ellipse(u, v, 13.8, 5.8, 1.9, 0.95, -22), lambda u, v: tapered(u, v, (13.2, 5.0), (12.2, 3.4), 0.38, 0.1),
+                 curve((4.6, 10.8), (1.8, 12.2), (1.0, 14.6), 0.8, 0.25), lambda u, v: polygon_signed(u, v, [(0.4, 14.2), (1.8, 14.0), (0.8, 15.6)]),
+                 lambda u, v: tapered(u, v, (7.4, 11.4), (6.8, 13.6), 0.5, 0.3), lambda u, v: tapered(u, v, (9.4, 11.2), (9.8, 13.4), 0.5, 0.3))
+    lit, mid, rim = DRAGON_SCALES
+    return [glow(union(body, wing), flat((180, 240, 150, 110)), 2.0), outline(wing),
+            fill(wing, linear((6, 1), (9, 9), [(0, (150, 210, 120, 230)), (1, (70, 130, 60, 230))])), fill(bones, flat((40, 80, 30))),
+            outline(body), fill(body, bevel(linear((4, 6), (13, 12), [(0, lit), (1, mid)]), rim, 0.7, 0.5)),
+            fill(lambda u, v: circle(u, v, 14.3, 5.5, 0.28), flat((250, 220, 60)))]
+
+
+def dimensional_pocket_picture():
+    # 126: a full burlap sack tied at the neck with a cord, a tuft of cloth above it. A wider tuft read as a crown.
+    sack = union(lambda u, v: ellipse_signed(u, v, 8, 10.8, 5.4, 4.4), lambda u, v: polygon_signed(u, v, [(6.6, 7.4), (9.4, 7.4), (9.6, 5.4), (6.4, 5.4)]),
+                 lambda u, v: polygon_signed(u, v, [(6.6, 5.6), (5.4, 3.0), (7.0, 3.8), (8.0, 2.6), (9.0, 3.8), (10.6, 3.0), (9.4, 5.6)]) - 0.2)
+    cord = union(lambda u, v: capsule(u, v, (6.0, 6.0), (10.0, 6.0), 0.5), curve((9.8, 6.2), (11.2, 7.0), (10.8, 8.8), 0.3, 0.25))
+    folds = inside(sack, union(curve((6.6, 7.4), (5.0, 10.0), (4.6, 13.4), 0.18, 0.18), curve((9.4, 7.4), (11.2, 10.4), (11.6, 13.2), 0.18, 0.18)))
+    return [glow(sack, flat((255, 220, 170, 90)), 2.2), outline(sack), shaded(sack, BURLAP, (4, 3), (12, 15), 1.1, 0.5),
+            fill(folds, flat((*BURLAP[2], 150))), outline(cord, width=0.4), shaded(cord, WOOD, (5, 6), (11, 9), 0.4, 0.5)]
+
+
+def summon_arrows_picture():
+    # 127: a bow drawn with an arrow nocked, pointing up to the left.
+    limb = lambda u, v: arc_distance(u, v, 12.0, 12.0, 8.6, 160, 290) - 0.75  # noqa: E731
+    ends = [(12.0 + 8.6 * math.cos(math.radians(a)), 12.0 + 8.6 * math.sin(math.radians(a))) for a in (160, 290)]
+    shaft = lambda u, v: capsule(u, v, (13.4, 13.4), (3.4, 3.4), 0.32)  # noqa: E731
+    head = lambda u, v: polygon_signed(u, v, [(1.4, 1.4), (5.2, 2.6), (2.6, 5.2)])  # noqa: E731
+    vanes = union(lambda u, v: polygon_signed(u, v, [(13.8, 13.8), (12.6, 10.8), (11.4, 11.4)]),
+                  lambda u, v: polygon_signed(u, v, [(13.8, 13.8), (10.8, 12.6), (11.4, 11.4)]))
+    return [glow(limb, flat((190, 240, 160, 100)), 2.0), fill(lambda u, v: segment_distance(u, v, ends[0], ends[1]) - 0.16, flat((240, 236, 220))),
+            outline(limb), shaded(limb, WOOD, (4, 4), (14, 14), 0.6, 0.5), outline(shaft, width=0.4), shaded(shaft, WOOD, (4, 4), (13, 13), 0.3, 0.4),
+            outline(vanes, width=0.35), fill(vanes, flat((220, 50, 50))), outline(head, width=0.4), shaded(head, STEEL, (1, 1), (5, 5), 0.5, 0.5)]
+
+
+def drones_of_doom_picture():
+    # 159: a wasp from above, its wings spread.
+    wings = union(lambda u, v: tilted_ellipse(u, v, 4.4, 5.0, 3.4, 1.4, -28), lambda u, v: tilted_ellipse(u, v, 11.6, 5.0, 3.4, 1.4, 28),
+                  lambda u, v: tilted_ellipse(u, v, 5.0, 7.4, 2.4, 1.0, 12), lambda u, v: tilted_ellipse(u, v, 11.0, 7.4, 2.4, 1.0, -12))
+    body = union(lambda u, v: circle(u, v, 8, 2.8, 1.35), lambda u, v: ellipse_signed(u, v, 8, 5.6, 1.6, 1.6),
+                 lambda u, v: ellipse_signed(u, v, 8, 10.4, 2.3, 3.6), lambda u, v: polygon_signed(u, v, [(7.4, 13.6), (8.6, 13.6), (8, 15.4)]))
+    stripes = lambda u, v: max(min(abs(v - y) - 0.45 for y in (8.6, 10.6, 12.6)), body(u, v))  # noqa: E731
+    antennae = union(curve((7.4, 1.8), (6.4, 0.6), (5.2, 0.8), 0.18, 0.14), curve((8.6, 1.8), (9.6, 0.6), (10.8, 0.8), 0.18, 0.14))
+    return [outline(wings, (40, 50, 70, 180), 0.35), fill(wings, flat((220, 236, 255, 150))), glow(body, flat((255, 220, 100, 110)), 1.8),
+            outline(body), fill(body, bevel(linear((7, 2), (9, 14), [(0, WASP[0]), (1, WASP[1])]), WASP[2], 0.8, 0.5)),
+            fill(stripes, flat((30, 20, 10))), fill(antennae, flat((30, 20, 10)))]
+
+
+def creeping_crud_picture():
+    # 160: dark ooze oozing down from the top, lumpy, dripping, a drop falling. A straight top band with even drips read
+    # as a comb.
+    mass = union(*[lambda u, v, x=x, r=r: circle(u, v, x, 1.6, r) for x, r in ((1.2, 2.6), (4.4, 2.8), (7.8, 2.5), (11.2, 2.9), (14.6, 2.6))])
+    drips = union(*[lambda u, v, x=x, end=end: min(tapered(u, v, (x, 3.4), (x, end), 1.0, 0.55), circle(u, v, x, end, 0.95))
+                    for x, end in ((2.8, 8.6), (6.2, 11.8), (9.6, 7.2), (13.0, 10.4))])
+    drop = lambda u, v: min(circle(u, v, 6.2, 14.6, 0.9), polygon_signed(u, v, [(5.4, 14.4), (6.2, 12.8), (7.0, 14.4)]))  # noqa: E731
+    ooze = union(mass, drips, drop)
+    shine = inside(ooze, lambda u, v: min(capsule(u, v, (x - 0.35, 3.6), (x - 0.35, end - 1.2), 0.16) for x, end in ((2.8, 8.6), (6.2, 11.8), (13.0, 10.4))))
+    return [glow(ooze, flat((180, 200, 90, 110)), 2.0), outline(ooze, (10, 12, 4, 240)),
+            fill(ooze, bevel(linear((8, 0), (8, 15), [(0, (96, 110, 40)), (1, (40, 46, 16))]), (14, 16, 6), 0.8, 0.5)),
+            fill(shine, flat((220, 240, 160, 170)))]
+
+
+def lightning_bolt_picture():
+    # 162: a white-hot lightning bolt in a violet glow.
+    bolt = lambda u, v: polygon_signed(u, v, [(10.0, 0.6), (3.8, 8.8), (7.4, 8.8), (4.8, 15.6), (12.4, 6.4), (8.6, 6.4), (11.8, 0.6)]) - 0.15  # noqa: E731
+    return [glow(bolt, flat((200, 150, 255, 190)), 2.8), outline(bolt, (40, 10, 80, 230), 0.5),
+            fill(bolt, linear((10, 0), (5, 16), [(0, (255, 255, 255)), (0.6, (240, 230, 255)), (1, (200, 170, 255))]))]
+
+
 SPELL_PICTURES = {
     161: strike_picture, 51: fire_picture, 42: poison_picture, 99: healing_picture, 56: cold_picture,
     41: disease_picture, 1: phantom_armor_picture, 153: banishing_picture, 38: summoned_weapon_picture,
@@ -4041,6 +4474,19 @@ SPELL_PICTURES = {
     122: translocational_anchor_picture, 129: circle_of_karana_picture, 80: levitate_picture, 85: whirling_wind_picture,
     137: suffocate_picture, 112: summon_horse_picture, 79: true_north_picture, 108: shrink_picture,
     92: plain_tombstone_picture, 94: feign_death_picture, 101: resurrection_picture, 113: sacrifice_picture,
+    2: summon_dagger_picture, 3: shroud_of_hate_picture, 5: snare_picture, 20: enduring_breath_picture, 21: clarity_picture,
+    22: benevolence_picture, 24: chorus_of_clarity_picture, 28: terror_picture, 29: grasping_chains_picture,
+    30: bind_affinity_picture, 32: cancel_magic_picture, 39: pacify_picture, 43: melody_of_ervaj_picture, 49: frenzy_picture,
+    50: cripple_picture, 54: ignite_bones_picture, 55: malaise_picture, 59: chill_bones_picture, 71: violet_skull_picture,
+    72: tashan_picture, 81: wolf_form_picture, 83: enchant_gold_picture, 84: identify_picture, 89: flare_picture,
+    100: imbue_gem_picture, 104: divine_might_picture, 105: rain_of_blades_picture, 110: jolt_picture,
+    111: wake_of_karana_picture, 115: cannibalize_picture, 116: song_of_travel_picture, 123: strength_of_nature_picture,
+    124: glowing_orb_picture, 125: familiar_picture, 126: dimensional_pocket_picture, 127: summon_arrows_picture,
+    134: haste_picture, 135: slow_picture, 136: vengeance_of_the_glades_picture, 138: acumen_picture,
+    139: black_symbol_picture, 141: intellectual_advancement_picture, 142: dim_sparkle_picture,
+    143: chords_of_dissonance_picture, 144: feral_spirit_picture, 145: vengeance_of_the_glades_picture,
+    146: valiant_companion_picture, 147: slow_picture, 154: fear_picture, 159: drones_of_doom_picture,
+    160: creeping_crud_picture, 162: lightning_bolt_picture, 164: panic_the_dead_picture, 165: panic_animal_picture,
 }
 
 

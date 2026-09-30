@@ -3929,6 +3929,9 @@ BATCH_THREE = {46, 52, 53, 57, 58, *range(60, 71), 77, 78, 90, 96, 98, 128, *ran
 # shields and armor
 BATCH_FOUR = {19, 23, 31, 33, 34, 44, 45, 48, *range(73, 77), 79, 80, *range(85, 88), *range(92, 95), 97, 101, 103, *range(106, 109),
               112, 113, *range(120, 123), 129, 137}  # eyes, sight and travel
+BATCH_FIVE = {2, 3, 5, 20, 21, 22, 24, 28, 29, 30, 32, 39, 43, 49, 50, 54, 55, 59, 71, 72, 81, 83, 84, 89, 100, 104, 105, 110,
+              111, 115, 116, *range(123, 128), 134, 135, 136, 138, 139, *range(141, 148), 154, 159, 160, 162, 164, 165}
+# elements, nature, creatures and weapons
 
 
 def test_every_spell_icon_cell_has_a_tile():
@@ -3939,8 +3942,10 @@ def test_every_spell_icon_cell_has_a_tile():
     assert sorted(cells) == list(range(skin.GEM_ICON_CELLS))
     assert set(skin.SPELL_TILE_CELLS) == set(skin.SPELL_TILES) and len(skin.SPELL_TILES) == 14
     assert all(len(palette) == 3 for palette in skin.SPELL_TILES.values())
-    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO | BATCH_THREE | BATCH_FOUR <= set(skin.SPELL_PICTURES)
-    assert (len(BATCH_THREE), len(BATCH_FOUR)) == (35, 33)
+    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO | BATCH_THREE | BATCH_FOUR | BATCH_FIVE <= set(skin.SPELL_PICTURES)
+    assert (len(BATCH_THREE), len(BATCH_FOUR), len(BATCH_FIVE)) == (35, 33, 54)
+    # Every cell a Quarm spell uses is painted (spells_en.txt's field 131 runs 0 to 165).
+    assert set(range(166)) <= set(skin.SPELL_PICTURES)
     assert skin.SPELL_TILE[99] == 'blue' and skin.SPELL_TILE[51] == 'orange' and skin.SPELL_TILE[161] == 'red'
 
 

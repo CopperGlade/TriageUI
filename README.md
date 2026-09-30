@@ -64,7 +64,7 @@ While you memorize or scribe a spell, a thin soft red bar along the top of the w
 
 Every spell's icon is TriageUI's own, wherever the game shows it: the spell bar, your hot buttons, the effects and songs windows, the spell book and the item window. Each is a small painted picture on a rounded tile in the color of the spell's kind: blue for heals and buffs, red for harm, orange for fire, ice blue for cold, green for nature, poison and travel, olive for disease, purple for the enchanter's and mind spells, and so on. The pictures follow duxaUI's, so they're easy to recognize: a blue hand with a heart for a heal, a leather boot with a wing for run speed, a hand holding a green vial for poison. Each object is in its own colors, outlined and shaded, with a soft glow.
 
-The pictures are being drawn a batch at a time, the most common spells first. Until a spell's picture is drawn, its icon is the tile alone, in its kind's color. While TriageUI is loaded, its icons replace every other skin's.
+Every spell in Project Quarm has its picture. While TriageUI is loaded, its icons replace every other skin's.
 
 ## The chat windows
 
