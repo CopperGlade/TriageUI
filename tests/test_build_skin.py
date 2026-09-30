@@ -3979,39 +3979,51 @@ def box_size(texture_info):
     return number(texture_info, 'Size/CX'), number(texture_info, 'Size/CY')
 
 
+@functools.cache
+def plain_tile(tile, size):
+    """A tile's plain art at size, its pixels in rows, as a cell of that tile with no picture draws it."""
+    cell = skin.SPELL_TILE_CELLS[tile][0]
+    picture = skin.SPELL_PICTURES.pop(cell, None)
+    try:
+        art = skin.spell_icon_art(cell, size)
+    finally:
+        if picture is not None:
+            skin.SPELL_PICTURES[cell] = picture
+    return [pixel for row in art.rows for pixel in row]
+
+
 @pytest.mark.parametrize('size', [skin.BOOK_ICON, skin.GEM_ICON])
 def test_spell_icons_are_rounded_tiles_with_their_edge_kept_clear(size):
     # Every cell a rounded tile: clear corners keeping the panel's color (so filtering never darkens them), opaque
-    # inside. Cells of one tile with no picture yet are the same plain tile; the tiles differ. A picture never paints
-    # over its tile's outermost pixels, the edge line's, so every tile keeps a clean edge.
+    # inside. The tiles differ, and a cell with no picture is its plain tile. A picture never paints over its tile's
+    # outermost pixels, the edge line's, so every tile keeps a clean edge.
     cells = skin.SPELL_ICON_CELLS if size == skin.BOOK_ICON else skin.GEM_ICON_CELLS
-    plain = {}
-    for tile, group in skin.SPELL_TILE_CELLS.items():
-        bare = [cell for cell in group if cell < cells and cell not in skin.SPELL_PICTURES]
-        if bare:
-            plain[tile] = pixels(spell_icon(bare[0], size))
-            assert all(pixels(spell_icon(cell, size)) == plain[tile] for cell in bare), tile
-    assert len({tuple(p) for p in plain.values()}) == len(plain)
+    assert len({tuple(plain_tile(tile, size)) for tile in skin.SPELL_TILES}) == len(skin.SPELL_TILES)
     ring = [(x, y) for x in range(size) for y in range(size) if x in (0, size - 1) or y in (0, size - 1)]
     middle = size // 2
     for cell in range(cells):
         icon = spell_icon(cell, size)
+        plain = plain_tile(skin.SPELL_TILE[cell], size)
         assert icon.getpixel((0, 0)) == icon.getpixel((size - 1, size - 1)) == skin.CLEAR, cell
         assert icon.getpixel((middle, middle))[3] == icon.getpixel((1, middle))[3] == 255, cell
-        tile = skin.SPELL_TILE[cell]
-        if tile in plain:
-            assert all(icon.getpixel(p) == plain[tile][p[1] * size + p[0]] for p in ring), cell
+        assert all(icon.getpixel(p) == plain[p[1] * size + p[0]] for p in ring), cell
+        if cell not in skin.SPELL_PICTURES:
+            assert pixels(icon) == plain, cell
     past = icon_sheet(skin.SPELL_ICON_SHEETS[0]).crop((6 * skin.BOOK_ICON, 0, skin.ICON_SHEET, skin.ICON_SHEET))
     assert past.getextrema()[3] == (0, 0)  # what's past the 6 by 6 cells is clear
+
+
+def test_cells_no_spell_uses_are_the_plain_grey_tile():
+    # No Quarm spell uses cells 166 to 199 (spells_en.txt's field 131 runs 0 to 165): each is the grey tile, bare.
+    assert all(skin.SPELL_TILE[cell] == 'grey' and cell not in skin.SPELL_PICTURES for cell in range(166, 200))
+    assert set(skin.SPELL_PICTURES) == set(range(166))
 
 
 def test_a_spell_picture_is_painted_over_its_tile():
     # Every drawn cell differs from its plain tile inside the edge, at both sizes, the same picture at each.
     for size in (skin.BOOK_ICON, skin.GEM_ICON):
         for cell in (c for c in skin.SPELL_PICTURES if size == skin.GEM_ICON or c < skin.SPELL_ICON_CELLS):
-            icon = spell_icon(cell, size)
-            bare = next(c for c in skin.SPELL_TILE_CELLS[skin.SPELL_TILE[cell]] if c not in skin.SPELL_PICTURES)
-            changed = sum(a != b for a, b in zip(pixels(icon), pixels(spell_icon(bare, size))))
+            changed = sum(a != b for a, b in zip(pixels(spell_icon(cell, size)), plain_tile(skin.SPELL_TILE[cell], size)))
             assert changed > size * size // 6, (cell, size)
 
 
