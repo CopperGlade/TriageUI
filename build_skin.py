@@ -3704,6 +3704,314 @@ def mark_of_retribution_picture():
     return shield_layers(palette=ROSE_METAL, halo=(255, 140, 170, 130)) + burst_layers(8, 7.0, 6.4, (255, 170, 200))
 
 
+# Batch 4: eyes, sight and travel.
+
+IRISES = {  # (heart, middle, rim) of an eye's iris
+    'grey': ((70, 90, 120), (110, 140, 180), (60, 76, 100)),
+    'blue': ((70, 110, 200), (120, 160, 240), (40, 60, 140)),
+    'green': ((40, 120, 80), (90, 190, 130), (30, 80, 60)),
+    'pink': ((160, 30, 110), (240, 90, 190), (110, 20, 80)),
+    'purple': ((90, 40, 160), (170, 110, 240), (60, 30, 120)),
+    'white': ((255, 255, 255), (240, 240, 250), (200, 200, 220)),
+}
+TOMB_STONE = ((222, 222, 226), (150, 150, 160), (70, 70, 80))
+
+
+def eye_layers(cx=8.0, cy=8.0, scale=1.0, iris='grey'):
+    """The Invisibility picture's open eye at (cx, cy) and scale, its iris in one of IRISES."""
+    heart, middle, edge = IRISES[iris]
+    return [outline(moved(almond, cx, cy, scale)),
+            fill(moved(almond, cx, cy, scale), linear((cx, cy - 5 * scale), (cx, cy + 5 * scale),
+                                                      [(0, (190, 186, 184)), (0.4, (250, 250, 250)), (1, (220, 220, 224))])),
+            fill(moved(lambda u, v: max(circle(u, v, 8, 8.2, 2.9), almond(u, v)), cx, cy, scale),
+                 radial((cx, cy + 0.2 * scale), 2.9 * scale, [(0, heart), (0.6, middle), (1, edge)])),
+            fill(moved(lambda u, v: circle(u, v, 8, 8.2, 1.2), cx, cy, scale), flat((16, 16, 22))),
+            fill(moved(lambda u, v: circle(u, v, 9.1, 7.2, 0.7), cx, cy, scale), flat((255, 255, 255, 230))),
+            fill(moved(lambda u, v: abs(circle(u, v, 8, 10.42, 7.22)) - 0.55 if v < 8.2 else 1, cx, cy, scale), flat(SKIN_TONES[1])),
+            fill(moved(lambda u, v: abs(almond(u, v) + 0.25) - 0.4, cx, cy, scale), flat((*SKIN_TONES[2], 240)))]
+
+
+def orb_layers(cx, cy, r, rgb=(230, 120, 220)):
+    """A glowing orb, white at its heart."""
+    orb = lambda u, v: circle(u, v, cx, cy, r)  # noqa: E731
+    return [glow(orb, flat((*rgb, 170)), r * 1.2),
+            fill(orb, radial((cx - r * 0.2, cy - r * 0.2), r * 1.1, [(0, (255, 255, 255)), (0.5, (255, 214, 250)), (1, rgb)]))]
+
+
+def see_invisible_picture():
+    # 19: the grey eye, a crossed white sparkle at its lower right.
+    return eye_layers(7.4, 7.2, 0.95) + sparkle_layers(12.2, 12.0, 3.4, crossed=True, rim=(220, 230, 255))
+
+
+def blinding_picture():
+    # 23: a white eye blazing in a gold burst of light.
+    return [*burst_layers(8, 8.2, 7.6, (255, 240, 180), 170), *eye_layers(iris='white'),
+            fill(lambda u, v: circle(u, v, 8, 8.2, 1.1), flat((255, 250, 220)))]
+
+
+def invisible_to_undead_picture():
+    # 33: the grey eye, a skull at its lower right.
+    return eye_layers(7.0, 6.8, 0.92) + skull_layers(11.6, 11.6, 1.0)
+
+
+def invisible_to_animals_picture():
+    # 34: the grey eye, a wolf's face at its lower right.
+    return eye_layers(7.0, 6.8, 0.92) + wolf_face_layers(11.4, 11.4, 0.52)
+
+
+def bind_sight_picture():
+    # 44: two eyes, a small grey one at the top right and a big blue one at the lower left.
+    return eye_layers(10.6, 4.2, 0.55) + eye_layers(7.2, 10.2, 0.85, 'blue')
+
+
+def green_eye_picture():
+    # 45 and 73, in no Quarm spell: a green eye.
+    return eye_layers(iris='green')
+
+
+def sense_the_dead_picture():
+    # 74: a green eye, a skull at its lower right.
+    return eye_layers(7.0, 6.8, 0.92, 'green') + skull_layers(11.6, 11.6, 1.0)
+
+
+def sense_summoned_picture():
+    # 75: a pink eye, a glowing orb at its lower left.
+    return eye_layers(8.6, 7.0, 0.92, 'pink') + orb_layers(3.8, 12.0, 2.2)
+
+
+def sense_animals_picture():
+    # 76: a green eye, a wolf's face at its lower left.
+    return eye_layers(9.0, 6.8, 0.9, 'green') + wolf_face_layers(4.6, 11.4, 0.52)
+
+
+def serpent_sight_picture():
+    # 86: a pink-irised eye.
+    return eye_layers(iris='pink')
+
+
+def ultravision_picture():
+    # 87: a violet-irised eye in a violet glow.
+    return [glow(almond, flat((220, 180, 255, 100)), 2.2), *eye_layers(iris='purple')]
+
+
+def shifting_sight_picture():
+    # 93: two green eyes, a small one at the top right and a big one at the lower left.
+    return eye_layers(10.6, 4.2, 0.55, 'green') + eye_layers(7.2, 10.2, 0.85, 'green')
+
+
+def tombstone_layers(cx=8.0, top=1.6, width=8.4, bottom=15.0, tint=TOMB_STONE, halo=None):
+    """A tombstone, round-topped, a cross and lines of writing carved in it."""
+    half = width / 2
+    stone = lambda u, v: min(rounded_rect_distance(u, v, cx - half, top + half, cx + half, bottom, 0.6), circle(u, v, cx, top + half, half))  # noqa: E731
+    lines = lambda u, v: min(capsule(u, v, (cx - half * 0.55, y), (cx + half * 0.55, y), 0.22)  # noqa: E731
+                             for y in [top + half + k * (bottom - top - half) / 6 for k in (1, 2, 3, 4)])
+    cross = union(lambda u, v: capsule(u, v, (cx, top + half * 0.45), (cx, top + half * 1.25), 0.32),
+                  lambda u, v: capsule(u, v, (cx - half * 0.3, top + half * 0.7), (cx + half * 0.3, top + half * 0.7), 0.32))
+    lit, mid, rim = tint
+    return [*([glow(stone, flat(halo), 2.4)] if halo else []), outline(stone),
+            fill(stone, bevel(linear((cx - 3, top), (cx + 3, bottom), [(0, lit), (1, mid)]), rim, 1.2, 0.55)),
+            fill(inside(stone, lines), flat((*rim, 170))), fill(inside(stone, cross), flat((*rim, 190)))]
+
+
+def plain_tombstone_picture():
+    # 92, in no Quarm spell: a grey tombstone.
+    return tombstone_layers(halo=(220, 220, 240, 90))
+
+
+def feign_death_picture():
+    # 94: a pale green-grey tombstone.
+    return tombstone_layers(tint=((214, 236, 220), (130, 170, 146), (50, 80, 60)), halo=(160, 255, 190, 100))
+
+
+def resurrection_picture():
+    # 101: a tombstone with a bright light bursting at its side.
+    return tombstone_layers(7.0, 1.6, 8.0, halo=(255, 240, 180, 110)) + burst_layers(11.4, 8.4, 5.8, (255, 230, 150), 170)
+
+
+def sacrifice_picture():
+    # 113: a tombstone with a red X beside it.
+    x = union(lambda u, v: capsule(u, v, (10.6, 5.8), (14.8, 10.0), 0.7), lambda u, v: capsule(u, v, (14.8, 5.8), (10.6, 10.0), 0.7))
+    return [*tombstone_layers(6.6, 1.6, 8.0, halo=(255, 80, 80, 130)), glow(x, flat((255, 60, 60, 170)), 1.6), outline(x, width=0.4),
+            fill(x, bevel(flat((240, 40, 50)), (120, 10, 20), 0.5, 0.5))]
+
+
+def locate_corpse_picture():
+    # 97: a tombstone with a blue eye beside it, looking.
+    return tombstone_layers(5.8, 1.6, 7.6) + eye_layers(11.6, 7.4, 0.52, 'blue')
+
+
+def glimpse_picture():
+    # 106: a brass spyglass on a wooden three-legged stand, pointing up to the right.
+    base, tip = (2.2, 10.8), (14.2, 3.0)
+
+    def at(t):
+        return (base[0] + (tip[0] - base[0]) * t, base[1] + (tip[1] - base[1]) * t)
+    legs = union(lambda u, v: capsule(u, v, (8.0, 7.6), (4.6, 15.2), 0.4), lambda u, v: capsule(u, v, (8.0, 7.6), (8.4, 15.4), 0.4),
+                 lambda u, v: capsule(u, v, (8.0, 7.6), (11.6, 15.0), 0.4))
+    layers = [glow(lambda u, v: capsule(u, v, at(0), at(1), 1.4), flat((190, 210, 255, 90)), 2.0),
+              outline(legs, width=0.4), shaded(legs, WOOD, (6, 8), (10, 15), 0.5, 0.5)]
+    for t0, t1, r in ((0.0, 0.34, 0.95), (0.3, 0.66, 1.2), (0.62, 1.0, 1.45)):  # the tubes, widening to the lens
+        tube = lambda u, v, t0=t0, t1=t1, r=r: capsule(u, v, at(t0), at(t1), r)  # noqa: E731
+        band = lambda u, v, t1=t1, r=r: capsule(u, v, at(t1 - 0.04), at(t1), r + 0.25)  # noqa: E731
+        end = at(t1)
+        layers += [outline(tube), shaded(tube, GOLD, at(t0), end, 0.7, 0.5), outline(band, width=0.35),
+                   shaded(band, GOLD, (end[0] - 1, end[1] - 1), (end[0] + 1, end[1] + 1), 0.4, 0.6)]
+    return layers + [fill(lambda u, v: tilted_ellipse(u, v, *at(1.0), 0.5, 1.3, -33), flat((170, 220, 255)))]
+
+
+def door_frame(u, v):
+    return min(rounded_rect_distance(u, v, 2.8, 6.0, 13.2, 15.4, 0.4), circle(u, v, 8, 6.4, 5.2))
+
+
+def door_opening(u, v):
+    return min(rounded_rect_distance(u, v, 4.4, 6.4, 11.6, 15.4, 0.2), circle(u, v, 8, 6.4, 3.6))
+
+
+def doorway_layers(light, deep, halo, star=True):
+    """An arched stone doorway, its opening full of light from white to deep, a bright four-pointed star in it."""
+    frame = lambda u, v: max(door_frame(u, v), -door_opening(u, v))  # noqa: E731
+    return [glow(door_opening, flat(halo), 2.6),
+            fill(door_opening, radial((8, 9), 7, [(0, (255, 255, 255)), (0.35, light), (1, deep)])),
+            outline(frame), fill(frame, bevel(linear((4, 2), (12, 15), [(0, (110, 110, 120)), (1, (46, 46, 54))]), (20, 20, 26), 0.8, 0.5)),
+            fill(inside(frame, lambda u, v: abs(door_opening(u, v) - 0.25) - 0.25), flat((*light, 200))),
+            *([fill(lambda u, v: polygon_signed(u - 8, v - 9.0, four_point_star(0, 0, 4.8, 0.7)), flat((255, 255, 255, 230)))]
+              if star else [])]
+
+
+def gate_picture():
+    # 31: a doorway full of green light.
+    return doorway_layers((110, 255, 140), (20, 120, 50), (100, 255, 130, 150))
+
+
+def shadow_step_picture():
+    # 48: a doorway full of white light, in shadow.
+    return doorway_layers((230, 230, 240), (90, 90, 110), (220, 220, 240, 110))
+
+
+def ring_of_karana_picture():
+    # 103, the druids' rings: a doorway full of blue light.
+    return doorway_layers((130, 180, 255), (30, 60, 180), (110, 160, 255, 150))
+
+
+def evacuate_picture():
+    # 107: a doorway full of red light, a sword across it.
+    return (doorway_layers((255, 130, 120), (170, 20, 20), (255, 90, 80, 150), star=False)
+            + sword_layers((5.2, 13.2), (12.2, 4.6), half=0.8, guard=1.6, grip=1.3))
+
+
+def summon_companion_picture():
+    # 120: a doorway full of pink light, a glowing orb in it.
+    return doorway_layers((255, 170, 240), (150, 40, 150), (120, 255, 150, 130), star=False) + orb_layers(8, 9.4, 2.4)
+
+
+def translocate_picture():
+    # 121: a doorway full of violet light, a hand in it pointing through.
+    hand = moved(pointing_hand, 8.4, 10.6, 0.62)
+    return doorway_layers((200, 170, 255), (70, 40, 170), (180, 150, 255, 150), star=False) + [outline(hand), skin_fill(hand, (5, 9), (12, 13), 0.7)]
+
+
+def translocational_anchor_picture():
+    # 122: a dark doorway glowing red, a red crossed circle barring it.
+    sign = lambda u, v: min(abs(circle(u, v, 8, 9.6, 2.9)) - 0.55,  # noqa: E731
+                            max(capsule(u, v, (5.8, 7.4), (10.2, 11.8), 0.55), circle(u, v, 8, 9.6, 2.9)))
+    return [*doorway_layers((120, 20, 30), (40, 0, 8), (255, 60, 60, 140), star=False), glow(sign, flat((255, 60, 60, 170)), 1.6),
+            fill(sign, bevel(flat((255, 70, 70)), (140, 10, 20), 0.5, 0.5))]
+
+
+def circle_of_karana_picture():
+    # 129, the wizards' circles: a doorway full of violet-white light.
+    return doorway_layers((220, 170, 255), (110, 40, 170), (210, 150, 255, 150))
+
+
+def feather_ends(k):
+    # The k-th of a wing's five feathers side by side, sweeping up to the right, the top one longest. Fanned out from
+    # one point, they looked like a feather duster.
+    base = (2.4 + 0.85 * k, 8.2 + 1.35 * k)
+    a = math.radians(-42 + 5 * k)
+    reach = 11.8 - 1.7 * k
+    return base, (base[0] + reach * math.cos(a), base[1] + reach * math.sin(a)), 1.4 - 0.12 * k, 0.5
+
+
+def wing_layers(halo):
+    """A white bird's wing: five long feathers side by side sweeping up to the right, a rounded shoulder over their roots."""
+    shoulder = lambda u, v: tilted_ellipse(u, v, 4.2, 10.4, 2.8, 2.0, -40)  # noqa: E731
+    whole = union(shoulder, *[lambda u, v, k=k: tapered(u, v, *feather_ends(k)) for k in range(5)])
+    layers = [glow(whole, flat(halo), 2.4)]
+    for k in range(4, -1, -1):
+        ends = feather_ends(k)
+        feather = lambda u, v, ends=ends: tapered(u, v, *ends)  # noqa: E731
+        layers += [outline(feather, (40, 50, 70, 220), 0.45), shaded(feather, FEATHER, ends[0], ends[1], 0.7, 0.45)]
+    return layers + [outline(shoulder, (40, 50, 70, 220), 0.45), shaded(shoulder, FEATHER, (2, 8), (6, 13), 0.8, 0.45)]
+
+
+def levitate_picture():
+    # 80: a white bird's wing in a pale blue glow.
+    return wing_layers((210, 230, 255, 120))
+
+
+def whirling_wind_picture():
+    # 85: the wing in a red glow.
+    return wing_layers((255, 140, 140, 140))
+
+
+def summon_horse_picture():
+    # 112: the winged boot with a green sparkle.
+    return run_speed_picture() + sparkle_layers(3.2, 3.8, 3.2, rim=(150, 255, 170))
+
+
+def lung(u, v, side):
+    # One lung: tall, rounded at its apex and its outer side, straighter along its inner edge, flattish at its base.
+    # Drawn as the left one, mirrored for the right (side -1).
+    x = 8 + side * (u - 8)
+    return max(min(ellipse_signed(x, v, 5.0, 9.6, 3.2, 5.2), ellipse_signed(x, v, 5.4, 12.0, 3.0, 2.8)), x - 7.1, v - 14.4)
+
+
+def suffocate_picture():
+    # 137: a pair of darkened lungs on their windpipe, in a swirl of violet gas. duxaUI's skull with a wing didn't say
+    # it (the user); the user picked this over lungs wound with smoke, draining grey, squeezed by a shadowy hand or
+    # crossed out, and over a pale head gasping or strangled.
+    lungs = union(lambda u, v: lung(u, v, 1), lambda u, v: lung(u, v, -1))
+    pipe = union(lambda u, v: capsule(u, v, (8, 0.8), (8, 5.8), 0.85), lambda u, v: capsule(u, v, (8, 5.6), (5.8, 7.8), 0.55),
+                 lambda u, v: capsule(u, v, (8, 5.6), (10.2, 7.8), 0.55))
+    rings = lambda u, v: max(min(abs(v - y) - 0.18 for y in (2.2, 3.6, 5.0)), pipe(u, v))  # noqa: E731
+    puffs = union(*[lambda u, v, x=x, y=y, r=r: circle(u, v, x, y, r) for x, y, r in
+                    ((2.2, 5.0, 1.6), (13.8, 4.6, 1.5), (1.4, 10.4, 1.5), (14.6, 10.0, 1.4), (3.4, 14.6, 1.6), (12.6, 14.8, 1.6), (8.0, 15.2, 1.2))])
+    swirl = union(curve((1.0, 7.6), (8.0, 3.0), (15.0, 7.2), 0.4, 0.25), curve((1.4, 12.8), (8.0, 8.6), (14.8, 12.6), 0.4, 0.25))
+    return [glow(puffs, flat((190, 110, 255, 150)), 1.8), fill(puffs, radial((8, 9), 9, [(0, (210, 150, 255, 200)), (1, (120, 60, 180, 200))])),
+            glow(lungs, flat((190, 110, 255, 140)), 2.2), outline(pipe), fill(pipe, bevel(flat((236, 200, 206)), (120, 70, 80), 0.6, 0.5)),
+            fill(rings, flat((150, 100, 110, 200))), outline(lungs),
+            fill(lungs, bevel(linear((8, 4), (8, 15), [(0, (200, 150, 190)), (1, (120, 80, 130))]), (60, 30, 70), 1.2, 0.55)),
+            fill(swirl, flat((200, 150, 255, 190)))]
+
+
+def true_north_picture():
+    # 79: an open brass pocket compass: its lid behind, a white face with marks and a red needle pointing north.
+    lid = lambda u, v: tilted_ellipse(u, v, 9.6, 4.6, 5.4, 3.0, -16)  # noqa: E731
+    case = lambda u, v: circle(u, v, 7.4, 9.4, 5.6)  # noqa: E731
+    face = lambda u, v: circle(u, v, 7.4, 9.4, 4.3)  # noqa: E731
+    marks = lambda u, v: min(capsule(u, v, (7.4 + 3.3 * math.cos(a), 9.4 + 3.3 * math.sin(a)),  # noqa: E731
+                                     (7.4 + 4.0 * math.cos(a), 9.4 + 4.0 * math.sin(a)), 0.2) for a in (math.radians(90 * k) for k in range(4)))
+    return [glow(case, flat((255, 220, 140, 110)), 2.2), outline(lid), shaded(lid, GOLD, (6, 2), (13, 7), 0.8, 0.55),
+            fill(lambda u, v: tilted_ellipse(u, v, 9.6, 4.6, 4.2, 2.1, -16), flat((*GOLD[2], 200))),
+            outline(case), shaded(case, GOLD, (3, 5), (11, 14), 0.9, 0.55),
+            fill(face, radial((6.4, 8.4), 5, [(0, (255, 252, 240)), (1, (220, 212, 196))])), fill(marks, flat((60, 50, 40))),
+            fill(lambda u, v: polygon_signed(u, v, [(7.4, 6.0), (8.2, 9.4), (6.6, 9.4)]), flat((220, 40, 40))),
+            fill(lambda u, v: polygon_signed(u, v, [(7.4, 12.8), (8.2, 9.4), (6.6, 9.4)]), flat((60, 60, 70))),
+            fill(lambda u, v: circle(u, v, 7.4, 9.4, 0.5), flat(GOLD[1]))]
+
+
+def shrink_picture():
+    # 108: a white ant seen from above: head, thorax and abdomen, six bent legs and its feelers.
+    body = union(lambda u, v: ellipse_signed(u, v, 8, 3.8, 1.6, 1.5), lambda u, v: ellipse_signed(u, v, 8, 7.2, 1.2, 1.8),
+                 lambda u, v: ellipse_signed(u, v, 8, 11.8, 2.3, 3.0))
+    legs = union(*[curve((8 + side * 0.8, a), (8 + side * 3.4, a - 0.6), (8 + side * 5.2, b), 0.32, 0.22)
+                   for side in (-1, 1) for a, b in ((6.2, 3.8), (7.2, 8.4), (8.2, 12.8))],
+                 curve((7.4, 2.6), (6.0, 0.8), (4.4, 0.8), 0.22, 0.16), curve((8.6, 2.6), (10.0, 0.8), (11.6, 0.8), 0.22, 0.16))
+    ant = union(body, legs)
+    return [glow(ant, flat((230, 230, 240, 110)), 2.0), outline(ant, width=0.45),
+            fill(ant, bevel(linear((6, 1), (10, 15), [(0, (255, 255, 255)), (1, (190, 192, 200))]), (90, 90, 100), 0.6, 0.5))]
+
+
 SPELL_PICTURES = {
     161: strike_picture, 51: fire_picture, 42: poison_picture, 99: healing_picture, 56: cold_picture,
     41: disease_picture, 1: phantom_armor_picture, 153: banishing_picture, 38: summoned_weapon_picture,
@@ -3725,6 +4033,14 @@ SPELL_PICTURES = {
     148: elemental_shield_picture, 149: resistant_skin_picture, 150: symbol_of_transal_picture, 151: holy_armor_picture,
     152: haze_picture, 155: shield_of_thorns_picture, 156: mark_of_karn_picture, 157: shield_of_fire_picture,
     158: mark_of_retribution_picture,
+    19: see_invisible_picture, 23: blinding_picture, 33: invisible_to_undead_picture, 34: invisible_to_animals_picture,
+    44: bind_sight_picture, 45: green_eye_picture, 73: green_eye_picture, 74: sense_the_dead_picture,
+    75: sense_summoned_picture, 76: sense_animals_picture, 86: serpent_sight_picture, 87: ultravision_picture,
+    93: shifting_sight_picture, 97: locate_corpse_picture, 106: glimpse_picture, 31: gate_picture, 48: shadow_step_picture,
+    103: ring_of_karana_picture, 107: evacuate_picture, 120: summon_companion_picture, 121: translocate_picture,
+    122: translocational_anchor_picture, 129: circle_of_karana_picture, 80: levitate_picture, 85: whirling_wind_picture,
+    137: suffocate_picture, 112: summon_horse_picture, 79: true_north_picture, 108: shrink_picture,
+    92: plain_tombstone_picture, 94: feign_death_picture, 101: resurrection_picture, 113: sacrifice_picture,
 }
 
 

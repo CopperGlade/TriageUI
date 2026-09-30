@@ -3927,6 +3927,8 @@ BATCH_TWO = {0, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 26, 27, 36, 40, 47, 82, 
              163}  # hands, body and mind
 BATCH_THREE = {46, 52, 53, 57, 58, *range(60, 71), 77, 78, 90, 96, 98, 128, *range(130, 134), *range(148, 153), *range(155, 159)}
 # shields and armor
+BATCH_FOUR = {19, 23, 31, 33, 34, 44, 45, 48, *range(73, 77), 79, 80, *range(85, 88), *range(92, 95), 97, 101, 103, *range(106, 109),
+              112, 113, *range(120, 123), 129, 137}  # eyes, sight and travel
 
 
 def test_every_spell_icon_cell_has_a_tile():
@@ -3937,8 +3939,8 @@ def test_every_spell_icon_cell_has_a_tile():
     assert sorted(cells) == list(range(skin.GEM_ICON_CELLS))
     assert set(skin.SPELL_TILE_CELLS) == set(skin.SPELL_TILES) and len(skin.SPELL_TILES) == 14
     assert all(len(palette) == 3 for palette in skin.SPELL_TILES.values())
-    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO | BATCH_THREE <= set(skin.SPELL_PICTURES)
-    assert len(BATCH_THREE) == 35
+    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO | BATCH_THREE | BATCH_FOUR <= set(skin.SPELL_PICTURES)
+    assert (len(BATCH_THREE), len(BATCH_FOUR)) == (35, 33)
     assert skin.SPELL_TILE[99] == 'blue' and skin.SPELL_TILE[51] == 'orange' and skin.SPELL_TILE[161] == 'red'
 
 
