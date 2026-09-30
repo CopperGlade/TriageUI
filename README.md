@@ -56,7 +56,7 @@ Your spell book, built so you can find and pick a spell quickly in a fight. It's
 
 **Previous** and **Next** run down the whole left and right sides of the window as tall strips with an arrow in the middle. They never move, so you can click one again and again to turn pages quickly. A small gap between each strip and the spells means a click that misses a strip never picks up a spell.
 
-The game marks a detrimental spell with the same red bars as a harmful effect in the effects window, stretched to fit the spell's spot. The book's spots are sized so the bars land behind the icon, so the book shows no red.
+A detrimental spell has a thin red line down the right side of its icon: the effects window's red bar, which the game squeezes to fit the spell's spot. To move a spell, **right-click it**: a thin red line flickers beside it until you right-click the spot to swap it with. Right-click the same spell again to put it back.
 
 While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are each page's number, under its page, and **Done** in the middle. The window has a fixed size, about the size of EverQuest's own book. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
 
@@ -148,11 +148,11 @@ Just what you need at a glance, as wide as the hot button and actions windows. *
 
 ## The effects and songs windows
 
-Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect's icon gets a red bar on each side (the game gives a skin no way to color the name itself). The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row, in a column of its own before the icons. Both windows are a little wider than the others, so longer effect names fit. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
+Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect gets a red bar at the end of its row (the game gives a skin no way to color the name itself). The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row, in a column of its own before the icons. Both windows are a little wider than the others, so longer effect names fit. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
 
 Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
 
-Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, nothing behind a helpful effect's icon and just the red bars beside a harmful one's, so the combat ability window loses its bright blue and red behind icons too. The item window puts them behind a spell's icon too, and the spell book behind a detrimental spell's icon, where the red bars are hidden.
+Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, with only the red bar on a harmful one's, so the combat ability window loses its bright blue and red behind icons too. The item window puts them behind a spell's icon, where the bar is hidden, and the spell book squeezes the bar into a thin line beside a detrimental spell's icon (see the spell book).
 
 ## The confirmation dialog
 
@@ -192,10 +192,10 @@ What opens when a ranger, druid or bard uses **Track**. Along the top, a button 
 
 Your alternate abilities, laid out as in EverQuest's own AA window. Along the top are the five tabs, **General**, **Archetype**, **Class**, **PoP Advance** and **PoP Ability**, with their names on them. The open tab is lit, and a faint line separates the tabs from its list. Each list shows the abilities on that tab, the rank you have of the most there is, and the cost of the next rank, with each heading on a faint strip like the skills window's. About 18 abilities are in view, and the rest scroll with the same slim scrollbar as the chat windows. Click one to read its description under the list: what it does, and whether it's activated, with its refresh time, or passive.
 
-On the right, past a thin line, with a faint line between each of the first three:
+On the right, past a thin line, with a faint line between each of the first three and plenty of room above and below it:
 - the AA points you've **Spent** and those still **Available**, in green;
-- **XP to AA**, how much of your experience goes to AA: click **-** or **+** to change it;
-- **Ability ready in:**, with the selected ability's reuse timer on the line under it, in green;
+- **XP to AA allocation**, how much of your experience goes to AA: click **-** or **+** to change it;
+- **Reuse**, the selected ability's time left until you can use it again, or Ready, in green;
 - **Train** trains the selected ability, **Hotkey** makes a hotkey for it, and **Done** closes the window.
 
 Your AA XP isn't repeated here: it's in the inventory window, under your XP.

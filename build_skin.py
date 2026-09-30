@@ -541,9 +541,9 @@ for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
 # lays the slot buttons out itself, a pixel apart, so each runs across the row (one per row), and the
 # dividers sit in the pixel between. The icon is a padding from the window's top and bottom. The client
 # paints each slot with BlueIconBackground (helpful) or RedIconBackground (harmful), by name, so the skin
-# redefines those two: clear for helpful effects, and a red bar on each side of the icon for harmful ones. The spellbook, item display and combat ability windows use them too and change with them (the
-# user's call). The client stretches them to each slot, so the spell book's and item window's slots are shaped so
-# the red bars fall under their icons (see BOOK_SLOT_MARGIN).
+# redefines those two: clear, and a harmful one with a red bar at the row's end (see HARMFUL_BAR_X). The spellbook,
+# item display and combat ability windows use them too and change with them (the user's call). The client stretches
+# them to each slot (see BOOK_SLOT_MARGIN).
 BUFF_FILE = 'EQUI_BuffWindow.xml'
 SONG_FILE = 'EQUI_ShortDurationBuffWindow.xml'
 # The stock slots' decal: a placeholder the client replaces with the spell's A_SpellIcons cell, scaled to the decal.
@@ -555,8 +555,8 @@ ROW_ICON = 16
 ROW_ICON_MARGIN = PADDING - BORDER
 ROW_HEIGHT = ROW_ICON + 2 * ROW_ICON_MARGIN
 ROW_PITCH = ROW_HEIGHT + 1
-# Wider than the other windows' 200 so longer names fit: 159px for a name after Zeal's time column
-# (TIMER_WIDTH), the icon and its harmful bars, where long bard songs run to about 167 in Arial 12. 220 at
+# Wider than the other windows' 200 so longer names fit: 151px for a name after Zeal's time column
+# (TIMER_WIDTH) and the icon, before the harmful bar, where long bard songs run to about 167 in Arial 12. 220 at
 # first (the user's call, 2026-09-26), then 12 more for a single bar after the icon (the user's pick,
 # 2026-09-27, to keep the names' room) and the pixel the client's own slot placement takes (see SLOT_X).
 # The user kept it when the two bars came ("the total width of the effect window should not change").
@@ -580,25 +580,25 @@ SLOT_X = ROW_WIDTH - SLOT_WIDTH - 1
 # default 3), so about 28x16 for "18m". It sat over the start of the names in game, so the row's marks start
 # TIMER_WIDTH into the slot: 30px, the user's calls in game (36, then 24 left too much room before the names;
 # at 18 and then 23 the box still covered some of the icons, so 5 more each time, to 28; then 30 on
-# 2026-09-27, so the widest box keeps 2px from the harmful bar before the icon).
+# 2026-09-27, so the widest box kept 2px from a harmful bar that stood before the icon).
 TIMER_WIDTH = 30
-# A harmful effect's mark: a solid red bar HARMFUL_BAR_WIDTH wide on each side of its icon, touching it, as
-# tall as the icon and level with it (the user's design, 2026-09-27: "one bar on the left and right of any
-# detrimental effect", "the normal left padding, then a 3px red bar, then the spell icon, then another 3px
-# red bar, then the prior normal padding to the start of the effect name text", then "increase the width of
-# the bars by 1 px, total 4px width each" after a preview at 3). Helpful rows keep the room
-# empty, so every icon and name starts at the same place. The client's art swap (0x409520: the slot's
-# Normal is RedIconBackground when the spell's beneficial byte is 0) is the only sign of an effect's type a
-# skin gets: the names (labels 45-59, 0x436F3D) are set without a color, so they can't turn red (Zeal's
-# label hook could). The client stretches the art to the slot, which is the art's own size here, so clear pixels
-# put the bars in place. Before them: a faint red across the row, then a red square behind the icon at alpha 85, which
-# left a 2px ring too faint to see, its left side under Zeal's timer box (the user had it removed), then a
-# single 5px bar between the icon and the name.
+# The icon TIMER_CLEARANCE after the time column, where that bar stood, so the icons stay put and the widest box
+# (28) ends a padding before them.
+TIMER_CLEARANCE = 4
+# A harmful effect's mark: a solid red bar HARMFUL_BAR_WIDTH wide at the row's end, a padding from the window's edge,
+# as tall as the icon and level with it, the names ending a padding before it (the user's pick, 2026-09-30: easier
+# on the eyes; 4px wide at first, then 2 more). The client's art swap (0x409520: the slot's Normal is RedIconBackground when the spell's beneficial
+# byte is 0) is the only sign of an effect's type a skin gets: the names (labels 45-59, 0x436F3D) are set without a
+# color, so they can't turn red (Zeal's label hook could). The client stretches the art to the slot, which is the
+# art's own size here, so clear pixels put the bar in place. Tried before: a faint red across the row; a red square
+# behind the icon at alpha 85, which left a 2px ring too faint to see, its left side under Zeal's timer box; a single
+# 5px bar between the icon and the name; a 4px bar each side of the icon, touching it.
 HARMFUL_RGBA = (255, 68, 68, 255)
-HARMFUL_BAR_WIDTH = 4
-ROW_ICON_X = SLOT_X + TIMER_WIDTH + HARMFUL_BAR_WIDTH  # from the inside's left edge
-HARMFUL_BARS = (ROW_ICON_X - HARMFUL_BAR_WIDTH, ROW_ICON_X + ROW_ICON)  # each bar's x, from the inside's left
-ROW_NAME_X = ROW_ICON_X + ROW_ICON + HARMFUL_BAR_WIDTH + PADDING
+HARMFUL_BAR_WIDTH = 6
+HARMFUL_BAR_X = EFFECTS_RIGHT - HARMFUL_BAR_WIDTH  # from the inside's left edge
+ROW_ICON_X = SLOT_X + TIMER_WIDTH + TIMER_CLEARANCE  # from the inside's left edge
+ROW_NAME_X = ROW_ICON_X + ROW_ICON + PADDING
+ROW_NAME_WIDTH = HARMFUL_BAR_X - PADDING - ROW_NAME_X
 # A helpful effect's row: clear, so the row is the panel at whatever alpha the window has. It was solid in
 # the panel's color while clicks never reached the slots (the theory: a button ignores a click where its art
 # is see-through), but the slots weren't hit-tested at all, being as wide as the inside (see SLOT_WIDTH),
@@ -606,6 +606,10 @@ ROW_NAME_X = ROW_ICON_X + ROW_ICON + HARMFUL_BAR_WIDTH + PADDING
 # opaque row blends over the panel a second time). The theory stays unproven; if clicks stop with clear
 # art, that's its one remaining case.
 HELPFUL_RGBA = CLEAR
+# No line along a filled row's top and bottom: soft blue and red ones, there so the spell book (which gets this art
+# stretched to its slots) showed bars over and under each icon and flashed the spell picked up to move, made the
+# Effects window ugly (the user, 2026-09-30). The book's picked-up spell still flickers the harmful bar's thin red
+# line (see BOOK_SLOT_MARGIN).
 # The client looks up this many slot buttons (Buff0 to Buff14) in the Songs window as well as the Effects
 # window (UIErrors.txt: could not find child Buff6 in window ShortDurationBuffWindow), so the slots a window
 # doesn't show are hidden buttons.
@@ -1331,13 +1335,12 @@ BOOK_COLUMNS = 2  # a page's spells across
 BOOK_PAGE_ROWS = 4
 BOOK_PAGE_SPELLS = BOOK_COLUMNS * BOOK_PAGE_ROWS
 BOOK_ICON = 40  # A_SpellIcons' cells, drawn at their own size
-# The client paints a detrimental spell's slot RedIconBackground, the Effects window's art, stretched to the slot's
-# size: its bars stood over the names on rows (seen in game 2026-09-29), then down most of a 100 by 92 tile left of its
-# icon (2026-09-30). So each slot is the stock book's, the icon this far in all round: stretched to 44px, the bars (see
-# HARMFUL_BARS) cover x 6 to 10.8 and y 4.4 to 39.6, inside the icon by more than a pixel of filtering, and clear of its
-# bottom row, which six cells of spells01 leave see-through. A bigger slot lets red out (48 with the icon at 4 puts it
-# on the row above the icon and on that bottom row), so only the icon and the ring round it take a click, and the name
-# under it takes none. Panel-colored patches over the bars would show at any Alpha under 255.
+# The client paints a spell's slot Blue- or RedIconBackground, the Effects window's art, stretched to the slot's size:
+# red bars once stood over the names on rows (seen in game 2026-09-29), then down most of a 100 by 92 tile left of its
+# icon (2026-09-30). So each slot is the stock book's, the icon this far in all round: stretched to 44px, the harmful
+# bar at the row's end (see HARMFUL_BAR_X) becomes a 1px red line right of the icon, x 43, y 4.4 to 39.6. The client
+# cycles the slot of the spell you right-click to move through no art, red and blue every frame (eqgame.exe 0x435434),
+# so that spell's line flickers. Only the icon and the ring round it take a click, and the name under it takes none.
 BOOK_SLOT_MARGIN = 2
 BOOK_SLOT = BOOK_ICON + 2 * BOOK_SLOT_MARGIN
 # Each spell's frame, a line on the page just outside its slot, so an empty spot shows where a spell goes.
@@ -1695,11 +1698,11 @@ AA_COLUMN_WIDTH = 3 * HOT_SIZE + 2 * BUTTON_GAP
 AA_RIGHT = AA_COLUMN_X + AA_COLUMN_WIDTH
 AA_WIDTH = AA_RIGHT + LEFT + 2 * BORDER
 AA_HEIGHT = 2 * BORDER + AA_BOTTOM + BOTTOM_GAP
-# The column's sections, in the user's order, each set apart by the row divider across the column like the inventory's
-# stats (a padding under what's above, a padding over the next ink): your points spent and available, stacked on their
+# The column's sections, in the user's order, each set apart by the inventory's row divider across the column with
+# AA_DIVIDER_GAP under what's above and over the next ink: your points spent and available, stacked on their
 # line height, the first line at the inside's top like the inventory's stats (its ink 7.5px under the edge); how much of
 # your XP goes to AA, a caption over the client's % between - and + (the social page arrows' size, the digits' ink
-# centered on them); and the selected ability's reuse timer, the client's Timer, on the line under its caption. They
+# centered on them); and the selected ability's reuse timer, the client's Timer, on one line like the counts. They
 # asked for the points earned on top too, but the client gives only the unspent and spent counts, no label EQType has
 # either, and a skin can't add them. No AA XP line: the inventory shows it (the user's pick), and the stock ExpGauge
 # stays, hidden.
@@ -1707,12 +1710,18 @@ AA_NUMBERS_TOP = 0
 # (caption's ScreenID, caption, value's ScreenID), each value in the game's green ending at the column's right: the
 # stock captions' ScreenIDs, which nothing looks up.
 AA_NUMBERS = (('TotalLabel', 'Spent', 'TotalCount'), ('CurrentLabel', 'Available', 'CurrentCount'))
-AA_POINTS_DIVIDER_TOP = AA_NUMBERS_TOP + (len(AA_NUMBERS) - 1) * TEXT_HEIGHT + INV_DIGITS_BOTTOM + PADDING
-AA_SPLIT_TOP = AA_POINTS_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME
+# Three paddings either side of each divider (the user's pick), more than the inventory's one, to set the sections apart.
+AA_DIVIDER_GAP = 3 * PADDING
+AA_DIVIDER_TO_NAME = math.ceil(AA_DIVIDER_GAP - TEXT_INK_TOP)  # as DIVIDER_TO_NAME, for the wider gap
+AA_POINTS_DIVIDER_TOP = AA_NUMBERS_TOP + (len(AA_NUMBERS) - 1) * TEXT_HEIGHT + INV_DIGITS_BOTTOM + AA_DIVIDER_GAP
+AA_SPLIT_TOP = AA_POINTS_DIVIDER_TOP + DIVIDER_HEIGHT + AA_DIVIDER_TO_NAME
 AA_SPLIT_ROW_TOP = AA_SPLIT_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
-AA_SPLIT_DIVIDER_TOP = AA_SPLIT_ROW_TOP + ARROW_SIZE + PADDING
-AA_TIMER_TOP = AA_SPLIT_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME  # the caption's; the timer's is a line under it
-AA_TIMER_CAPTION = 'Ability ready in:'
+AA_SPLIT_DIVIDER_TOP = AA_SPLIT_ROW_TOP + ARROW_SIZE + AA_DIVIDER_GAP
+AA_TIMER_TOP = AA_SPLIT_DIVIDER_TOP + DIVIDER_HEIGHT + AA_DIVIDER_TO_NAME
+# The client writes the time left ("%02d:%02d:%02d") while the ability is cooling down and "Ready" otherwise, so the
+# caption reads with either (the user's pick; "Ability ready in:" over "Ready" read badly).
+AA_TIMER_CAPTION = 'Reuse'
+AA_TIMER_WIDTH = 48  # "00:00:00" in font 3 (Arial 12px); "Ready" is 36
 # The dividers are the inventory's column's art, the column being as wide.
 AA_COLUMN_DIVIDERS = (('TUI_AAW_PointsDivider', AA_POINTS_DIVIDER_TOP), ('TUI_AAW_SplitDivider', AA_SPLIT_DIVIDER_TOP))
 AA_VALUE_WIDTH = 28  # "0000" in font 3 (Arial 12px), more than any count reaches
@@ -2536,6 +2545,17 @@ def bevel(paint, rim, width=1.0, strength=0.5):
         color = paint(u, v, d)
         return (*mix(color[:3], rim, strength * (1 - clamp(-d / width))), color[3])
     return shaded
+
+
+def speckled(paint, grain=0.6):
+    """paint with a stone's grain: patches grain units across, about one in five a step lighter and one in five a step
+    darker, by an integer hash of the patch, so every build and platform draws the same."""
+    def grained(u, v, d):
+        color = paint(u, v, d)
+        h = ((math.floor(u / grain) * 73856093) ^ (math.floor(v / grain) * 19349663)) % 100
+        k = STEP if h >= 80 else -STEP if h < 20 else 0
+        return (*(min(max(c + k, 0), 255) for c in color[:3]), color[3])
+    return grained
 
 
 _REMEMBERED = {}
@@ -3547,14 +3567,16 @@ def null_aura_picture():
 
 
 def rune_picture():
-    # 77: a dark round stone with a rune like an elk's antlers on a stave carved into it, glowing faintly. A letter
-    # R read as the alphabet, not a rune.
-    stone = lambda u, v: tilted_ellipse(u, v, 8, 8.2, 6.6, 5.4, -18)  # noqa: E731
-    mark = union(lambda u, v: capsule(u, v, (8, 4.2), (8, 12.4), 0.5), lambda u, v: capsule(u, v, (8, 8.0), (5.0, 4.6), 0.45),
-                 lambda u, v: capsule(u, v, (8, 8.0), (11.0, 4.6), 0.45))
-    return [glow(stone, flat((150, 200, 255, 100)), 2.4), outline(stone),
-            fill(stone, bevel(radial((6, 5.6), 8, [(0, STONE[0]), (1, STONE[1])]), STONE[2], 1.4, 0.6)),
-            fill(inside(stone, lambda u, v: mark(u, v) - 0.25), flat((140, 200, 255, 150))), fill(inside(stone, mark), flat((16, 18, 26)))]
+    # 77: a dark speckled stone with the protection rune (a stem with two arms rising from its middle) shining ice blue
+    # in a soft glow, the user's pick from samples: it reads at 24 and 16px. A small dark mark carved into a plain stone
+    # was lost at those sizes, and so was one cut deep with a light lip; a letter R read as the alphabet, not a rune.
+    stone = lambda u, v: tilted_ellipse(u, v, 8, 8.2, 7.0, 6.2, -18)  # noqa: E731
+    mark = union(lambda u, v: capsule(u, v, (8, 3.6), (8, 12.8), 0.8), lambda u, v: capsule(u, v, (8, 8.0), (4.6, 4.0), 0.8),
+                 lambda u, v: capsule(u, v, (8, 8.0), (11.4, 4.0), 0.8))
+    lit, mid, rim = STONE
+    return [glow(stone, flat((150, 200, 255, 110)), 2.2), outline(stone),
+            fill(stone, speckled(bevel(radial((5.6, 5.2), 9, [(0, lit), (1, mid)]), rim, 1.6, 0.65))),
+            glow(inside(stone, mark), flat((120, 190, 255, 200)), 2.0), fill(inside(stone, mark), flat((225, 245, 255)))]
 
 
 def manaskin_picture():
@@ -4648,13 +4670,11 @@ def book_slot_art(state):
 
 
 def harmful_row():
-    """A harmful effect's row: clear like a helpful one, with a red bar on each side of the icon (see
-    HARMFUL_RGBA)."""
+    """A harmful effect's row: clear like a helpful one, with the red bar at its end (see HARMFUL_BAR_X)."""
     row = Texture(SLOT_WIDTH, ROW_HEIGHT, CLEAR)
-    for bar_x in HARMFUL_BARS:
-        left = bar_x - SLOT_X  # within the slot
-        for y in range(ROW_ICON_MARGIN, ROW_ICON_MARGIN + ROW_ICON):
-            row.rows[y][left:left + HARMFUL_BAR_WIDTH] = [HARMFUL_RGBA] * HARMFUL_BAR_WIDTH
+    left = HARMFUL_BAR_X - SLOT_X  # within the slot
+    for y in range(ROW_ICON_MARGIN, ROW_ICON_MARGIN + ROW_ICON):
+        row.rows[y][left:left + HARMFUL_BAR_WIDTH] = [HARMFUL_RGBA] * HARMFUL_BAR_WIDTH
     return row
 
 
@@ -5090,8 +5110,8 @@ def shared_definitions(rects, book_rects):
         # inside the clip.
         animation('TUI_PercentSign', PERCENT_TEXTURE, (0, 0, SHOWN_REACH, PERCENT_GLYPH_HEIGHT)),
         # The stock slot backgrounds the client paints by name, stretched to each slot, redefined (see
-        # REPLACED_ANIMATIONS): clear rows an effect slot's size, a harmful one with its red bars (see HELPFUL_RGBA and
-        # HARMFUL_RGBA).
+        # REPLACED_ANIMATIONS): clear rows an effect slot's size, a harmful one with its red bar (see HELPFUL_RGBA and
+        # HARMFUL_BAR_X).
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
         # The spellbook slot's art, which the client names itself (default's is a dark 48px square; poweroftwo's, at its
@@ -5742,8 +5762,8 @@ def picture(name, animation_name, rect, screen_id=None):
 
 def effects_table(item, title, slots, first_name_type, prefix):
     """A table of effect slots, one row each: the client's slot button (ScreenID BuffN) across the row,
-    inset (see SLOT_WIDTH), Zeal's time left at its start, then the spell's icon, with a red bar each side of
-    a harmful one, and the spell's name (label first_name_type + N), rows ROW_PITCH apart with a divider
+    inset (see SLOT_WIDTH), Zeal's time left at its start, then the spell's icon and the spell's name (label
+    first_name_type + N), and a harmful one's red bar at the end, rows ROW_PITCH apart with a divider
     between, in a window
     EFFECTS_WIDTH wide. The client looks up CLIENT_SLOTS buttons whatever the window shows, so the slots
     beyond are hidden."""
@@ -5767,7 +5787,7 @@ def effects_table(item, title, slots, first_name_type, prefix):
             node('DecalSize', [node('CX', ROW_ICON), node('CY', ROW_ICON)]),
         ], f'{prefix}_Buff{n}_Button'))
         names.append(label(f'{prefix}_Buff{n}_Name', first_name_type + n,
-                           (ROW_NAME_X, top + (ROW_HEIGHT - TEXT_HEIGHT) // 2, EFFECTS_RIGHT - ROW_NAME_X,
+                           (ROW_NAME_X, top + (ROW_HEIGHT - TEXT_HEIGHT) // 2, ROW_NAME_WIDTH,
                             TEXT_HEIGHT),
                            '', screen_id=f'Buff{n}Label'))
     hidden = [hidden_button(f'{prefix}_Buff{n}_Button', f'Buff{n}') for n in range(slots, CLIENT_SLOTS)]
@@ -6387,8 +6407,9 @@ def spellbook_window():
                                                           BOOK_PAGES_HEIGHT))]  # the frames drawn on them
     frames = book_frames()
     # Each slot inside its frame, the icon and the ring round it (see BOOK_SLOT_MARGIN): the client puts the spell's
-    # icon in the decal and may paint the slot BlueIconBackground or A_SpellBookSlot, both clear, or RedIconBackground,
-    # its bars stretched under the icon. Hovered or pressed, the ring lights (see book_slot_art()).
+    # icon in the decal and paints the slot A_SpellBookSlot or BlueIconBackground, both clear, or RedIconBackground, its
+    # bar stretched to a thin line right of the icon (see BOOK_SLOT_MARGIN). Hovered or pressed, the ring lights (see
+    # book_slot_art()).
     lit = {'Pressed': 'TUI_BookSlotPressed', 'Flyby': 'TUI_BookSlotFlyby', 'PressedFlyby': 'TUI_BookSlotPressed'}
     parts += [node('Button', [
         node('ScreenID', f'SBW_Spell{n}'),
@@ -6618,7 +6639,7 @@ def aa_window():
         ]
     parts += [
         hidden_gauge('TUI_AAW_ExpGauge', 'ExpGauge', 5),
-        label('TUI_AAW_PercentLabel', None, (x, AA_SPLIT_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), 'XP to AA',
+        label('TUI_AAW_PercentLabel', None, (x, AA_SPLIT_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), 'XP to AA allocation',
               screen_id='PercentLabel'),
         icon_button('TUI_AAW_LessExpButton', 'LessExpButton', x, AA_SPLIT_ROW_TOP, None, 'Minus', ARROW_SIZE),
         static_text('TUI_AAW_ExpCount', 'ExpCount',
@@ -6626,8 +6647,9 @@ def aa_window():
                      AA_COLUMN_WIDTH - 2 * (ARROW_SIZE + PADDING), TEXT_HEIGHT), align_center=True, rgb=VALUE_RGB),
         icon_button('TUI_AAW_MoreExpButton', 'MoreExpButton', right - ARROW_SIZE, AA_SPLIT_ROW_TOP, None, 'Plus',
                     ARROW_SIZE),
-        label('TUI_AAW_TimerLabel', None, (x, AA_TIMER_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), AA_TIMER_CAPTION),
-        label('TUI_AAW_Timer', None, (x, AA_TIMER_TOP + TEXT_HEIGHT, AA_COLUMN_WIDTH, TEXT_HEIGHT), '',
+        label('TUI_AAW_TimerLabel', None, (x, AA_TIMER_TOP, AA_COLUMN_WIDTH - AA_TIMER_WIDTH, TEXT_HEIGHT),
+              AA_TIMER_CAPTION),
+        label('TUI_AAW_Timer', None, (right - AA_TIMER_WIDTH, AA_TIMER_TOP, AA_TIMER_WIDTH, TEXT_HEIGHT), '',
               align_right=True, screen_id='Timer', rgb=VALUE_RGB),
     ]
     parts += [button(f'TUI_AAW_{screen_id}', screen_id, '', x, AA_BUTTONS_TOP + n * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP),

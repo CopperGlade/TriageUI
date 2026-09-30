@@ -1638,21 +1638,22 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         # The decal offset is within the slot; the icon's place in the window stays ROW_ICON_X.
         assert (x + number(b, 'DecalOffset/X'), number(b, 'DecalOffset/Y')) == (skin.ROW_ICON_X, skin.ROW_ICON_MARGIN)
         # A column for Zeal's time box from the slot's left (the user's calls: at 18 and then 23 the box
-        # covered some icons; 30 keeps 2px from the harmful bar), then the icon a bar's width in, 41px from
-        # the window's edge.
-        assert number(b, 'DecalOffset/X') == skin.TIMER_WIDTH + skin.HARMFUL_BAR_WIDTH == 34
-        assert skin.TIMER_WIDTH == 30
-        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + 1 + skin.TIMER_WIDTH + skin.HARMFUL_BAR_WIDTH == 41
+        # covered some icons), then the icon 4px in, where a harmful bar stood, so the widest box (28) ends a
+        # padding before it, 41px from the window's edge.
+        assert number(b, 'DecalOffset/X') == skin.TIMER_WIDTH + skin.TIMER_CLEARANCE == 34
+        assert skin.TIMER_WIDTH == 30 and skin.TIMER_CLEARANCE == 4 and 28 + skin.PADDING == 34
+        assert skin.BORDER + skin.ROW_ICON_X == skin.PADDING + 1 + skin.TIMER_WIDTH + skin.TIMER_CLEARANCE == 41
         assert (number(b, 'DecalSize/CX'), number(b, 'DecalSize/CY')) == (skin.ROW_ICON, skin.ROW_ICON)
         assert skin.BORDER + skin.ROW_ICON_MARGIN == skin.PADDING
-        # The name a padding after the right harmful bar's place, which touches the icon (the user's
-        # design), centered in the row, ending a padding from the edge.
+        # The name a padding after the icon, centered in the row, ending a padding before the harmful bar's place,
+        # which ends a padding from the window's edge (the user's pick).
         label = names[f'Buff{n}Label']
         lx, ly, lw, lh = box(label)
         assert label.findtext('EQType') == str(first_type + n) and not label.findtext('Text')
-        assert lx == skin.ROW_NAME_X == skin.ROW_ICON_X + skin.ROW_ICON + skin.HARMFUL_BAR_WIDTH + skin.PADDING
-        assert lx + lw == skin.EFFECTS_RIGHT
-        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 159
+        assert lx == skin.ROW_NAME_X == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING
+        assert skin.HARMFUL_BAR_X - (lx + lw) == skin.PADDING
+        assert skin.HARMFUL_BAR_X + skin.HARMFUL_BAR_WIDTH == skin.EFFECTS_RIGHT
+        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 151
         assert ly - y == (skin.ROW_HEIGHT - lh) // 2
     # A divider in each pixel between rows, as long as the slots, softer than the bars' track (the user).
     dividers = [box(e) for e in root.iter('StaticAnimation')]
@@ -3548,10 +3549,10 @@ def book_tile(n):
             skin.BOOK_PAGES_TOP + skin.PADDING + row * skin.BOOK_ROW_HEIGHT)
 
 
-def stretched_reach(art, width, height):
-    """Where art's opaque pixels can land when the client stretches it to width x height: their box scaled, and a pixel
-    more on every side for the filtering, as (left, top, right, bottom), right and bottom exclusive."""
-    marked = [(x, y) for x in range(art.width) for y in range(art.height) if art.getpixel((x, y))[3]]
+def stretched_reach(art, width, height, rows):
+    """Where art's opaque pixels in rows can land when the client stretches it to width x height: their box scaled, and
+    a pixel more on every side for the filtering, as (left, top, right, bottom), right and bottom exclusive."""
+    marked = [(x, y) for x in range(art.width) for y in rows if art.getpixel((x, y))[3]]
     across, down = width / art.width, height / art.height
     return (math.floor(min(x for x, _ in marked) * across) - 1, math.floor(min(y for _, y in marked) * down) - 1,
             math.ceil((max(x for x, _ in marked) + 1) * across) + 1,
@@ -3559,9 +3560,10 @@ def stretched_reach(art, width, height):
 
 
 def harmful_reach(slot_size):
-    """Where RedIconBackground's red can land, stretched to a slot of slot_size (see stretched_reach)."""
+    """Where RedIconBackground's bar can land, stretched to a slot of slot_size (see stretched_reach)."""
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
-    return stretched_reach(cut(decode(files()[skin.PIECES_TEXTURE]), anims['RedIconBackground']), *slot_size)
+    red = cut(decode(files()[skin.PIECES_TEXTURE]), anims['RedIconBackground'])
+    return stretched_reach(red, *slot_size, range(red.height))
 
 
 def item_icon_button():
@@ -3862,44 +3864,43 @@ def test_spellbook_ring_lights_round_the_icon_under_the_pointer():
         assert art.getpixel((0, 0))[3] < 255  # a rounded corner
 
 
-def test_spellbook_and_item_window_hide_the_harmful_bars_under_the_icon():
+def test_spellbook_shows_the_harmful_bar_as_a_thin_line_right_of_the_icon():
     # The client paints a detrimental spell's slot RedIconBackground, the Effects window's art, stretched to the slot:
-    # in game, its bars stood left of the icon down most of a 100 by 92 tile. Wherever the stretched bars can land, a
-    # pixel of filtering round them included, lies inside the icon: in the spell book, the stock book's slot, 44px with
-    # the icon 2px in (48 with the icon at 4 lets red onto the row above the icon), and in the item window, whose icon
-    # button is the icon's size. Every book slot lies wholly inside the window's inside, where the client hit-tests it
-    # (see SLOT_WIDTH).
+    # in game, its bars once stood left of the icon down most of a 100 by 92 tile. In the stock book's slot, 44px with
+    # the icon 2px in, the bar at the row's end lands right of the icon, down beside it, at most a pixel of filtering
+    # on the icon's soft outermost column, so the client's flicker of the spell picked up to move shows there. Every
+    # book slot lies wholly inside the window's inside, where the client hit-tests it (see SLOT_WIDTH).
     _, window, found = spellbook_parts()
     inside = (box(window)[2] - 2 * skin.BORDER, box(window)[3] - 2 * skin.BORDER)
     reach = harmful_reach((skin.BOOK_SLOT, skin.BOOK_SLOT))
-    assert reach == (5, 3, 12, 41)
+    assert reach == (41, 3, 45, 41)
     for n in range(skin.BOOK_SPELLS):
         slot = found[f'SBW_Spell{n}']
         x, y, width, height = box(slot)
         assert 0 <= x and x + width <= inside[0] and 0 <= y and y + height <= inside[1]
         left, top = number(slot, 'DecalOffset/X'), number(slot, 'DecalOffset/Y')
         right, bottom = left + number(slot, 'DecalSize/CX'), top + number(slot, 'DecalSize/CY')
-        assert left <= reach[0] and top <= reach[1] and reach[2] <= right and reach[3] <= bottom, n
-    assert harmful_reach((48, 48))[1] < 4  # the slot tried bigger, with the icon at 4
+        assert (left, top) == (skin.BOOK_SLOT_MARGIN,) * 2 and (right, bottom) == (width - left, height - top)
+        assert reach[0] >= right - 1 and reach[2] > right and top <= reach[1] and reach[3] <= bottom, n
+
+
+def test_item_window_hides_the_harmful_bar_under_its_spell_icon():
+    # The item window's icon button is the icon's size, so the stretched bar lands under the icon, down its right side.
     button, button_size = item_icon_button()
     assert button_size == (skin.ITEM_ICON, skin.ITEM_ICON)
     assert (number(button, 'DecalOffset/X'), number(button, 'DecalOffset/Y')) == (0, 0)
     assert (number(button, 'DecalSize/CX'), number(button, 'DecalSize/CY')) == button_size
-    item_reach = harmful_reach(button_size)
-    assert item_reach == (4, 3, 11, 37) and min(item_reach) >= 0 and max(item_reach) <= skin.ITEM_ICON
+    assert harmful_reach(button_size) == (37, 3, 41, 37)
 
 
-def test_spell_icons_are_opaque_under_the_harmful_bars():
-    # The book's and item window's icons are A_SpellIcons cells (40px, ours) drawn at their own size. Wherever the
-    # stretched red bars can land under one (see harmful_reach), every cell is opaque, so no red shows through: only
-    # a tile's rounded corners are see-through, clear of them.
-    cell = skin.BOOK_ICON
-    assert skin.ITEM_ICON == cell == 40
-    margin = skin.BOOK_SLOT_MARGIN
-    left, top, right, bottom = harmful_reach((skin.BOOK_SLOT, skin.BOOK_SLOT))
-    regions = [(range(left - margin, right - margin), range(top - margin, bottom - margin)),  # in the icon's pixels
-               (lambda r: (range(r[0], r[2]), range(r[1], r[3])))(harmful_reach(item_icon_button()[1]))]
-    assert regions[0] == (range(3, 10), range(1, 39)) and regions[1] == (range(4, 11), range(3, 37))
+def test_spell_icons_are_opaque_under_the_item_windows_harmful_bar():
+    # The item window's icon is an A_SpellIcons cell (40px, ours) drawn at its own size. Wherever the stretched bar can
+    # land under it (see harmful_reach), every cell is opaque but for the tile's soft outermost pixels, so the bar at
+    # most tints the icon's edge: only a tile's rounded corners are see-through, clear of it.
+    cell = skin.ITEM_ICON
+    assert skin.BOOK_ICON == cell == 40
+    left, top, right, bottom = harmful_reach(item_icon_button()[1])
+    regions = [(range(max(left, 1), min(right, cell - 1)), range(max(top, 1), min(bottom, cell - 1)))]
     for n in range(skin.SPELL_ICON_CELLS):
         alpha = spell_icon(n).getchannel('A')
         for columns, rows in regions:
@@ -4027,38 +4028,45 @@ def test_a_spell_picture_is_painted_over_its_tile():
             assert changed > size * size // 6, (cell, size)
 
 
-def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
+def test_a_speckled_paint_is_a_step_lighter_or_darker_in_patches():
+    # A stone's grain (the rune's stone): each patch keeps the paint, or moves it a step (STEP) lighter or darker, by
+    # an integer hash, the same every time; the alpha stays.
+    paint = skin.speckled(skin.flat((100, 102, 119, 200)), grain=0.5)
+    patches = [paint(u / 2 + 0.25, v / 2 + 0.25, 0) for u in range(32) for v in range(32)]
+    shifts = {p[0] - 100 for p in patches}
+    assert shifts == {-skin.STEP, 0, skin.STEP}
+    assert all(p[1] - 102 == p[2] - 119 == p[0] - 100 and p[3] == 200 for p in patches)
+    assert patches == [paint(u / 2 + 0.25, v / 2 + 0.25, 0) for u in range(32) for v in range(32)]
+    assert paint(0.1, 0.1, 0) == paint(0.4, 0.4, 0)  # one patch, one color
+
+
+def test_slot_backgrounds_are_clear_with_a_red_bar_at_a_harmful_rows_end():
     # The client paints helpful effects with BlueIconBackground and harmful ones with RedIconBackground,
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (the client stretches
     # them to each slot), replacing the base's own. Clear, so the row is the panel at the window's own alpha (solid
-    # rows in the panel's color showed as darker stripes at Alpha 205 in game), and a harmful effect's has
-    # a solid red bar 4px wide on each side of the icon, touching it, as tall as the icon (the user's
-    # design, after a faint red across the row, a red square behind the icon, which left a ring too faint to
-    # see, and a single 5px bar between the icon and the name).
+    # rows in the panel's color showed as darker stripes at Alpha 205 in game), with no line along the top and bottom
+    # (soft blue and red ones were ugly). A harmful effect's has a solid red bar 6px wide at the row's end, as tall as
+    # the icon and level with it (the user's pick, after a faint red across the row, a red square behind the icon,
+    # which left a ring too faint to see, a single 5px bar between the icon and the name, a 4px bar each side of the
+    # icon, and this bar 4px wide).
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
     atlas = decode(files()[skin.PIECES_TEXTURE])
     blue = cut(atlas, anims['BlueIconBackground'])
-    assert blue.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
-    assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.CLEAR} and skin.CLEAR[3] == 0
     red = cut(atlas, anims['RedIconBackground'])
-    assert red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
+    assert blue.size == red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
+    assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.CLEAR} and skin.CLEAR[3] == 0
     assert skin.snapped(skin.HARMFUL_RGBA) == skin.HARMFUL_RGBA and skin.HARMFUL_RGBA[3] == 255
-    assert skin.HARMFUL_BAR_WIDTH == 4
-    # Within the slot, which the client puts at SLOT_X: level with the icon, one bar right after Zeal's time
-    # column and ending where the icon starts, the other starting where the icon ends, a padding before the
-    # name.
-    icon_x = skin.ROW_ICON_X - skin.SLOT_X
-    left, right = (x - skin.SLOT_X for x in skin.HARMFUL_BARS)
-    assert left == skin.TIMER_WIDTH and left + skin.HARMFUL_BAR_WIDTH == icon_x
-    assert right == icon_x + skin.ROW_ICON
-    assert skin.ROW_NAME_X - (skin.SLOT_X + right + skin.HARMFUL_BAR_WIDTH) == skin.PADDING
+    assert skin.HARMFUL_BAR_WIDTH == 6
+    # Within the slot, which the client puts at SLOT_X: the bar ending a padding from the window's edge.
+    bar = skin.HARMFUL_BAR_X - skin.SLOT_X
+    assert skin.BORDER + skin.HARMFUL_BAR_X + skin.HARMFUL_BAR_WIDTH == skin.EFFECTS_WIDTH - skin.PADDING
     for x in range(skin.SLOT_WIDTH):
         for y in range(skin.ROW_HEIGHT):
-            inside = (any(bar <= x < bar + skin.HARMFUL_BAR_WIDTH for bar in (left, right))
+            on_bar = (bar <= x < bar + skin.HARMFUL_BAR_WIDTH
                       and skin.ROW_ICON_MARGIN <= y < skin.ROW_ICON_MARGIN + skin.ROW_ICON)
-            assert red.getpixel((x, y)) == (skin.HARMFUL_RGBA if inside else skin.CLEAR), (x, y)
+            assert red.getpixel((x, y)) == (skin.HARMFUL_RGBA if on_bar else skin.CLEAR), (x, y)
     # Only the redefined ones: every other stock definition stays.
     base = BASE_ANIMATIONS.replace('BlueIconBackground', 'SomethingElse')
     assert skin.with_definitions(base, []).count('SomethingElse') == 1
@@ -4815,24 +4823,25 @@ def test_aa_column_has_your_points_the_split_the_reuse_timer_and_the_buttons():
         assert box(value) == (skin.AA_RIGHT - skin.AA_VALUE_WIDTH, top, skin.AA_VALUE_WIDTH, skin.TEXT_HEIGHT)
         assert value.findtext('AlignRight') == 'true' and rgb(value, 'TextColor') == skin.VALUE_RGB
     assert not [e for e in root.iter('Label') if e.findtext('Text') == 'Points']
-    # Each section set apart by the inventory column's divider across the column, a padding under the counts' digits
-    # and under the - and + row's outline, and a padding over the next caption's ink, like the inventory's stats.
+    # Each section set apart by the inventory column's divider across the column, three paddings (the user's pick)
+    # under the counts' digits and under the - and + row's outline, and three over the next caption's ink.
     digits = skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
     row = skin.AA_SPLIT_ROW_TOP
     assert skin.AA_COLUMN_WIDTH == skin.INV_COLUMN_WIDTH
+    assert skin.AA_DIVIDER_GAP == 3 * skin.PADDING
     assert [name for name, _ in skin.AA_COLUMN_DIVIDERS] == ['TUI_AAW_PointsDivider', 'TUI_AAW_SplitDivider']
     for (name, line_top), above, below in zip(skin.AA_COLUMN_DIVIDERS, (top + digits, row + skin.ARROW_SIZE),
                                               (skin.AA_SPLIT_TOP, skin.AA_TIMER_TOP)):
         line = found[name]
         assert line.tag == 'StaticAnimation' and line.findtext('Animation') == 'TUI_InvDivider'
         assert box(line) == (x, line_top, skin.AA_COLUMN_WIDTH, skin.DIVIDER_HEIGHT)
-        assert line_top - above == skin.PADDING
-        assert 0 <= below + skin.TEXT_INK_TOP - (line_top + skin.DIVIDER_HEIGHT) - skin.PADDING < 1
+        assert line_top - above == skin.AA_DIVIDER_GAP
+        assert 0 <= below + skin.TEXT_INK_TOP - (line_top + skin.DIVIDER_HEIGHT) - skin.AA_DIVIDER_GAP < 1
     # How much of your XP goes to AA: a padding under the caption's ink the row of - and + at the column's ends, the
     # social page arrows' size, with the client's % between them a padding from each, its digits' ink centered on them,
     # in the game's green.
     split = found['PercentLabel']
-    assert split.findtext('Text') == 'XP to AA' and box(split)[:2] == (x, skin.AA_SPLIT_TOP)
+    assert split.findtext('Text') == 'XP to AA allocation' and box(split)[:2] == (x, skin.AA_SPLIT_TOP)
     assert row - (skin.AA_SPLIT_TOP + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT) == skin.PADDING
     less, more, count = found['LessExpButton'], found['MoreExpButton'], found['ExpCount']
     size = (skin.ARROW_SIZE, skin.ARROW_SIZE)
@@ -4845,16 +4854,20 @@ def test_aa_column_has_your_points_the_split_the_reuse_timer_and_the_buttons():
     assert cx - (x + skin.ARROW_SIZE) == skin.PADDING and box(more)[0] - (cx + cw) == skin.PADDING
     assert count.findtext('AlignCenter') == 'true' and rgb(count, 'TextColor') == skin.VALUE_RGB
     assert cy - row + skin.DIGITS_INK_MIDDLE == skin.ARROW_SIZE / 2 and ch == skin.TEXT_HEIGHT
-    # The selected ability's reuse timer (the user's call: it matters) on the line under its caption, stacked on their
-    # line height: the client's Timer, a label as in the stock window, right-aligned across the column in the game's
-    # green like the counts.
+    # The selected ability's reuse timer (the user's call: it matters) on one line like the counts: the caption, then
+    # the client's Timer, a label as in the stock window, right-aligned at the column's right in the game's green. The
+    # client writes the time left or "Ready", so the caption reads with either (the user's pick).
     caption, timer = found['TUI_AAW_TimerLabel'], found['Timer']
-    assert skin.AA_TIMER_CAPTION == 'Ability ready in:' and caption.findtext('Text') == skin.AA_TIMER_CAPTION
-    assert caption.find('ScreenID') is None and box(caption) == (x, skin.AA_TIMER_TOP, skin.AA_COLUMN_WIDTH,
-                                                                  skin.TEXT_HEIGHT)
+    assert skin.AA_TIMER_CAPTION == 'Reuse' and caption.findtext('Text') == skin.AA_TIMER_CAPTION
+    assert caption.find('ScreenID') is None and box(caption)[:2] == (x, skin.AA_TIMER_TOP)
     assert timer.tag == 'Label' and timer.find('EQType') is None and timer.findtext('Text') == ''
-    assert box(timer) == (x, skin.AA_TIMER_TOP + skin.TEXT_HEIGHT, skin.AA_COLUMN_WIDTH, skin.TEXT_HEIGHT)
+    assert box(timer) == (skin.AA_RIGHT - skin.AA_TIMER_WIDTH, skin.AA_TIMER_TOP, skin.AA_TIMER_WIDTH,
+                          skin.TEXT_HEIGHT)
+    assert box(caption)[0] + box(caption)[2] == box(timer)[0] and box(caption)[3] == skin.TEXT_HEIGHT
     assert timer.findtext('AlignRight') == 'true' and rgb(timer, 'TextColor') == skin.VALUE_RGB
+    preview = preview_module()
+    assert preview.text_mask('00:00:00', skin.TEXT_FONT).getbbox()[2] <= skin.AA_TIMER_WIDTH
+    assert preview.text_mask(skin.AA_TIMER_CAPTION, skin.TEXT_FONT).getbbox()[2] + skin.PADDING <= box(caption)[2]
     # Train, Hotkey and Done down the column's foot a padding apart, Done's bottom level with the description's and the
     # window's edge a padding under it: the confirmation dialog's kind, with no tooltips (the stock ones have none).
     boxes = []
@@ -4866,7 +4879,7 @@ def test_aa_column_has_your_points_the_split_the_reuse_timer_and_the_buttons():
     description = box(found['Description'])
     assert boxes[-1][1] + boxes[-1][3] == description[1] + description[3] == skin.AA_BOTTOM
     assert box(window)[3] - (b + skin.AA_BOTTOM) == skin.PADDING
-    assert boxes[0][1] - (skin.AA_TIMER_TOP + skin.TEXT_HEIGHT + digits) >= skin.PADDING
+    assert boxes[0][1] - (skin.AA_TIMER_TOP + digits) >= skin.PADDING
 
 
 # The friends window
@@ -5540,7 +5553,8 @@ def test_preview_fills_in_the_skills_list(tmp_path):
 def test_preview_fills_in_the_spell_book(tmp_path):
     # Each sample spell's icon in its frame and its name in ink under it, the spots past them empty, both page numbers,
     # the memorizing bar part filled along the top, the longest name any class can scribe wrapped onto its three lines,
-    # each centered, and no red showing round the detrimental samples' icons, the client's art stretched to the slot.
+    # each centered, and the client's art stretched to the slot: a thin red line right of the detrimental samples'
+    # icons, and nothing round the others'.
     preview = preview_module()
     [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.SPELLBOOK_FILE)
     _, _, found = spellbook_parts()
@@ -5572,9 +5586,12 @@ def test_preview_fills_in_the_spell_book(tmp_path):
     assert [preview.BOOK[n][0] for n in harmful] == ['Root', 'Stun']
     ring = [(x, y) for x in range(skin.BOOK_SLOT) for y in range(skin.BOOK_SLOT)
             if not (margin <= x < margin + skin.BOOK_ICON and margin <= y < margin + skin.BOOK_ICON)]
-    for n in harmful:  # no red round the icon, where the stretched bars would show past it
+    for n in range(spells):  # red round the icon only right of a detrimental one's, down its middle
         slot = region(f'SBW_Spell{n}')
-        assert not [p for p in (slot.getpixel(xy) for xy in ring) if p[0] > 150 and p[1] < 100], n
+        red = {xy for xy in ring if (lambda p: p[0] > 150 and p[1] < 100)(slot.getpixel(xy))}
+        assert (red and all(x > margin + skin.BOOK_ICON for x, _ in red)) if n in harmful else not red, n
+        if n in harmful:
+            assert (skin.BOOK_SLOT - 1, skin.BOOK_SLOT // 2) in red, n
     assert preview.BOOK_PAGES == ('12', '13')
     assert bright(region('SBW_LeftPageNum')) and bright(region('SBW_RightPageNum'))
     bar = region('SBW_Memorize_Gauge')

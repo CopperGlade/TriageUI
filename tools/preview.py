@@ -533,8 +533,12 @@ class Preview:
         effect = self.effect(screen_id, defined)
         templates = element.find('ButtonDrawTemplate')
         spell = effect is not None or self.book_cell(screen_id) is not None
-        name = 'RedIconBackground' if spell and screen_id in HARMFUL else (
-            templates.findtext(state) or templates.findtext('Normal'))
+        # The client sets a spell's slot's Normal itself, Blue- or RedIconBackground, and clears an empty effect slot's
+        # (eqgame.exe 0x409520); the other states stay the XML's.
+        empty_effect = screen_id.startswith('Buff') and screen_id[4:].isdigit()
+        normal = (('RedIconBackground' if screen_id in HARMFUL else 'BlueIconBackground') if spell
+                  else None if empty_effect else templates.findtext('Normal'))
+        name = (templates.findtext(state) if state != 'Normal' else None) or normal
         art = self.art(name or '')
         if art is not None and all(size):
             if art.size != tuple(size):  # the client stretches a button's art to the button
