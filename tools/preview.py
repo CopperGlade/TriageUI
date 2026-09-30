@@ -3,10 +3,11 @@ look before going in game.
 
     python tools/preview.py                every window
     python tools/preview.py quantity item  the windows whose file name contains one of the words
+    python tools/preview.py icons          the spell icons (spell_icons.png), --compare duxaUI beside that skin's
 
 It writes build/preview/<file>.png (--out to change), the window on a backdrop, 3x (--scale). --state draws every
-button in another state (Flyby, Pressed, Disabled). Item and spell icons come from the stock skin when an EverQuest
-folder is found (EQ_DIR, C:\\QUARM or the Mac mount), grey squares otherwise.
+button in another state (Flyby, Pressed, Disabled). Spell icons are TriageUI's own; item icons come from the stock
+skin when an EverQuest folder is found (EQ_DIR, C:\\QUARM or the Mac mount), grey squares otherwise.
 
 It draws what the XML says the way the client does: the frame, title bar and close box from the window's template,
 then each piece in order, clipped to the window's inside. A child Screen clips what it holds, anchored controls take
@@ -38,6 +39,7 @@ BASE_ANIMATIONS = '<XML ID="EQInterfaceDefinitionLanguage">\n</XML>\n'
 EQ_DIRS = [os.environ.get('EQ_DIR', ''), r'C:\QUARM', '/Volumes/[C] Windows 11/QUARM']
 DEFAULT_OUT = REPO / 'build' / 'preview'
 CACHE_FILE = 'skin-files.pickle'
+ICON_SHEET_FILE = 'spell_icons.png'
 BACKDROP = (60, 70, 60, 255)  # something like the game behind the window
 MARGIN = 12
 TITLE_RGB = (192, 192, 192)  # the window's name on its title bar (eqgame.exe's 0xFFC0C0C0; white while active)
@@ -55,17 +57,25 @@ BUFFS = ['Aegolism', 'Spirit of Wolf', 'Clarity', 'Tashanian', 'Regrowth of Dar 
 HARMFUL = {'Buff3', 'SBW_Spell5', 'SBW_Spell12'}  # the client paints these slots RedIconBackground (Root, Stun)
 SONGS = ["Selo's Accelerando", 'Chant of Battle', "Cassindra's Chorus of Clarity"]
 GEMS = ['Complete Healing', 'Divine Aura', 'Superior Healing', 'Symbol of Marzin', 'Resolution', None, 'Root', 'Gate']
-GEM_ICONS = [3, 11, 5, 21, 17, None, 30, 44]  # cells of gemicons01.tga
-# A spread of the spell book: (name, cell of spells01.tga, the 40px sheet the client draws the book from) in reading
-# order on the left page, then the right, the last slots empty. One name is the longest any class can scribe, to show
-# it fits on its lines.
-BOOK = [('Complete Healing', 0), ('Superior Healing', 10), ('Divine Aura', 21), ('Symbol of Marzin', 1),
-        ('Resolution', 26), ('Root', 30), ('Gate', 31), ('Transons Phantasmal Protection', 35),
-        ('Yaulp IV', 6), ('Word of Healing', 12), ('Spirit Armor', 16), ('Heroic Bond', 27), ('Stun', 32)]
+# Each sample spell's icon: its cell in A_SpellIcons and A_SpellGems (spells_en.txt's field 131).
+SPELL_ICONS = {
+    'Aegolism': 132, 'Spirit of Wolf': 4, 'Clarity': 21, 'Tashanian': 72, 'Regrowth of Dar Khura': 118,
+    'Blessing of Temperance': 132, 'Resist Magic': 69, 'Talisman of Tnarg': 130, "Selo's Accelerando": 4,
+    'Chant of Battle': 143, "Cassindra's Chorus of Clarity": 24, 'Complete Healing': 99, 'Divine Aura': 46,
+    'Superior Healing': 99, 'Symbol of Marzin': 150, 'Resolution': 132, 'Root': 117, 'Gate': 31,
+    'Transons Phantasmal Protection': 152, 'Yaulp IV': 6, 'Word of Healing': 99, 'Spirit Armor': 151,
+    'Heroic Bond': 132, 'Stun': 25,
+}
+GEM_ICONS = [SPELL_ICONS.get(name) for name in GEMS]
+# A spread of the spell book: (name, icon cell) in reading order on the left page, then the right, the last slots
+# empty. One name is the longest any class can scribe, to show it fits on its lines.
+BOOK = [(name, SPELL_ICONS[name]) for name in (
+    'Complete Healing', 'Superior Healing', 'Divine Aura', 'Symbol of Marzin', 'Resolution', 'Root', 'Gate',
+    'Transons Phantasmal Protection', 'Yaulp IV', 'Word of Healing', 'Spirit Armor', 'Heroic Bond', 'Stun')]
 BOOK_PAGES = ('12', '13')
 # The hot bar's item and spell spots show only on a hot button holding one: one of each here, the rest macros.
 HOT_ITEMS = {'HB_InvSlot3': 20}
-HOT_SPELLS = {'HB_SpellGem2': 11}
+HOT_SPELLS = {'HB_SpellGem2': SPELL_ICONS['Spirit of Wolf']}
 MERCHANT_ITEMS = 23  # a merchant's items fill the slots from the first
 BAG_ITEMS = 6
 GIVE_ITEMS = 2  # what you hand an NPC fills its slots from the first
@@ -306,15 +316,27 @@ class Preview:
 
     @staticmethod
     def stock_icons(eq_dir):
-        """The stock item, spell gem and spell book icon sheets, (sheet, cell size, cells per row) each, or None."""
+        """The stock item icon sheet, {'item': (sheet, cell size, cells per row)}, or None."""
         folders = [Path(eq_dir)] if eq_dir else [Path(d) for d in EQ_DIRS if d]
         for folder in folders:
-            default = folder / 'uifiles' / 'default'
-            items, spells, book = default / 'dragitem1.tga', default / 'gemicons01.tga', default / 'spells01.tga'
-            if items.is_file() and spells.is_file() and book.is_file():
-                return {'item': (Image.open(items).convert('RGBA'), 40, 6),
-                        'spell': (Image.open(spells).convert('RGBA'), 24, 10),
-                        'book': (Image.open(book).convert('RGBA'), 40, 6)}
+            items = folder / 'uifiles' / 'default' / 'dragitem1.tga'
+            if items.is_file():
+                return {'item': (Image.open(items).convert('RGBA'), 40, 6)}
+        return None
+
+    def grid_cell(self, name, cell):
+        """Cell cell of the grid animation name, as the client finds it: left to right and down each frame's texture,
+        running on from one frame to the next. None past the last."""
+        anim = self.animations.get(name)
+        width, height = number(anim, 'CellWidth'), number(anim, 'CellHeight')
+        for frame in anim.findall('Frames'):
+            across = number(frame, 'Size/CX') // width
+            count = across * (number(frame, 'Size/CY') // height)
+            if cell < count:
+                x = number(frame, 'Location/X') + cell % across * width
+                y = number(frame, 'Location/Y') + cell // across * height
+                return self.texture(frame.findtext('Texture')).crop((x, y, x + width, y + height))
+            cell -= count
         return None
 
     def font(self, size):
@@ -342,9 +364,13 @@ class Preview:
         return texture.crop((x, y, x + w, y + h))  # past the texture's edge is clear, as the % sign's fill needs
 
     def icon(self, kind, cell, size):
-        if self.icon_sheets is None or cell is None:
-            square = Image.new('RGBA', size, PLACEHOLDER_RGBA)
-            return square if cell is not None else None
+        """An item's icon ('item', from the stock sheet), or a spell's from the grid animation kind names, at size."""
+        if cell is None:
+            return None
+        if kind != 'item':
+            return self.grid_cell(kind, cell).resize(size, Image.BILINEAR)
+        if self.icon_sheets is None:
+            return Image.new('RGBA', size, PLACEHOLDER_RGBA)
         sheet, side, per_row = self.icon_sheets[kind]
         x, y = cell % per_row * side, cell // per_row * side
         return sheet.crop((x, y, x + side, y + side)).resize(size, Image.BILINEAR)
@@ -514,8 +540,9 @@ class Preview:
                 art = art.resize(tuple(size), Image.BILINEAR)
             layer.alpha_composite(art, at)
         if templates.find('NormalDecal') is not None:
-            kind = 'item' if screen_id in ITEM_DECALS else 'book' if screen_id.startswith('SBW_Spell') else 'spell'
-            cell = (7 + 9 * effect if effect is not None else 14 if screen_id in ITEM_DECALS
+            # An effect slot's and a book slot's spell are A_SpellIcons cells, scaled to the decal.
+            kind = 'item' if screen_id in ITEM_DECALS else 'A_SpellIcons'
+            cell = (SPELL_ICONS[effect] if effect is not None else 14 if screen_id in ITEM_DECALS
                     else self.book_cell(screen_id))
             icon = self.icon(kind, cell, (number(element, 'DecalSize/CX'), number(element, 'DecalSize/CY')))
             if icon is not None:
@@ -530,12 +557,12 @@ class Preview:
 
     @staticmethod
     def effect(screen_id, defined):
-        """An effect slot's number when its name label has a sample (an effect is on it), else None."""
+        """The sample effect on an effect slot (its name label's), else None."""
         if not (screen_id.startswith('Buff') and screen_id[4:].isdigit()):
             return None
         labels = [e for e in defined.values() if e.tag == 'Label' and e.findtext('ScreenID') == f'{screen_id}Label']
         eq_type = labels[0].findtext('EQType') if labels else None
-        return int(screen_id[4:]) if eq_type and LABELS.get(int(eq_type)) else None
+        return LABELS.get(int(eq_type)) if eq_type else None
 
     @staticmethod
     def book_cell(screen_id):
@@ -584,7 +611,7 @@ class Preview:
         art = self.art(element.findtext('SpellGemDrawTemplate/Holder') or '')
         if art is not None:
             layer.alpha_composite(art.crop((0, 0, *size)), at)
-        icon = self.icon('spell', cell, (24, 24))
+        icon = self.icon('A_SpellGems', cell, (skin.GEM_ICON, skin.GEM_ICON))
         if icon is not None:
             layer.alpha_composite(icon, (at[0] + number(element, 'SpellIconOffsetX'),
                                          at[1] + number(element, 'SpellIconOffsetY')))
@@ -781,6 +808,32 @@ class Preview:
             images.append(image)
         return images
 
+    def spell_icon_sheet(self, compare=None, scale=3):
+        """Every spell icon with a picture, numbered: at 40px (the book and item window), at 24px (the gems) and at 16
+        (the 40 scaled, as in the Effects rows), after compare's own cell when given (a skin's folder, read for its
+        pictures' ideas). Then each tile once, plain, as the cells with no picture yet show it."""
+        tiles = [(tile, next((c for c in cells if c not in skin.SPELL_PICTURES), None))
+                 for tile, cells in skin.SPELL_TILE_CELLS.items()]
+        entries = [(str(cell), cell) for cell in sorted(skin.SPELL_PICTURES)] + [(t, c) for t, c in tiles if c is not None]
+        sizes = [skin.BOOK_ICON, skin.GEM_ICON, skin.ROW_ICON]
+        block = (skin.BOOK_ICON if compare else 0) + sum(sizes) + MARGIN * (len(sizes) + (1 if compare else 0))
+        columns, row = 6, skin.BOOK_ICON + 2 * MARGIN
+        rows = -(-len(entries) // columns)
+        sheet = Image.new('RGBA', (columns * block + MARGIN, rows * row + MARGIN), skin.PANEL_RGBA)
+        draw = ImageDraw.Draw(sheet)
+        for n, (label, cell) in enumerate(entries):
+            x, y = MARGIN + n % columns * block, MARGIN + n // columns * row
+            draw.text((x, y - MARGIN + 1), label, font=self.font(1), fill=(*skin.TEXT_RGB, 255))
+            big = self.grid_cell('A_SpellIcons', cell) if cell < skin.SPELL_ICON_CELLS else None
+            images = [compare_cell(compare, cell)] if compare else []
+            images += [big, self.grid_cell('A_SpellGems', cell),
+                       big.resize((skin.ROW_ICON, skin.ROW_ICON), Image.BILINEAR) if big else None]
+            for image, side in zip(images, ([skin.BOOK_ICON] if compare else []) + sizes):
+                if image is not None:
+                    sheet.alpha_composite(image.convert('RGBA'), (x, y + (skin.BOOK_ICON - image.height) // 2))
+                x += side + MARGIN
+        return sheet.resize((sheet.width * scale, sheet.height * scale), Image.NEAREST)
+
     def sheet(self, name, state='Normal', scale=3):
         """Every page of the window on a backdrop, stacked, scaled up without smoothing."""
         images = self.render(name, state)
@@ -809,6 +862,28 @@ def skin_files(cache_dir):
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_bytes(pickle.dumps((key, files)))
     return files
+
+
+def compare_cell(folder, cell):
+    """A skin's own picture for a spell icon cell, from its stock-named sheets in folder: its 40px spells01 to 05.tga,
+    or past them its 24px gemicons01 and 02.tga. None when it has none."""
+    size, per_sheet, pattern = ((skin.BOOK_ICON, 36, 'spells{:02}.tga') if cell < skin.SPELL_ICON_CELLS
+                                else (skin.GEM_ICON, 100, 'gemicons{:02}.tga'))
+    sheet, spot = divmod(cell, per_sheet)
+    path = skin.find_file(Path(folder), pattern.format(sheet + 1))
+    if path is None:
+        return None
+    across = skin.ICON_SHEET // size
+    x, y = spot % across * size, spot // across * size
+    return Image.open(path).convert('RGBA').crop((x, y, x + size, y + size))
+
+
+def skin_folder(name, eq_dir=None):
+    """uifiles/<name> in the EverQuest folder, or None."""
+    for folder in [Path(eq_dir)] if eq_dir else [Path(d) for d in EQ_DIRS if d]:
+        if (folder / 'uifiles' / name).is_dir():
+            return folder / 'uifiles' / name
+    return None
 
 
 def chosen(words):
@@ -841,11 +916,22 @@ def main(argv=None):
     parser.add_argument('--scale', type=int, default=3, help='how many times bigger (default: 3)')
     parser.add_argument('--state', default='Normal', choices=['Normal', 'Flyby', 'Pressed', 'Disabled'],
                         help='the state every button is drawn in')
-    parser.add_argument('--eq', type=Path, help='an EverQuest folder, for the stock item and spell icons')
+    parser.add_argument('--eq', type=Path, help='an EverQuest folder, for the stock item icons')
+    parser.add_argument('--compare', metavar='SKIN', help='with icons: that skin\'s own picture beside each spell icon')
     args = parser.parse_args(argv)
-    names = chosen(args.windows)
+    icons = any(word.lower() == 'icons' for word in args.windows)
+    words = [word for word in args.windows if word.lower() != 'icons']
+    names = chosen(words) if words or not icons else []
     preview = Preview(skin_files(args.out), args.eq)
     for path in save(preview, names, args.out, args.state, args.scale):
+        print(path)
+    if icons:
+        compare = skin_folder(args.compare, args.eq) if args.compare else None
+        if args.compare and compare is None:
+            raise SystemExit(f'No skin folder uifiles/{args.compare} in the EverQuest folder')
+        path = Path(args.out) / ICON_SHEET_FILE
+        path.parent.mkdir(parents=True, exist_ok=True)
+        preview.spell_icon_sheet(compare, args.scale).save(path)
         print(path)
 
 

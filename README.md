@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, inventory, inspect, merchant, item, effects, songs, player, quantity, give, trade, loot, bank, skills, tracking, alternate advancement and friends windows, the spell bar, the spell book, the confirmation dialog and the compass.** Everything else keeps EverQuest's own look.
+It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, inventory, inspect, merchant, item, effects, songs, player, quantity, give, trade, loot, bank, skills, tracking, alternate advancement and friends windows, the spell bar, the spell book, the confirmation dialog and the compass, and its own spell icons.** Everything else keeps EverQuest's own look.
 
 They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows, one with a **Close** button on the item and quantity windows, and one with the player's name on the inspect window. Drag a window by its background to move it, and a chat, item, quantity or inspect window by the strip along its top.
 
@@ -44,7 +44,7 @@ Your air while you're underwater: **Air Remaining**, in a soft cyan, above a bar
 
 ## The spell bar
 
-Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. The gem icons are EverQuest's own. **Click anywhere on a row to cast that spell.**
+Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. The gem icons are TriageUI's own (see *The spell icons*). **Click anywhere on a row to cast that spell.**
 
 A thin white bar under a spell's name shows how long until you can cast it again. A soft red bar along the top of the window, the red of the casting window, shows the short global cooldown after every cast. Both come from Zeal.
 
@@ -59,6 +59,12 @@ Your spell book, built so you can find and pick a spell quickly in a fight. It's
 The game marks a detrimental spell with the same red bars as a harmful effect in the effects window, stretched to fit the spell's spot. The book's spots are sized so the bars land behind the icon, so the book shows no red.
 
 While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are each page's number, under its page, and **Done** in the middle. The window has a fixed size, about the size of EverQuest's own book. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
+
+## The spell icons
+
+Every spell's icon is TriageUI's own, wherever the game shows it: the spell bar, your hot buttons, the effects and songs windows, the spell book and the item window. Each is a small painted picture on a rounded tile in the color of the spell's kind: blue for heals and buffs, red for harm, orange for fire, ice blue for cold, green for nature, poison and travel, olive for disease, purple for the enchanter's and mind spells, and so on. The pictures follow duxaUI's, so they're easy to recognize: a blue hand with a heart for a heal, a leather boot with a wing for run speed, a hand holding a green vial for poison. Each object is in its own colors, outlined and shaded, with a soft glow.
+
+The pictures are being drawn a batch at a time, the most common spells first. Until a spell's picture is drawn, its icon is the tile alone, in its kind's color. While TriageUI is loaded, its icons replace every other skin's.
 
 ## The chat windows
 
@@ -187,10 +193,11 @@ What opens when a ranger, druid or bard uses **Track**. Along the top, a button 
 Your alternate abilities, laid out as in EverQuest's own AA window. Along the top are the five tabs, **General**, **Archetype**, **Class**, **PoP Advance** and **PoP Ability**, with their names on them. The open tab is lit, and a faint line separates the tabs from its list. Each list shows the abilities on that tab, the rank you have of the most there is, and the cost of the next rank, with each heading on a faint strip like the skills window's. About 18 abilities are in view, and the rest scroll with the same slim scrollbar as the chat windows. Click one to read its description under the list: what it does, and whether it's activated, with its refresh time, or passive.
 
 On the right, past a thin line:
-- your **AA XP**, the % of the way to your next AA point, with a bar under it, both in the inventory's golden yellow;
 - **XP to AA**, how much of your experience goes to AA: click **-** or **+** to change it;
 - your unspent **Points**, the points you've **Spent**, and **Reuse**, the selected ability's reuse timer, in green;
 - **Train** trains the selected ability, **Hotkey** makes a hotkey for it, and **Done** closes the window.
+
+Your AA XP isn't repeated here: it's in the inventory window, under your XP.
 
 The window has a fixed size. There's no title bar or close box: drag the window by its background.
 
@@ -259,7 +266,7 @@ The release's `TriageUI` folder is built on EverQuest's own UI files. To build i
 
 ## Credits
 
-A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, the loot window's **Link All** and **Loot All**, and the bank window's **Change**. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's. Its `EQUI_Animations.xml` is EverQuest's own with TriageUI's pieces added, as a skin's must be.
+A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, the loot window's **Link All** and **Loot All**, the bank window's **Change**, and what each spell icon pictures. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's. Its `EQUI_Animations.xml` is EverQuest's own with TriageUI's pieces added, as a skin's must be.
 
 ## License
 

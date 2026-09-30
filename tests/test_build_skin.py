@@ -216,7 +216,8 @@ def test_panel_is_the_overlay_colors_opaque_on_the_16_bit_steps():
 
 
 @pytest.mark.parametrize('name', ['triageui_pieces.tga', 'triageui_bg.tga', 'triageui_percent.tga',
-                                  'triageui_field.tga', 'triageui_gutter.tga', 'triageui_book.tga'])
+                                  'triageui_field.tga', 'triageui_gutter.tga', 'triageui_book.tga',
+                                  *skin.SPELL_ICON_SHEETS, *skin.GEM_ICON_SHEETS])
 def test_every_texture_pixel_is_on_the_16_bit_steps(name):
     # The client dithers colors between the steps into a pattern (the buttons' hover and edges did).
     assert name in files()
@@ -289,9 +290,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
     gauges = [g for g in root.iter('Gauge') if g.get('item').startswith('TUI_') and box(g)[2:] != (0, 0)]
     # The target's bar and %, the casting bar, your pet's bar and %, each group member, pet and %, the Player
     # window's HP and mana with their %s, its server tick and its XP and AA rates' %s, the spell bar's recast
-    # bars and global recovery, the air bar, the spell book's memorizing and scribing bars, the inventory's XP and
-    # AA bars with their %s, and the AA window's AA XP bar and %.
-    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2 + 4 + 2
+    # bars and global recovery, the air bar, the spell book's memorizing and scribing bars, and the inventory's XP and
+    # AA bars with their %s.
+    assert len(gauges) == 6 + 3 * skin.GROUP_SIZE + 6 + skin.GEM_COUNT + 1 + 1 + 2 + 4
     for g in gauges:
         if g.find('GaugeDrawTemplate/Fill') is None or g.find('GaugeDrawTemplate/Fill').text == 'TUI_PercentSign':
             continue  # shown whole or not at all, not a bar: see the % and empty slot tests
@@ -302,10 +303,9 @@ def test_every_bar_is_exactly_as_big_as_the_rest_of_its_gauge():
         if g.get('item').startswith('TUI_GW_PetGauge'):
             bar = (skin.GROUP_BAR_WIDTH - skin.PET_INDENT, bar[1])
         template = g.find('GaugeDrawTemplate')
-        # Solid, each exactly its tint: see the group, player, inventory and AA window tests and the server tick test.
+        # Solid, each exactly its tint: see the group, player and inventory window tests and the server tick test.
         solid = (g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge'))
-                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick', 'TUI_IW_XPBar', 'TUI_IW_AABar',
-                                      'TUI_AAW_ExpGauge'))
+                 or g.get('item') in ('TUI_PW_PlayerMana', 'TUI_PW_ZealTick', 'TUI_IW_XPBar', 'TUI_IW_AABar'))
         fill = skin.WHITE if solid else skin.BAR_FILL
         for part, color in (('Background', skin.EDGE_FADED), ('Fill', fill)):
             if template.find(part) is None:
@@ -708,7 +708,7 @@ def test_bars_are_the_text_color_softened_to_70_percent():
     # The user found a solid bar in the text's color harsh next to the name.
     assert skin.BAR_FILL == (255, 255, 255, 170)  # about 70%, on a 16-bit step
     # (The group window's drawn % is its soft blue: see the group window's test. The inventory's XP and AA bars and
-    # their %s are its golden yellow, and so are the AA window's: see their tests.)
+    # their %s are its golden yellow: see its test.)
     group_percents = tuple(f'TUI_GW{n}_HPPercent' for n in range(1, skin.GROUP_SIZE + 1))
     inventory_progress = tuple(f'TUI_IW_{caption}{part}' for _, caption, *_ in skin.INV_PROGRESS
                                for part in ('PercentSign', 'Bar'))
@@ -716,7 +716,7 @@ def test_bars_are_the_text_color_softened_to_70_percent():
         if (g.get('item').startswith('TUI_')
                 and not g.get('item').startswith(('TUI_GW_Gauge', 'TUI_GW_PetGauge', 'TUI_PW_', 'TUI_Casting_Gauge',
                                                   'TUI_CSPW_Global_Recast', 'TUI_Breath_Gauge', 'TUI_SBW_Memorize',
-                                                  'TUI_SBW_Scribe', 'TUI_AAW_', *group_percents, *inventory_progress))
+                                                  'TUI_SBW_Scribe', *group_percents, *inventory_progress))
                 and g.find('GaugeDrawTemplate/Fill') is not None
                 and box(g)[2:] != (0, 0)):  # not the hidden ones, which draw nothing
             assert rgb(g, 'FillTint') == skin.TEXT_RGB, g.get('item')
@@ -3889,15 +3889,10 @@ def test_spellbook_and_item_window_hide_the_harmful_bars_under_the_icon():
     assert item_reach == (4, 3, 11, 37) and min(item_reach) >= 0 and max(item_reach) <= skin.ITEM_ICON
 
 
-def test_stock_spell_icons_are_opaque_under_the_harmful_bars():
-    # The book's and item window's icons are A_SpellIcons cells (40px, default's spells01 to 07.tga) drawn at their own
-    # size. Wherever the stretched red bars can land under one (see harmful_reach), every cell is opaque, so no red
-    # shows through: the only see-through pixels, the bottom row of six cells of spells01, stay clear of them.
-    defaults = [Path(folder) / 'uifiles' / 'default' for folder in EQ_DIRS if folder]
-    sheets = next((sorted(p for p in default.iterdir() if re.fullmatch(r'spells0\d\.tga', p.name.lower()))
-                   for default in defaults if default.is_dir()), [])
-    if not sheets:
-        pytest.skip('no EverQuest folder with uifiles/default here')
+def test_spell_icons_are_opaque_under_the_harmful_bars():
+    # The book's and item window's icons are A_SpellIcons cells (40px, ours) drawn at their own size. Wherever the
+    # stretched red bars can land under one (see harmful_reach), every cell is opaque, so no red shows through: only
+    # a tile's rounded corners are see-through, clear of them.
     cell = skin.BOOK_ICON
     assert skin.ITEM_ICON == cell == 40
     margin = skin.BOOK_SLOT_MARGIN
@@ -3905,19 +3900,107 @@ def test_stock_spell_icons_are_opaque_under_the_harmful_bars():
     regions = [(range(left - margin, right - margin), range(top - margin, bottom - margin)),  # in the icon's pixels
                (lambda r: (range(r[0], r[2]), range(r[1], r[3])))(harmful_reach(item_icon_button()[1]))]
     assert regions[0] == (range(3, 10), range(1, 39)) and regions[1] == (range(4, 11), range(3, 37))
-    cells = see_through = 0
-    for sheet in sheets:
-        alpha = Image.open(sheet).convert('RGBA').getchannel('A')
-        for y0 in range(0, alpha.height - cell + 1, cell):
-            for x0 in range(0, alpha.width - cell + 1, cell):
-                if not alpha.crop((x0, y0, x0 + cell, y0 + cell)).getbbox():
-                    continue  # no icon in this cell
-                cells += 1
-                see_through += alpha.crop((x0, y0, x0 + cell, y0 + cell)).getextrema()[0] < 255
-                for columns, rows in regions:
-                    assert all(alpha.getpixel((x0 + x, y0 + y)) == 255 for x in columns for y in rows), (sheet.name,
-                                                                                                         x0, y0)
-    assert cells > 200 and see_through == 6
+    for n in range(skin.SPELL_ICON_CELLS):
+        alpha = spell_icon(n).getchannel('A')
+        for columns, rows in regions:
+            assert all(alpha.getpixel((x, y)) == 255 for x in columns for y in rows), n
+        assert {alpha.getpixel((x, y)) for x in (0, cell - 1) for y in (0, cell - 1)} == {0}  # the rounded corners
+
+
+@functools.cache
+def icon_sheet(name):
+    return decode(files()[name])
+
+
+def spell_icon(cell, size=skin.BOOK_ICON):
+    """Our icon for a spell icon cell at size, cut from the built sheets where the client finds it: left to right and
+    down each sheet, running on to the next."""
+    names = skin.SPELL_ICON_SHEETS if size == skin.BOOK_ICON else skin.GEM_ICON_SHEETS
+    across = skin.ICON_SHEET // size
+    sheet, spot = divmod(cell, across * across)
+    x, y = spot % across * size, spot // across * size
+    return icon_sheet(names[sheet]).crop((x, y, x + size, y + size))
+
+
+BATCH_ONE = {161, 51, 42, 99, 56, 41, 1, 153, 38, 37, 16, 17, 4, 35, 18, 117}  # the most-used pictures, drawn first
+
+
+def test_every_spell_icon_cell_has_a_tile():
+    # 200 cells in A_SpellGems, the first 180 in A_SpellIcons too, as the stock sheets have: each in exactly one tile,
+    # every tile defined, and each picture a cell's. The most-used pictures are drawn.
+    assert (skin.SPELL_ICON_CELLS, skin.GEM_ICON_CELLS) == (180, 200)
+    cells = [cell for group in skin.SPELL_TILE_CELLS.values() for cell in group]
+    assert sorted(cells) == list(range(skin.GEM_ICON_CELLS))
+    assert set(skin.SPELL_TILE_CELLS) == set(skin.SPELL_TILES) and len(skin.SPELL_TILES) == 14
+    assert all(len(palette) == 3 for palette in skin.SPELL_TILES.values())
+    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE <= set(skin.SPELL_PICTURES)
+    assert skin.SPELL_TILE[99] == 'blue' and skin.SPELL_TILE[51] == 'orange' and skin.SPELL_TILE[161] == 'red'
+
+
+def test_spell_icon_animations_are_ours_over_our_sheets():
+    # The client names A_SpellIcons and A_SpellGems itself and reads them as grids, cell n the nth left to right and
+    # down, running on from one frame's texture to the next: ours, each sheet the stock ones' size, defined once.
+    root = parse(skin.ANIMATIONS_FILE)
+    anims = items(root, 'Ui2DAnimation')
+    textures = items(root, 'TextureInfo')
+    data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
+    for name, sheets, cell in (('A_SpellIcons', skin.SPELL_ICON_SHEETS, skin.BOOK_ICON),
+                               ('A_SpellGems', skin.GEM_ICON_SHEETS, skin.GEM_ICON)):
+        anim = anims[name]
+        assert data.count(f'item="{name}"') == 1 and name in skin.REPLACED_ANIMATIONS
+        assert [anim.findtext(tag) for tag in ('Cycle', 'Grid', 'Vertical')] == ['false', 'true', 'false']
+        assert number(anim, 'CellWidth') == number(anim, 'CellHeight') == cell
+        frames = anim.findall('Frames')
+        assert [frame.findtext('Texture') for frame in frames] == list(sheets)
+        for frame in frames:
+            assert rect_of_frame(frame) == (0, 0, skin.ICON_SHEET, skin.ICON_SHEET)
+            assert box_size(textures[frame.findtext('Texture')]) == (skin.ICON_SHEET, skin.ICON_SHEET)
+            assert icon_sheet(frame.findtext('Texture')).size == (skin.ICON_SHEET, skin.ICON_SHEET)
+    assert len(skin.SPELL_ICON_SHEETS) * 36 == skin.SPELL_ICON_CELLS and len(skin.GEM_ICON_SHEETS) * 100 == 200
+
+
+def rect_of_frame(frame):
+    return (number(frame, 'Location/X'), number(frame, 'Location/Y'), number(frame, 'Size/CX'), number(frame, 'Size/CY'))
+
+
+def box_size(texture_info):
+    return number(texture_info, 'Size/CX'), number(texture_info, 'Size/CY')
+
+
+@pytest.mark.parametrize('size', [skin.BOOK_ICON, skin.GEM_ICON])
+def test_spell_icons_are_rounded_tiles_with_their_edge_kept_clear(size):
+    # Every cell a rounded tile: clear corners keeping the panel's color (so filtering never darkens them), opaque
+    # inside. Cells of one tile with no picture yet are the same plain tile; the tiles differ. A picture never paints
+    # over its tile's outermost pixels, the edge line's, so every tile keeps a clean edge.
+    cells = skin.SPELL_ICON_CELLS if size == skin.BOOK_ICON else skin.GEM_ICON_CELLS
+    plain = {}
+    for tile, group in skin.SPELL_TILE_CELLS.items():
+        bare = [cell for cell in group if cell < cells and cell not in skin.SPELL_PICTURES]
+        if bare:
+            plain[tile] = pixels(spell_icon(bare[0], size))
+            assert all(pixels(spell_icon(cell, size)) == plain[tile] for cell in bare), tile
+    assert len({tuple(p) for p in plain.values()}) == len(plain)
+    ring = [(x, y) for x in range(size) for y in range(size) if x in (0, size - 1) or y in (0, size - 1)]
+    middle = size // 2
+    for cell in range(cells):
+        icon = spell_icon(cell, size)
+        assert icon.getpixel((0, 0)) == icon.getpixel((size - 1, size - 1)) == skin.CLEAR, cell
+        assert icon.getpixel((middle, middle))[3] == icon.getpixel((1, middle))[3] == 255, cell
+        tile = skin.SPELL_TILE[cell]
+        if tile in plain:
+            assert all(icon.getpixel(p) == plain[tile][p[1] * size + p[0]] for p in ring), cell
+    past = icon_sheet(skin.SPELL_ICON_SHEETS[0]).crop((6 * skin.BOOK_ICON, 0, skin.ICON_SHEET, skin.ICON_SHEET))
+    assert past.getextrema()[3] == (0, 0)  # what's past the 6 by 6 cells is clear
+
+
+def test_a_spell_picture_is_painted_over_its_tile():
+    # A drawn cell differs from its plain tile inside the edge, at both sizes, the same picture at each.
+    for size in (skin.BOOK_ICON, skin.GEM_ICON):
+        for cell in BATCH_ONE:
+            icon = spell_icon(cell, size)
+            bare = next(c for c in skin.SPELL_TILE_CELLS[skin.SPELL_TILE[cell]] if c not in skin.SPELL_PICTURES)
+            changed = sum(a != b for a, b in zip(pixels(icon), pixels(spell_icon(bare, size))))
+            assert changed > size * size // 6, (cell, size)
 
 
 def test_slot_backgrounds_are_clear_with_a_red_bar_each_side_of_a_harmful_icon():
@@ -4687,27 +4770,18 @@ def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
     assert x == divider[0] + 1 + skin.PADDING and box(window)[2] - (b + skin.AA_RIGHT) == skin.PADDING
     assert b + divider[1] == skin.PADDING and box(window)[3] - (b + divider[1] + divider[3]) == skin.PADDING
     assert skin.AA_COLUMN_WIDTH == 3 * skin.HOT_SIZE + 2 * skin.PADDING == skin.INV_MIDDLE_WIDTH
-    # AA XP: its caption, its % (label 27) ending at the column's right, and the bar under them across the column,
-    # solid and in the inventory's golden yellow, as wide as the inventory's so they share its art. The first line at
-    # the inside's top, like the inventory's stats (its ink 7.5px under the edge).
-    caption, bar = found['TUI_AAW_XPCaption'], found['ExpGauge']
-    assert caption.findtext('Text') == 'AA XP' and box(caption)[:2] == (x, skin.AA_XP_TOP)
-    assert b + skin.AA_XP_TOP + skin.TEXT_INK_TOP == 7.5
-    assert number(bar, 'EQType') == 5 and rgb(bar, 'FillTint') == skin.GOLD_RGB
-    assert box(bar) == (x, skin.AA_XP_TOP + skin.BAR_TOP, skin.AA_COLUMN_WIDTH, skin.BAR_HEIGHT)
-    template = bar.find('GaugeDrawTemplate')
-    assert (template.findtext('Fill'), template.findtext('Background')) == ('TUI_InvFill', 'TUI_InvTrack')
-    [percent] = [e for e in root.iter('Label') if e.findtext('EQType') == '27']
-    assert rgb(percent, 'TextColor') == skin.GOLD_RGB and box(percent)[1] == skin.AA_XP_TOP
-    assert box(percent)[0] + box(percent)[2] + skin.PERCENT_WIDTH == skin.AA_RIGHT
-    assert rgb(items(root, 'Gauge')['TUI_AAW_XPPercentSign'], 'FillTint') == skin.GOLD_RGB
-    # How much of your XP goes to AA: the caption two paddings under the bar (to its ink), like the inventory's sections;
-    # a padding under its ink the row of - and + at the column's ends, the social page arrows' size, with the client's %
-    # between them a padding from each, its digits' ink centered on them, in the game's green.
+    # No AA XP line (the inventory shows it): the stock bar kept, hidden, and no caption or % of ours.
+    bar = found['ExpGauge']
+    assert bar.tag == 'Gauge' and number(bar, 'EQType') == 5 and box(bar)[2:] == (0, 0)
+    assert bar.findtext('GaugeDrawTemplate/Fill') == 'TUI_Clear'
+    assert not [e for e in root.iter('Label') if e.findtext('EQType') == '27']
+    assert not {'TUI_AAW_XPCaption', 'TUI_AAW_XPPercent', 'TUI_AAW_XPPercentSign'} & {e.get('item') for e in root}
+    # How much of your XP goes to AA: the caption at the inside's top, like the inventory's stats (its ink 7.5px under
+    # the edge); a padding under its ink the row of - and + at the column's ends, the social page arrows' size, with the
+    # client's % between them a padding from each, its digits' ink centered on them, in the game's green.
     split = found['PercentLabel']
-    assert split.findtext('Text') == 'XP to AA' and box(split)[:2] == (x, skin.AA_SPLIT_TOP)
-    bar_bottom = skin.AA_XP_TOP + skin.BAR_TOP + skin.BAR_HEIGHT
-    assert 0 <= skin.AA_SPLIT_TOP + skin.TEXT_INK_TOP - bar_bottom - 2 * skin.PADDING < 1
+    assert split.findtext('Text') == 'XP to AA' and box(split)[:2] == (x, skin.AA_SPLIT_TOP) == (x, 0)
+    assert b + skin.AA_SPLIT_TOP + skin.TEXT_INK_TOP == 7.5
     row = skin.AA_SPLIT_ROW_TOP
     assert row - (skin.AA_SPLIT_TOP + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT) == skin.PADDING
     less, more, count = found['LessExpButton'], found['MoreExpButton'], found['ExpCount']
@@ -4987,19 +5061,23 @@ def test_definitions_only_the_replaced_windows_had_move_to_the_animations(eq, ba
     assert animations.index('item="Blackbox"') < animations.index(f'item="{skin.FRAME_TEMPLATE}"')
 
 
-def test_the_spell_bar_keeps_the_stock_gem_icons(eq):
-    # The client draws a gem's icon from A_SpellGems, by name, so the icons are the base's: EverQuest's own,
-    # their definition kept as it is and their textures left to the client's fallback to default.
+def test_the_spell_icons_replace_the_base_skins(eq):
+    # The client draws every spell's icon from A_SpellGems and A_SpellIcons, by name: ours, defined once over our own
+    # sheets, the base's definitions taken out (in default's spacing too) and its sheets never copied.
     base = eq / 'uifiles' / skin.DEFAULT_BASE
-    gems = '<Ui2DAnimation item="A_SpellGems"><Frames><Texture>gemicons01.tga</Texture></Frames></Ui2DAnimation>'
-    (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.replace('</XML>', f'  {gems}\r\n</XML>').encode())
+    stock = ('<Ui2DAnimation item = "A_SpellGems"><Frames><Texture>gemicons01.tga</Texture></Frames></Ui2DAnimation>'
+             '<Ui2DAnimation item = "A_SpellIcons"><Frames><Texture>Spells01.tga</Texture></Frames></Ui2DAnimation>')
+    (base / 'EQUI_Animations.xml').write_bytes(BASE_ANIMATIONS.replace('</XML>', f'  {stock}\r\n</XML>').encode())
     (base / 'gemicons01.tga').write_bytes(b'the stock gem icons')
-    (base / skin.CASTSPELL_FILE).write_text('<XML><Screen item="CastSpellWnd" /></XML>')
     out = skin.build(eq)
     animations = (out / skin.ANIMATIONS_FILE).read_bytes().decode('latin-1')
-    assert animations.count('item="A_SpellGems"') == 1 and gems in animations
+    assert 'gemicons01.tga' not in animations and 'Spells01.tga' not in animations
+    defined = items(ET.fromstring(animations.split('?>', 1)[1]), 'Ui2DAnimation')
+    for name, sheets in (('A_SpellGems', skin.GEM_ICON_SHEETS), ('A_SpellIcons', skin.SPELL_ICON_SHEETS)):
+        assert animations.count(f'item="{name}"') == 1
+        assert [frame.findtext('Texture') for frame in defined[name].findall('Frames')] == list(sheets)
+        assert all((out / sheet).is_file() for sheet in sheets)
     assert not (out / 'gemicons01.tga').exists()
-    assert b'CSPW_Spell0' in (out / skin.CASTSPELL_FILE).read_bytes()
 
 
 def snapshot(folder):
@@ -5418,7 +5496,7 @@ def test_preview_fills_in_the_spell_book(tmp_path):
     # the memorizing bar part filled along the top, the longest name any class can scribe wrapped onto its three lines,
     # each centered, and no red showing round the detrimental samples' icons, the client's art stretched to the slot.
     preview = preview_module()
-    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.SPELLBOOK_FILE)  # grey squares for icons here
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.SPELLBOOK_FILE)
     _, _, found = spellbook_parts()
 
     def region(key, left=0, top=0, width=None, height=None):
@@ -5435,14 +5513,22 @@ def test_preview_fills_in_the_spell_book(tmp_path):
     spells = len(preview.BOOK)
     assert spells == 13 and 'Transons Phantasmal Protection' in {name for name, _ in preview.BOOK}
     margin = skin.BOOK_SLOT_MARGIN
+
+    def shows(n, cell):
+        """Whether book slot n shows our icon for cell: its every opaque pixel."""
+        drawn, icon = region(f'SBW_Spell{n}', margin, margin, skin.BOOK_ICON, skin.BOOK_ICON), spell_icon(cell)
+        return all(d == i for d, i in zip(pixels(drawn), pixels(icon)) if i[3] == 255)
+
     for n in range(skin.BOOK_SPELLS):
-        icon = set(pixels(region(f'SBW_Spell{n}', margin, margin, skin.BOOK_ICON, skin.BOOK_ICON)))
-        assert (icon == {preview.PLACEHOLDER_RGBA}) == (n < spells), n
+        assert shows(n, preview.BOOK[n][1]) if n < spells else not any(shows(n, c) for _, c in preview.BOOK), n
         assert bool(inked(region(f'SBW_SpellName{n}'))) == (n < spells), n
     harmful = sorted(int(key[len('SBW_Spell'):]) for key in preview.HARMFUL if key.startswith('SBW_Spell'))
     assert [preview.BOOK[n][0] for n in harmful] == ['Root', 'Stun']
-    for n in harmful:
-        assert not [p for p in pixels(region(f'SBW_Spell{n}')) if p[0] > 150 and p[1] < 100], n
+    ring = [(x, y) for x in range(skin.BOOK_SLOT) for y in range(skin.BOOK_SLOT)
+            if not (margin <= x < margin + skin.BOOK_ICON and margin <= y < margin + skin.BOOK_ICON)]
+    for n in harmful:  # no red round the icon, where the stretched bars would show past it
+        slot = region(f'SBW_Spell{n}')
+        assert not [p for p in (slot.getpixel(xy) for xy in ring) if p[0] > 150 and p[1] < 100], n
     assert preview.BOOK_PAGES == ('12', '13')
     assert bright(region('SBW_LeftPageNum')) and bright(region('SBW_RightPageNum'))
     bar = region('SBW_Memorize_Gauge')
@@ -5598,8 +5684,7 @@ def test_preview_draws_the_tracking_window_with_its_dropdowns_and_con_colored_na
 
 def test_preview_fills_in_the_aa_window(tmp_path):
     # One look per tab, each with its tab lit and its list's sample rows, a name, rank and cost on each; the description,
-    # the bar part filled, the % to AA, the points and the timer in the column. The widest name any tab lists fits a
-    # padding before the rank.
+    # the % to AA, the points and the timer in the column. The widest name any tab lists fits a padding before the rank.
     preview = preview_module()
     images = preview.Preview(files(), eq_dir=tmp_path).render(skin.AA_FILE)
     assert len(images) == len(skin.AA_PAGES)
@@ -5632,11 +5717,8 @@ def test_preview_fills_in_the_aa_window(tmp_path):
     def inked(key):
         return any(p != panel for p in pixels(crop(image, *box(found[key]))))
 
-    for key in ('Description', 'ExpCount', 'CurrentCount', 'TotalCount', 'Timer', 'TUI_AAW_XPPercent'):
+    for key in ('Description', 'ExpCount', 'CurrentCount', 'TotalCount', 'Timer'):
         assert inked(key), key
-    assert preview.GAUGES[5] == 0.12
-    bar = crop(image, *box(found['ExpGauge'])[:2], skin.AA_COLUMN_WIDTH, skin.BAR_HEIGHT)
-    assert bar.getpixel((0, 0)) != bar.getpixel((bar.width - 1, 0))
     widest = 'Spell Casting Reinforcement Mastery'
     assert widest in {row[0] for rows in preview.LIST_ROWS.values() for row in rows}
     if not any(Path(path).is_file() for path in preview.ARIAL):
@@ -5681,6 +5763,39 @@ def test_preview_picks_windows_by_words_from_their_file_names():
     assert preview.chosen(['quantity', 'ITEM']) == [skin.ITEM_FILE, skin.QUANTITY_FILE]
     with pytest.raises(SystemExit):
         preview.chosen(['nothing'])
+
+
+def test_preview_draws_the_spell_icons_from_our_sheets(tmp_path):
+    # Spell icons come from our grid animations, cell by cell as the client reads them; the icons sheet shows every
+    # drawn cell at 40 and 24 (and 40 scaled to 16), beside another skin's own when comparing, then each plain tile.
+    preview = preview_module()
+    drawer = preview.Preview(files(), eq_dir=tmp_path)
+    for cell in (0, 99, skin.SPELL_ICON_CELLS - 1):
+        assert pixels(drawer.grid_cell('A_SpellIcons', cell)) == pixels(spell_icon(cell))
+    for cell in (0, 117, skin.GEM_ICON_CELLS - 1):
+        assert pixels(drawer.grid_cell('A_SpellGems', cell)) == pixels(spell_icon(cell, skin.GEM_ICON))
+    assert drawer.grid_cell('A_SpellIcons', skin.SPELL_ICON_CELLS) is None
+    other = tmp_path / 'other'
+    other.mkdir()
+    sheet = Image.new('RGBA', (skin.ICON_SHEET, skin.ICON_SHEET))
+    sheet.paste((255, 0, 0, 255), (40, 0, 80, 40))  # cell 1
+    sheet.save(other / 'Spells01.tga')
+    gems = Image.new('RGBA', (skin.ICON_SHEET, skin.ICON_SHEET))
+    gems.paste((0, 255, 0, 255), (0, 216, 24, 240))  # cell 190, past the 40px cells
+    gems.save(other / 'gemicons02.tga')
+    assert set(pixels(preview.compare_cell(other, 1))) == {(255, 0, 0, 255)}
+    assert set(pixels(preview.compare_cell(other, 190))) == {(0, 255, 0, 255)}
+    assert preview.compare_cell(other, 40) is None  # no spells02.tga there
+    image = drawer.spell_icon_sheet(other, scale=1)
+    margin = preview.MARGIN
+    block = 2 * skin.BOOK_ICON + skin.GEM_ICON + skin.ROW_ICON + 4 * margin
+    entries = len(skin.SPELL_PICTURES) + sum(any(c not in skin.SPELL_PICTURES for c in group)
+                                             for group in skin.SPELL_TILE_CELLS.values())
+    assert image.size == (6 * block + margin, -(-entries // 6) * (skin.BOOK_ICON + 2 * margin) + margin)
+    first = min(skin.SPELL_PICTURES)
+    x = margin + skin.BOOK_ICON + margin  # after the other skin's picture
+    drawn = image.crop((x, margin, x + skin.BOOK_ICON, margin + skin.BOOK_ICON))
+    assert all(d == i for d, i in zip(pixels(drawn), pixels(spell_icon(first))) if i[3] == 255)
 
 
 # Releases (tools/release.py)

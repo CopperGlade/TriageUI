@@ -9,6 +9,7 @@ Copyright 2026 Sebik <Europa>, licensed under CC BY-NC-SA 4.0: see LICENSE.
 """
 
 import argparse
+import functools
 import math
 import random
 import re
@@ -545,8 +546,11 @@ for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
 # the red bars fall under their icons (see BOOK_SLOT_MARGIN).
 BUFF_FILE = 'EQUI_BuffWindow.xml'
 SONG_FILE = 'EQUI_ShortDurationBuffWindow.xml'
-BUFF_ICONS = 'BuffIcons'  # the stock spell icons the client puts on each slot
-REPLACED_ANIMATIONS = ('BlueIconBackground', 'RedIconBackground', 'A_SpellBookSlot')  # the last, the spellbook's
+# The stock slots' decal: a placeholder the client replaces with the spell's A_SpellIcons cell, scaled to the decal.
+BUFF_ICONS = 'BuffIcons'
+# Art the client paints by name that the skin redefines: the effect slots' backgrounds, the spellbook's empty slot, and
+# every spell's icon at both sizes (see SPELL_ICON_SHEETS).
+REPLACED_ANIMATIONS = ('BlueIconBackground', 'RedIconBackground', 'A_SpellBookSlot', 'A_SpellIcons', 'A_SpellGems')
 ROW_ICON = 16
 ROW_ICON_MARGIN = PADDING - BORDER
 ROW_HEIGHT = ROW_ICON + 2 * ROW_ICON_MARGIN
@@ -622,8 +626,8 @@ SPELL_BAR_WIDTH = 190  # narrower than the others (the user's call, after trying
 SPELL_BAR_RIGHT = SPELL_BAR_WIDTH - 2 * BORDER - LEFT
 SPELL_BAR_CONTENT_WIDTH = SPELL_BAR_RIGHT - LEFT
 GEM_ROW_WIDTH = SPELL_BAR_WIDTH - 2 * BORDER  # the window's inside
-# The client draws a gem's icon from A_SpellGems (24px cells), which the client names itself: the base skin's
-# definition and textures, so EverQuest's own icons. It draws the gem's Holder and Background under the icon
+# The client draws a gem's icon from A_SpellGems (24px cells), which the client names itself: ours (see
+# SPELL_ICON_SHEETS). It draws the gem's Holder and Background under the icon
 # (duxaUI's Holder is opaque button art, and its icons show), so both are a row in
 # the panel's color, solid so clicks land (see HELPFUL_RGBA). The rows are 32px, roomier than the Effects
 # table's, so there's no room for error when casting (the user's calls: 28, then 36, a padding over and under
@@ -1573,11 +1577,11 @@ TRACK_BUTTON_WIDTHS = tuple(_TRACK_SPAN * (c + 1) // len(TRACK_BUTTONS) - _TRACK
 add_text_buttons(TRACK_BUTTON_WIDTHS)
 TRACK_HEIGHT = 2 * BORDER + TRACK_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 # The Alternate Advancement window: a tab for each kind of ability over its list, the selected ability's description
-# under them, and a column on the right with your AA XP, how much of your XP goes to AA, your points and the ability's
-# reuse timer, then Train, Hotkey and Done. eqgame.exe looks up the tab box (Subwindows), its pages and their lists
+# under them, and a column on the right with how much of your XP goes to AA, your points and the ability's reuse
+# timer, then Train, Hotkey and Done. eqgame.exe looks up the tab box (Subwindows), its pages and their lists
 # (Page%d and List%d, 1 to 5), Description, ExpCount, CurrentCount, TotalCount, Timer, LessExpButton, MoreExpButton,
-# TrainButton, HotButton and DoneButton, and fills them all; the bar works by its EQType (5), and nothing looks up the
-# stock captions, which keep their ScreenIDs as ours. The user's pick (2026-09-29, from mockups): the stock arrangement,
+# TrainButton, HotButton and DoneButton, and fills them all; nothing looks up the stock bar (ExpGauge, hidden: see
+# AA_SPLIT_TOP) or the stock captions, which keep their ScreenIDs as ours. The user's pick (2026-09-29, from mockups): the stock arrangement,
 # a fixed size with no title bar, so it drags by its background.
 AA_FILE = 'EQUI_AAWindow.xml'
 # The stock pages in the stock order: (page's ScreenID, list's ScreenID, name on its tab, the tab art's name).
@@ -1691,12 +1695,12 @@ AA_COLUMN_WIDTH = 3 * HOT_SIZE + 2 * BUTTON_GAP
 AA_RIGHT = AA_COLUMN_X + AA_COLUMN_WIDTH
 AA_WIDTH = AA_RIGHT + LEFT + 2 * BORDER
 AA_HEIGHT = 2 * BORDER + AA_BOTTOM + BOTTOM_GAP
-# The column's sections, two paddings apart like the inventory's: your AA XP, its % (label 27) and bar as the inventory's,
-# the first line at the inside's top like the inventory's stats (its ink 7.5px under the edge); how much of your XP goes
-# to AA, a caption over the client's % between - and + (the social page arrows' size, the digits' ink centered on
-# them); then your points, those spent and the selected ability's reuse timer, stacked on their line height.
-AA_XP_TOP = 0
-AA_SPLIT_TOP = AA_XP_TOP + PLAYER_SECTION_PITCH
+# The column's sections, two paddings apart like the inventory's: how much of your XP goes to AA, a caption over the
+# client's % between - and + (the social page arrows' size, the digits' ink centered on them), the first line at the
+# inside's top like the inventory's stats (its ink 7.5px under the edge); then your points, those spent and the selected
+# ability's reuse timer, stacked on their line height. No AA XP line: the inventory shows it (the user's pick), and the
+# stock ExpGauge stays, hidden.
+AA_SPLIT_TOP = 0
 AA_SPLIT_ROW_TOP = AA_SPLIT_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
 AA_NUMBERS_TOP = AA_SPLIT_ROW_TOP + ARROW_SIZE + math.ceil(2 * PADDING - TEXT_INK_TOP)
 # (caption's ScreenID, caption, value's ScreenID), each value in the game's green ending at the column's right: the
@@ -2410,6 +2414,539 @@ def slot_icon_art(shape):
     return solid(art)
 
 
+# The spell icons: the client draws every spell's picture from A_SpellIcons (40px cells: the spell book, the item
+# window and the Effects rows, scaled to 16) and A_SpellGems (24px: the spell bar, spell hot buttons, the cursor),
+# the same picture at two sizes by the same cell number (spells_en.txt's field 131). Both are redefined here, over
+# our own sheets laid out like the stock ones, so no skin's pictures show. Each picture keeps the idea of duxaUI's
+# (its subject, colors and where its second object sits) and is painted: objects in their own colors, outlined,
+# shaded and glowing, on a rounded tile in the spell's color that glows from its middle. Light line pictures on a
+# flat tile, like the selector's icons, were tried first and read as too plain. A cell with no picture yet is its
+# tile alone.
+SPELL_ICON_SHEETS = tuple(f'triageui_spells{n:02}.tga' for n in range(1, 6))  # A_SpellIcons: BOOK_ICON cells
+GEM_ICON_SHEETS = tuple(f'triageui_gems{n:02}.tga' for n in range(1, 3))  # A_SpellGems: GEM_ICON cells
+ICON_SHEET = 256  # each sheet's side, as the stock ones: 6 by 6 cells of 40px, 10 by 10 of 24px
+SPELL_ICON_CELLS = len(SPELL_ICON_SHEETS) * (ICON_SHEET // BOOK_ICON) ** 2  # 180
+GEM_ICON_CELLS = len(GEM_ICON_SHEETS) * (ICON_SHEET // GEM_ICON) ** 2  # 200
+# A picture is drawn on the selector icons' 16-unit grid (ICON_SIZE), scaled to the cell less this margin each side.
+SPELL_ICON_MARGIN = {BOOK_ICON: 4, GEM_ICON: 2}
+# Each tile: (dark at the corners, bright at the middle, its 1px edge), by the spell's kind as duxaUI colors it: blue
+# heals and buffs, sky pale buffs, purple the enchanter's and the mind's, pink charm and sense, red harm and plain
+# damage, crimson death and fear, orange fire, gold holy and wealth, green nature, poison and travel, olive disease,
+# teal water and mana, ice cold, grey sight and stealth, brown earth and lore.
+SPELL_TILES = {
+    'blue': ((12, 30, 86), (54, 104, 204), (120, 165, 235)),
+    'sky': ((20, 44, 90), (90, 150, 220), (150, 205, 240)),
+    'purple': ((38, 8, 60), (124, 42, 168), (178, 122, 236)),
+    'pink': ((56, 12, 44), (150, 50, 120), (228, 125, 195)),
+    'red': ((58, 10, 16), (150, 36, 44), (236, 110, 110)),
+    'crimson': ((36, 4, 10), (110, 16, 32), (190, 55, 85)),
+    'orange': ((34, 12, 6), (104, 40, 12), (236, 140, 64)),
+    'gold': ((44, 32, 6), (140, 110, 30), (228, 190, 90)),
+    'green': ((8, 36, 22), (30, 96, 60), (100, 196, 112)),
+    'olive': ((22, 30, 10), (86, 100, 40), (170, 180, 84)),
+    'teal': ((4, 36, 40), (24, 110, 120), (64, 186, 186)),
+    'ice': ((18, 14, 62), (64, 56, 160), (128, 216, 232)),
+    'grey': ((32, 34, 40), (108, 112, 122), (172, 178, 192)),
+    'brown': ((40, 24, 12), (116, 76, 44), (178, 130, 88)),
+}
+# Every cell's tile, following duxaUI's background (a black one takes its element's dark: fire's ember, cold's
+# indigo). Cells 166 to 199 are in no Quarm spell.
+SPELL_TILE_CELLS = {
+    'blue': (0, 2, 10, 13, 16, 21, 22, 24, 30, 49, 77, 78, 80, 97, 98, 99, 103, 104, 106, 116, 132, 141, 146, 150, 151,
+             156, 163, 166, 168, 172, 191),
+    'sky': (26, 118, 119, 133, 134, 192),
+    'purple': (1, 6, 8, 9, 11, 15, 35, 37, 38, 40, 69, 71, 72, 87, 96, 109, 121, 129, 144, 162, 170, 185),
+    'pink': (36, 70, 75, 82, 86, 124),
+    'red': (3, 7, 12, 14, 17, 25, 29, 32, 50, 53, 85, 105, 107, 114, 143, 153, 161, 164, 165, 167, 169, 180, 181, 193),
+    'crimson': (27, 28, 47, 91, 95, 110, 113, 122, 135, 136, 139, 140, 145, 154, 158, 174, 195, 196, 197, 198, 199),
+    'orange': (51, 52, 54, 55, 89, 147, 157, 182, 188),
+    'gold': (23, 46, 73, 83, 90, 101, 130, 138, 175, 176, 177, 178, 187),
+    'green': (4, 5, 31, 42, 45, 61, 62, 63, 64, 67, 74, 76, 81, 93, 94, 112, 117, 120, 123, 127, 131, 155, 171, 173,
+              186, 194),
+    'olive': (41, 65, 66, 68, 149, 160, 183),
+    'teal': (20, 111, 115, 128, 152),
+    'ice': (56, 57, 58, 59, 60, 179, 184),
+    'grey': (18, 19, 33, 34, 44, 48, 92, 100, 108, 137, 142, 148, 189, 190),
+    'brown': (39, 43, 79, 84, 88, 102, 125, 126, 159),
+}
+SPELL_TILE = {cell: tile for tile, cells in SPELL_TILE_CELLS.items() for cell in cells}
+# The objects' own colors, shared so a hand or a skull looks the same on every icon: (light, mid, rim).
+SKIN_TONES = ((240, 222, 212), (206, 170, 158), (120, 84, 78))
+BONE = ((246, 238, 214), (196, 180, 140), (110, 92, 60))
+STEEL = ((246, 248, 252), (160, 168, 184), (70, 76, 92))
+GOLD = ((255, 226, 130), (214, 160, 50), (120, 80, 20))
+LEATHER = ((190, 128, 72), (120, 72, 36), (64, 36, 16))
+FEATHER = ((255, 255, 255), (206, 214, 228), (120, 130, 150))
+PICTURE_OUTLINE = (20, 14, 18, 230)  # the dark line round an object, parting it from the tile and what's behind
+
+
+# A picture is a list of layers painted over its tile in order, each on the 16-unit grid: fill() paints a shape,
+# glow() a shape and a halo fading out round it, outline() a dark line just outside a shape. A paint gives a color at
+# a point of the grid and the shape's distance there (negative inside).
+
+def clamp(value, low=0.0, high=1.0):
+    return max(low, min(high, value))
+
+
+def mix(a, b, t):
+    t = clamp(t)
+    return tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def opaque(color):
+    return color if len(color) == 4 else (*color, 255)
+
+
+def along(stops, t):
+    """The color at t (0 to 1) through stops, [(t, color)]."""
+    t = clamp(t)
+    for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
+        if t <= t1:
+            return mix(opaque(c0), opaque(c1), (t - t0) / (t1 - t0 or 1))
+    return opaque(stops[-1][1])
+
+
+def flat(color):
+    color = opaque(color)
+    return lambda u, v, d: color
+
+
+def linear(start, end, stops):
+    """A gradient from start to end."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length2 = dx * dx + dy * dy
+    return lambda u, v, d: along(stops, ((u - start[0]) * dx + (v - start[1]) * dy) / length2)
+
+
+def radial(center, radius, stops):
+    return lambda u, v, d: along(stops, math.hypot(u - center[0], v - center[1]) / radius)
+
+
+def bevel(paint, rim, width=1.0, strength=0.5):
+    """paint darkened toward its shape's edge, width deep, so the shape looks rounded."""
+    def shaded(u, v, d):
+        color = paint(u, v, d)
+        return (*mix(color[:3], rim, strength * (1 - clamp(-d / width))), color[3])
+    return shaded
+
+
+def fill(shape, paint):
+    return ('fill', shape, paint, None)
+
+
+def glow(shape, paint, radius):
+    """shape and a halo round it, fading to nothing radius out."""
+    return ('glow', shape, paint, radius)
+
+
+def outline(shape, color=PICTURE_OUTLINE, width=0.6):
+    return ('fill', lambda u, v: abs(shape(u, v) - width / 2) - width / 2, flat(color), None)
+
+
+def shaded(shape, palette, light=(3, 2), dark=(13, 14), width=1.0, strength=0.5):
+    """shape in one of the object palettes, lit from light, bevelled to its rim."""
+    lit, mid, rim = palette
+    return fill(shape, bevel(linear(light, dark, [(0, lit), (1, mid)]), rim, width, strength))
+
+
+def inside(shape, part):
+    """part, only where it lies within shape."""
+    return lambda u, v: max(part(u, v), shape(u, v))
+
+
+def circle(x, y, cx, cy, r):
+    return math.hypot(x - cx, y - cy) - r
+
+
+def capsule(x, y, start, end, r):
+    return segment_distance(x, y, start, end) - r
+
+
+def tapered(x, y, start, end, r_start, r_end):
+    """A capsule narrowing from r_start at start to r_end at end: a finger, a feather, a root."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    t = clamp(((x - start[0]) * dx + (y - start[1]) * dy) / (dx * dx + dy * dy))
+    return math.hypot(x - start[0] - t * dx, y - start[1] - t * dy) - (r_start + (r_end - r_start) * t)
+
+
+def tilted_ellipse(x, y, cx, cy, rx, ry, degrees):
+    a = math.radians(degrees)
+    u = (x - cx) * math.cos(a) + (y - cy) * math.sin(a)
+    v = -(x - cx) * math.sin(a) + (y - cy) * math.cos(a)
+    return ellipse_signed(u, v, 0, 0, rx, ry)
+
+
+def placed(shape, cx, cy, scale):
+    """shape, drawn on its own grid round (0, 0), put at (cx, cy) at scale."""
+    return lambda u, v: shape((u - cx) / scale, (v - cy) / scale) * scale
+
+
+# The objects the pictures share.
+
+def open_hand(u, v):
+    # An open hand, palm out: a palm narrowing to the wrist, four slim fingers fanned a little and tapering to their
+    # tips, the thumb angled out low on the left. Fingers cut apart by gaps read as a glove; they meet in creases.
+    palm = polygon_signed(u, v, [(4.3, 8.4), (12.1, 8.2), (11.8, 12.6), (10.4, 15.2), (5.9, 15.2), (4.6, 12.4)]) - 0.6
+    fingers = min(tapered(u, v, (base, 8.8), tip, 1.0, 0.78)
+                  for base, tip in ((5.3, (4.2, 3.9)), (7.3, (6.8, 1.5)), (9.3, (9.5, 1.7)), (11.2, (12.4, 4.2))))
+    return min(palm, fingers, tapered(u, v, (5.4, 12.6), (1.9, 8.3), 1.25, 0.85))
+
+
+def hand_creases(u, v):
+    return min(segment_distance(u, v, (x, 9.6), (x + lean, 7.0)) for x, lean in ((6.3, -0.15), (8.3, 0.05), (10.25, 0.3))) - 0.22
+
+
+def hand_layers(lit, mid, rim, halo=None):
+    """The open hand in its colors: skin, or a spell's glowing color with a halo."""
+    return [*([glow(open_hand, flat(halo), 3.0)] if halo else []),
+            outline(open_hand),
+            fill(open_hand, bevel(linear((4, 2), (12, 15), [(0, lit), (1, mid)]), rim, 1.2, 0.5)),
+            fill(inside(open_hand, hand_creases), flat((*rim, 170)))]
+
+
+def offered_hand(u, v):
+    # A hand held out palm up, seen from the front: its curled fingers' row of tips along the bottom, the heel of the
+    # palm behind them and the thumb rising on the left. From the side it read as a slab.
+    palm = rounded_rect_distance(u, v, 2.4, 11.2, 13.8, 15.6, 2.2)
+    tips = min(ellipse_signed(u, v, x, 12.2, 1.35, 1.55) for x in (4.6, 7.3, 10.0, 12.5))
+    return min(palm, tips, tapered(u, v, (3.4, 13.4), (1.5, 9.6), 1.25, 0.9))
+
+
+def offered_hand_layers():
+    nails = lambda u, v: min(ellipse_signed(u, v, x, 11.6, 0.75, 0.62) for x in (4.6, 7.3, 10.0, 12.5))  # noqa: E731
+    knuckles = lambda u, v: min(segment_distance(u, v, (x, 12.6), (x, 15.2)) for x in (5.95, 8.65, 11.25)) - 0.18  # noqa: E731
+    lit, mid, rim = SKIN_TONES
+    return [outline(offered_hand),
+            fill(offered_hand, bevel(linear((3, 10), (13, 16), [(0, lit), (1, mid)]), rim, 1.1, 0.5)),
+            fill(inside(offered_hand, knuckles), flat((*rim, 170))),
+            fill(nails, flat((250, 226, 222)))]
+
+
+def skull_layers(cx, cy, scale=1.0):
+    """A bone skull about 6.5 across centered at (cx, cy): the cranium and jaw, dark eye sockets and nose, and teeth."""
+    head = placed(lambda u, v: min(circle(u, v, 0, -0.7, 3.0), rounded_rect_distance(u, v, -1.85, 0.4, 1.85, 3.1, 0.7)),
+                  cx, cy, scale)
+    holes = placed(lambda u, v: min(circle(u, v, -1.18, -0.35, 0.86), circle(u, v, 1.18, -0.35, 0.86),
+                                    polygon_signed(u, v, [(0, 0.55), (0.42, 1.45), (-0.42, 1.45)])), cx, cy, scale)
+    teeth = placed(lambda u, v: min(segment_distance(u, v, (x, 2.1), (x, 3.2)) for x in (-0.62, 0, 0.62)) - 0.13,
+                   cx, cy, scale)
+    return [outline(head), shaded(head, BONE, (cx - 2, cy - 3), (cx + 2, cy + 3), 0.8, 0.45),
+            fill(inside(head, holes), flat((40, 26, 18))), fill(inside(head, teeth), flat((90, 70, 44, 220)))]
+
+
+def sparkle_layers(cx, cy, size, crossed=False, core=(255, 255, 255), rim=(255, 150, 200)):
+    """A four-pointed star, turned 45 degrees when crossed, white at its heart, with a soft glow."""
+    def star(u, v):
+        x, y = u - cx, v - cy
+        if crossed:
+            x, y = (x + y) * math.sqrt(0.5), (y - x) * math.sqrt(0.5)
+        return polygon_signed(x, y, four_point_star(0, 0, size, size * 0.22))
+    return [glow(star, flat((*rim, 150)), 2.2), fill(star, radial((cx, cy), size, [(0, core), (1, rim)]))]
+
+
+def sword_parts(base, tip, half=0.95, guard=2.4, grip=1.9):
+    """A sword from its crossguard at base to its point at tip: the blade, its ridge, the guard, and the grip with its
+    pommel, each a shape."""
+    length = math.hypot(tip[0] - base[0], tip[1] - base[1])
+    ux, uy = (tip[0] - base[0]) / length, (tip[1] - base[1]) / length
+
+    def local(shape):
+        return lambda u, v: shape((u - base[0]) * ux + (v - base[1]) * uy, -(u - base[0]) * uy + (v - base[1]) * ux)
+    blade = local(lambda a, b: polygon_signed(a, b, [(0, -half), (length - 1.9, -half), (length, 0),
+                                                     (length - 1.9, half), (0, half)]))
+    ridge = local(lambda a, b: segment_distance(a, b, (0.3, 0), (length - 1.2, 0)) - 0.16)
+    guard_bar = local(lambda a, b: capsule(a, b, (-0.5, -guard), (-0.5, guard), 0.55))
+    grip_bar = local(lambda a, b: min(capsule(a, b, (-0.5, 0), (-grip, 0), 0.5), circle(a, b, -grip - 0.9, 0, 1.0)))
+    return blade, ridge, guard_bar, grip_bar
+
+
+def sword_layers(base, tip, halo=None, **size):
+    """A steel sword with a gold guard and a leather grip, with a halo when it glows."""
+    blade, ridge, guard_bar, grip_bar = sword_parts(base, tip, **size)
+    whole = lambda u, v: min(blade(u, v), guard_bar(u, v), grip_bar(u, v))  # noqa: E731
+    return [*([glow(whole, flat(halo), 3.0)] if halo else []), outline(whole, width=0.55),
+            shaded(blade, STEEL, base, tip, 0.8, 0.45), fill(ridge, flat((255, 255, 255, 200))),
+            shaded(grip_bar, LEATHER, base, tip, 0.6, 0.4),
+            shaded(guard_bar, GOLD, (base[0] - 2, base[1] - 2), (base[0] + 2, base[1] + 2), 0.6, 0.4)]
+
+
+def almond(u, v):
+    # An eye's outline: two arcs meeting in corners 1.2 in from the grid's sides, 9.6 tall.
+    return max(circle(u, v, 8, 11.02, 7.82), circle(u, v, 8, 4.98, 7.82))
+
+
+def burst(u, v):
+    return polygon_signed(u, v, four_point_star(8, 8, 7.6, 1.6))
+
+
+def flame(u, v):
+    # A flame with three tongues, the middle one tallest and leaning right.
+    return min(circle(u, v, 8, 10.6, 4.3),
+               polygon_signed(u, v, [(3.75, 10.2), (3.9, 4.4), (6.3, 7.0), (8.9, 0.8), (10.9, 6.4), (12.7, 4.8),
+                                     (12.25, 10.2)]))
+
+
+def snowflake(u, v):
+    # Six thick arms, each with two V's of branches, round a hexagon.
+    arms = []
+    for k in range(6):
+        a = math.radians(90 + 60 * k)
+        ux, uy = math.cos(a), math.sin(a)
+        arms.append(segment_distance(u, v, (8, 8), (8 + 6.9 * ux, 8 + 6.9 * uy)))
+        for reach, spread in ((4.1, 2.5), (2.2, 1.6)):
+            x, y = 8 + reach * ux, 8 + reach * uy
+            for side in (-1, 1):
+                b = a + side * math.radians(45)
+                arms.append(segment_distance(u, v, (x, y), (x + spread * math.cos(b), y + spread * math.sin(b))))
+    hexagon = [(8 + 1.9 * math.cos(math.radians(30 + 60 * k)), 8 + 1.9 * math.sin(math.radians(30 + 60 * k)))
+               for k in range(6)]
+    return min(min(arms) - 0.95, polygon_signed(u, v, hexagon))
+
+
+def heater_shield(u, v):
+    # A flat top and straight sides curving down to a point, a little right of the middle.
+    right = [(13.6, 2.2), (13.6, 7.4), (13.0, 10.2), (11.1, 12.8)]
+    return polygon_signed(u, v, [(9.2, 15.0)] + [(18.4 - x, y) for x, y in right[::-1]] + right) - 0.3
+
+
+# The pictures, by cell: each gives its layers.
+
+def strike_picture():
+    # 161, the plain nuke: a white-hot four-pointed star over a turned smaller one, in a pink glow.
+    back = lambda u, v: polygon_signed(8 + (u + v - 16) * math.sqrt(0.5), 8 + (v - u) * math.sqrt(0.5),  # noqa: E731
+                                       four_point_star(8, 8, 5.0, 1.3))
+    return [glow(burst, flat((255, 110, 120, 150)), 4.5),
+            fill(back, radial((8, 8), 5, [(0, (255, 200, 205)), (1, (240, 110, 125))])),
+            fill(burst, radial((8, 8), 7.6, [(0, (255, 255, 255)), (0.35, (255, 225, 228)), (1, (245, 120, 135))])),
+            fill(lambda u, v: circle(u, v, 8, 8, 1.6), flat((255, 255, 255)))]
+
+
+def fire_picture():
+    # 51: a flame, red at its tips to yellow at its base, a white-yellow heart, in an orange glow.
+    heart = lambda u, v: min(circle(u, v, 8, 11.5, 2.4),  # noqa: E731
+                             polygon_signed(u, v, [(5.7, 11.0), (7.4, 7.6), (8.8, 4.8), (10.3, 11.0)]))
+    return [glow(flame, flat((255, 120, 30, 140)), 3.0), outline(flame, (70, 18, 6, 230)),
+            fill(flame, linear((8, 1), (8, 15), [(0, (214, 52, 26)), (0.45, (246, 128, 36)), (1, (255, 206, 80))])),
+            fill(heart, linear((8, 5), (8, 14), [(0, (255, 214, 96)), (1, (255, 250, 214))]))]
+
+
+def poison_picture():
+    # 42: a skin-toned hand holding a vial of glowing green poison across it, the liquid at the bottom left.
+    start, end = (3.0, 13.4), (13.0, 3.4)
+
+    def at(t, off=0.0):
+        return (start[0] + (end[0] - start[0]) * t + off, start[1] + (end[1] - start[1]) * t + off)
+    glass = lambda u, v: capsule(u, v, at(0.06), at(0.80), 1.75)  # noqa: E731
+    liquid = lambda u, v: capsule(u, v, at(0.06), at(0.52), 1.2)  # noqa: E731
+    shine = lambda u, v: capsule(u, v, at(0.18, -0.75), at(0.62, -0.75), 0.28)  # noqa: E731
+    cork = lambda u, v: capsule(u, v, at(0.82), at(0.95), 1.25)  # noqa: E731
+    return [*hand_layers(*SKIN_TONES),
+            glow(liquid, flat((80, 255, 110, 120)), 2.6), outline(glass, (14, 40, 26, 240)),
+            fill(glass, flat((210, 245, 225, 90))),
+            fill(liquid, linear((3, 13), (9, 7), [(0, (40, 170, 60)), (1, (120, 255, 130))])),
+            fill(shine, flat((255, 255, 255, 200))), fill(cork, bevel(flat((176, 122, 70)), (90, 56, 30), 0.9, 0.5))]
+
+
+def healing_picture():
+    # 99: a glowing pale blue hand with a blue heart in its palm.
+    heart = placed(lambda x, y: min(circle(x, y, -0.5, -0.25, 0.62), circle(x, y, 0.5, -0.25, 0.62),
+                                    polygon_signed(x, y, [(-1.08, 0.05), (1.08, 0.05), (0, 1.15)])), 8.1, 11.2, 2.3)
+    return [*hand_layers((240, 250, 255), (150, 200, 250), (70, 120, 210), (150, 205, 255, 150)),
+            fill(heart, linear((8, 9), (8, 14), [(0, (80, 150, 245)), (1, (36, 86, 200))]))]
+
+
+def cold_picture():
+    # 56: a white snowflake edged in ice blue, in a cold glow.
+    return [glow(snowflake, flat((140, 210, 255, 150)), 3.0), outline(snowflake, (20, 20, 70, 220), 0.5),
+            fill(snowflake, bevel(flat((255, 255, 255)), (150, 205, 250), 1.0, 0.7))]
+
+
+def disease_picture():
+    # 41: a skin-toned hand with a bone skull at its lower right.
+    return hand_layers(*SKIN_TONES) + skull_layers(11.6, 11.9)
+
+
+def phantom_armor_picture():
+    # 1: a silver heater shield, its left half lighter as in heraldry, a pink-white crossed sparkle at its lower left.
+    return [glow(heater_shield, flat((220, 150, 255, 90)), 2.5), outline(heater_shield),
+            shaded(heater_shield, STEEL, (6, 2), (13, 14), 1.1, 0.55),
+            fill(lambda u, v: max(heater_shield(u, v), u - 9.2), flat((255, 255, 255, 70))),
+            *sparkle_layers(4.2, 11.6, 4.0, crossed=True)]
+
+
+def banishing_picture():
+    # 153: the open hand raised, glowing red, turning away the undead and summoned.
+    return hand_layers((255, 226, 226), (240, 120, 124), (150, 40, 50), (255, 110, 120, 150))
+
+
+def summoned_weapon_picture():
+    # 38, the pets' summoning: a steel sword floating over a hand held out palm up, in a pink glow.
+    return sword_layers((4.4, 8.6), (14.6, 1.2), (255, 180, 240, 150)) + offered_hand_layers()
+
+
+def summoned_food_picture():
+    # 37, summoned food, drink and items: a glowing pink-white orb over a hand held out palm up.
+    orb = lambda u, v: circle(u, v, 8, 5.4, 2.7)  # noqa: E731
+    rays = lambda u, v: polygon_signed(u - 8, v - 5.4, four_point_star(0, 0, 5.2, 0.7))  # noqa: E731
+    return [glow(orb, flat((255, 160, 240, 170)), 3.4), fill(rays, flat((255, 220, 250, 190))),
+            fill(orb, radial((7.4, 4.8), 3.0, [(0, (255, 255, 255)), (0.5, (255, 214, 250)), (1, (230, 120, 220))])),
+            *offered_hand_layers()]
+
+
+def haste_picture():
+    # 16: an upright silver sword with see-through blue butterfly wings behind it.
+    layers = []
+    for cx, cy, rx, ry, degrees in ((3.9, 4.6, 3.8, 2.7, 40), (12.1, 4.6, 3.8, 2.7, -40), (4.4, 9.9, 2.8, 1.8, -35),
+                                    (11.6, 9.9, 2.8, 1.8, 35)):
+        wing = lambda u, v, w=(cx, cy, rx, ry, degrees): tilted_ellipse(u, v, *w)  # noqa: E731
+        layers += [glow(wing, flat((150, 190, 255, 90)), 1.8),
+                   fill(wing, radial((cx, cy), max(rx, ry), [(0, (200, 220, 255, 150)), (1, (120, 150, 255, 230))])),
+                   fill(lambda u, v, wing=wing: abs(wing(u, v) + 0.35) - 0.3, flat((230, 240, 255, 220)))]
+    return layers + sword_layers((8, 11.2), (8, 0.4), (200, 230, 255, 120), half=1.2, guard=2.6)
+
+
+def slow_picture():
+    # 17: a white clock face with a dark rim, its hour marks and two hands, the long one a small sword.
+    face = lambda u, v: circle(u, v, 8, 8.4, 6.5)  # noqa: E731
+    marks = lambda u, v: min(  # noqa: E731
+        capsule(u, v, (8 + 4.4 * math.cos(a), 8.4 + 4.4 * math.sin(a)), (8 + 5.4 * math.cos(a), 8.4 + 5.4 * math.sin(a)),
+                0.25 if k % 3 else 0.42) for k in range(12) for a in [math.radians(30 * k - 90)])
+    blade, _, guard_bar, grip_bar = sword_parts((8, 9.6), (8, 3.0), half=0.7, guard=1.4, grip=1.2)
+    ink = flat((60, 64, 80))
+    return [glow(face, flat((255, 200, 200, 110)), 2.2), outline(face),
+            fill(face, bevel(radial((7, 7), 7, [(0, (255, 252, 248)), (1, (226, 214, 208))]), (150, 110, 110), 1.2, 0.5)),
+            fill(lambda u, v: abs(face(u, v) + 0.45) - 0.45, flat((90, 24, 28))), fill(marks, flat((60, 20, 22))),
+            fill(lambda u, v: capsule(u, v, (8, 8.4), (10.6, 10.0), 0.55), flat((50, 24, 26))),
+            fill(blade, ink), fill(guard_bar, ink), fill(grip_bar, ink),
+            fill(lambda u, v: circle(u, v, 8, 8.4, 0.9), flat((50, 24, 26)))]
+
+
+def run_speed_picture():
+    # 4, Spirit of Wolf and its kind: a brown leather boot, toe down to the left, with a white wing sweeping up from
+    # the top of its shaft.
+    boot = lambda u, v: polygon_signed(u, v, [(6.0, 3.0), (10.4, 3.0), (10.4, 13.2), (10.9, 14.8), (1.4, 14.8),  # noqa: E731
+                                              (1.4, 12.6), (3.0, 11.4), (5.8, 10.0)]) - 0.35
+    feathers = (((10.0, 7.4), (15.0, 1.4), 1.25, 0.45), ((10.0, 8.9), (15.3, 4.4), 1.15, 0.42),
+                ((10.0, 10.3), (15.0, 7.4), 1.0, 0.4))
+    wing = lambda u, v: min(tapered(u, v, *f) for f in feathers)  # noqa: E731
+    layers = [glow(wing, flat((230, 255, 230, 110)), 2.5), outline(boot), shaded(boot, LEATHER, (4, 4), (10, 15)),
+              fill(lambda u, v: max(boot(u, v), v - 4.7), flat((70, 40, 18, 150))),  # the cuff
+              fill(lambda u, v: max(boot(u, v), 13.7 - v), flat((50, 28, 12, 220)))]  # the sole
+    for f in reversed(feathers):
+        feather = lambda u, v, f=f: tapered(u, v, *f)  # noqa: E731
+        layers += [outline(feather, (40, 50, 60, 220), 0.5), shaded(feather, FEATHER, f[0], f[1], 0.8, 0.45)]
+    return layers
+
+
+def mesmerize_picture():
+    # 35: a closed eye, only its upper lid in skin with the fold drawn above, the dark seam curving along its bottom
+    # and the lashes fanning down past it. With a lower lid under the seam, it read as a mouth.
+    cx, cy, r = 8, 0.4, 8.6
+    lid = lambda u, v: max(almond(u, v), circle(u, v, cx, cy, r))  # noqa: E731
+    seam = lambda u, v: max(arc_distance(u, v, cx, cy, r, 35, 145), -almond(u, v) - 0.2) - 0.5  # noqa: E731
+    fold = lambda u, v: arc_distance(u, v, 8, 11.2, 7.0, 222, 318) - 0.3  # noqa: E731
+    roots = [(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a)), math.radians(90 + 1.6 * spread))
+             for a, spread in ((52, -26), (68, -14), (84, -4), (96, 4), (112, 14), (128, 26))]
+    lashes = lambda u, v: min(tapered(u, v, (x, y), (x + 3.0 * math.cos(a), y + 3.0 * math.sin(a)), 0.42, 0.16)  # noqa: E731
+                              for x, y, a in roots)
+    lit, mid, rim = SKIN_TONES
+    return [glow(lid, flat((230, 170, 255, 110)), 2.4), outline(lid),
+            fill(lid, bevel(linear((8, 3), (8, 9), [(0, lit), (1, mid)]), rim, 1.2, 0.5)),
+            fill(fold, flat((*rim, 200))), fill(lashes, flat((44, 22, 30))), fill(seam, flat((44, 22, 30)))]
+
+
+def invisibility_picture():
+    # 18: an open eye, white with a shadow under the lid, a blue-grey iris, the pupil and a highlight, in skin lids.
+    iris = lambda u, v: max(circle(u, v, 8, 8.2, 2.9), almond(u, v))  # noqa: E731
+    upper_lid = lambda u, v: abs(circle(u, v, 8, 10.42, 7.22)) - 0.55 if v < 8.2 else 1  # noqa: E731
+    return [outline(almond),
+            fill(almond, linear((8, 3), (8, 13), [(0, (190, 186, 184)), (0.4, (250, 250, 250)), (1, (220, 220, 224))])),
+            fill(iris, radial((8, 8.2), 2.9, [(0, (70, 90, 120)), (0.6, (110, 140, 180)), (1, (60, 76, 100))])),
+            fill(lambda u, v: circle(u, v, 8, 8.2, 1.2), flat((16, 16, 22))),
+            fill(lambda u, v: circle(u, v, 9.1, 7.2, 0.7), flat((255, 255, 255, 230))),
+            fill(upper_lid, flat(SKIN_TONES[1])),
+            fill(lambda u, v: abs(almond(u, v) + 0.25) - 0.4, flat((*SKIN_TONES[2], 240)))]
+
+
+def root_picture():
+    # 117: gnarled brown roots spreading and forking down from a stub of trunk.
+    parts = (((8, 0.2), (8, 5.2), 1.7, 1.3), ((8, 5.0), (4.2, 8.6), 1.2, 0.8), ((4.2, 8.6), (1.8, 13.8), 0.8, 0.4),
+             ((4.4, 8.4), (5.2, 14.8), 0.65, 0.35), ((8, 5.0), (8.8, 10.2), 1.1, 0.75), ((8.8, 10.2), (7.8, 15.2), 0.75, 0.35),
+             ((8, 5.0), (11.8, 8.0), 1.2, 0.8), ((11.8, 8.0), (14.4, 13.0), 0.8, 0.4), ((11.7, 8.0), (11.2, 14.2), 0.6, 0.3),
+             ((2.9, 11.2), (0.8, 11.8), 0.4, 0.2), ((13.1, 10.4), (15.2, 10.0), 0.4, 0.2))
+    roots = lambda u, v: min(tapered(u, v, *p) for p in parts)  # noqa: E731
+    return [glow(roots, flat((120, 200, 110, 90)), 2.2), outline(roots, width=0.55),
+            fill(roots, bevel(linear((6, 1), (10, 15), [(0, (178, 122, 70)), (1, (120, 76, 40))]), (60, 34, 16), 0.8))]
+
+
+SPELL_PICTURES = {
+    161: strike_picture, 51: fire_picture, 42: poison_picture, 99: healing_picture, 56: cold_picture,
+    41: disease_picture, 1: phantom_armor_picture, 153: banishing_picture, 38: summoned_weapon_picture,
+    37: summoned_food_picture, 16: haste_picture, 17: slow_picture, 4: run_speed_picture, 35: mesmerize_picture,
+    18: invisibility_picture, 117: root_picture,
+}
+
+
+@functools.lru_cache(maxsize=None)
+def spell_tile(tile, size):
+    """A tile's glow at size: its color at each pixel, its body's coverage (the rounded square) and its edge line's."""
+    dark, bright, _ = SPELL_TILES[tile]
+    margin = SPELL_ICON_MARGIN[size]
+    scale = (size - 2 * margin) / ICON_SIZE
+    paint = radial((8, 7.5), 12.5, [(0, bright), (0.6, mix(dark, bright, 0.45)), (1, dark)])
+    pixels = []
+    for py in range(size):
+        for px in range(size):
+            d = rounded_rect_distance(px + 0.5, py + 0.5, 0.5, 0.5, size - 0.5, size - 0.5, CORNER_RADIUS)
+            body = clamp(0.5 - d)
+            pixels.append((paint((px + 0.5 - margin) / scale, (py + 0.5 - margin) / scale, 0), body,
+                           body - clamp(-0.5 - d)))
+    return tuple(pixels)
+
+
+def spell_icon_art(cell, size):
+    """A spell icon at size (BOOK_ICON or GEM_ICON): its tile's glow, its picture's layers kept inside the tile's edge
+    line, and the edge over them, every pixel snapped(). Coverage is one sample of each shape's distance per pixel,
+    0.5 - d clamped: the selector icons' supersampling would take minutes for every cell at both sizes in stock
+    Python."""
+    tile = SPELL_TILE[cell]
+    edge = opaque(SPELL_TILES[tile][2])
+    layers = SPELL_PICTURES[cell]() if cell in SPELL_PICTURES else []
+    margin = SPELL_ICON_MARGIN[size]
+    scale = (size - 2 * margin) / ICON_SIZE
+    art = Texture(size, size)
+    for i, (color, body, on_edge) in enumerate(spell_tile(tile, size)):
+        if not body:
+            continue
+        py, px = divmod(i, size)
+        u, v = (px + 0.5 - margin) / scale, (py + 0.5 - margin) / scale
+        within = body - on_edge  # how much of the pixel lies inside the edge line
+        for kind, shape, paint, radius in layers:
+            d = shape(u, v)
+            reach = d * scale
+            amount = clamp(0.5 - reach) if kind == 'fill' else 1.0 if reach <= 0 else clamp(1 - d / radius) ** 2
+            if amount * within:
+                color = over(paint(u, v, d), amount * within, color)
+        color = over(edge, on_edge, color)
+        art.rows[py][px] = color if body == 1 else over(color, body)
+    return snapped_art(art)
+
+
+def spell_icon_sheets():
+    """Every cell's icon laid out as the stock sheets: {texture name: Texture}, left to right and down each sheet."""
+    sheets = {}
+    for size, names, cells in ((BOOK_ICON, SPELL_ICON_SHEETS, SPELL_ICON_CELLS),
+                               (GEM_ICON, GEM_ICON_SHEETS, GEM_ICON_CELLS)):
+        across = ICON_SHEET // size
+        for name in names:
+            sheets[name] = Texture(ICON_SHEET, ICON_SHEET)
+        for cell in range(cells):
+            sheet, spot = divmod(cell, across * across)
+            row, column = divmod(spot, across)
+            sheets[names[sheet]].paste(spell_icon_art(cell, size), column * size, row * size)
+    return sheets
+
+
 def frame_pieces():
     """The window frame's eight pieces, cut from a panel just big enough to hold every corner."""
     size = 2 * BORDER + 1
@@ -2860,6 +3397,15 @@ def animation(name, texture, rect):
     return node('Ui2DAnimation', [node('Cycle', True), node('Frames', frame)], name)
 
 
+def grid_animation(name, textures, cell):
+    """A grid of cell-square pictures over whole ICON_SHEET textures, one frame each, as the client reads the stock
+    A_SpellIcons and A_SpellGems: cell n is the nth left to right and down, running on from one texture to the next."""
+    frames = [node('Frames', [node('Texture', texture), point('Location', 0, 0), size(ICON_SHEET, ICON_SHEET),
+                              point('Hotspot', 0, 0), node('Duration', 1000)]) for texture in textures]
+    return node('Ui2DAnimation', [node('Cycle', False), node('Grid', True), node('Vertical', False),
+                                  node('CellHeight', cell), node('CellWidth', cell), *frames], name)
+
+
 def overlaps():
     return [node(f'Overlap{side}', 0) for side in ('Left', 'Top', 'Right', 'Bottom')]
 
@@ -2933,6 +3479,7 @@ def shared_definitions(rects, book_rects):
         texture_info(GUTTER_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         texture_info(DIVIDER_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         texture_info(BOOK_TEXTURE, BOOK_TEXTURE_WIDTH, BOOK_TEXTURE_HEIGHT),
+        *(texture_info(name, ICON_SHEET, ICON_SHEET) for name in SPELL_ICON_SHEETS + GEM_ICON_SHEETS),
         *(animation(f'TUI_{name}', PIECES_TEXTURE, rect) for name, rect in rects.items()),
         *(animation(f'TUI_{name}', BOOK_TEXTURE, rect) for name, rect in book_rects.items()),
         # Far wider than its texture: the client repeats or stretches it, and only the first % is ever
@@ -2946,6 +3493,9 @@ def shared_definitions(rects, book_rects):
         # The spellbook slot's art, which the client names itself (default's is a dark 48px square; poweroftwo's, at its
         # slots' size, is its "blank spot"): clear at a spell's slot, like the slot's own.
         animation('A_SpellBookSlot', PIECES_TEXTURE, rects['BookSlot']),
+        # Every spell's icon, which the client names itself, at 40px and at 24px (see SPELL_ICON_SHEETS).
+        grid_animation('A_SpellIcons', SPELL_ICON_SHEETS, BOOK_ICON),
+        grid_animation('A_SpellGems', GEM_ICON_SHEETS, GEM_ICON),
         # The slider's left end cap, with no width (see SLIDER_TEMPLATE): the client draws one, so it must be there.
         animation('TUI_SliderCapLeft', PIECES_TEXTURE, (*rects['SliderCapRight'][:2], 0, SLIDER_HEIGHT)),
         frame_template(),
@@ -4417,8 +4967,8 @@ def tracking_window():
 
 def aa_window():
     """The five stock tabs, each over its list of abilities, a divider under them, the selected ability's description
-    under the list, and the column beside them: your AA XP, how much of your XP goes to AA, your points and the reuse
-    timer, and Train, Hotkey and Done (see AA_FILE). A list's position is from its page's top left, which the tab box
+    under the list, and the column beside them: how much of your XP goes to AA, your points and the reuse timer, and
+    Train, Hotkey and Done (see AA_FILE). A list's position is from its page's top left, which the tab box
     puts a padding under the divider and in from the window's left (see TAB_BORDER)."""
     inner = []
     for screen_id, list_id, _, art in AA_PAGES:
@@ -4448,18 +4998,11 @@ def aa_window():
         node('Style_Border', False),
         node('DrawTemplate', EDIT_TEMPLATE),
     ], 'TUI_AAW_Description'))
-    # The column. The drawn % needs a gauge above 0 to show: your own health, so it always shows, 0% too. The bar is as
-    # wide as the inventory's, so they share its art.
+    # The column, with no AA XP line (see AA_SPLIT_TOP).
     x, right = AA_COLUMN_X, AA_RIGHT
     parts.append(vertical_divider('TUI_AAW_Divider', AA_DIVIDER_X, LEFT, AA_BOTTOM - LEFT))
-    percent, readout = percent_readout('TUI_AAW_XPPercent', 'TUI_AAW_XPPercentSign', 27, 1, AA_XP_TOP, right,
-                                       rgb=GOLD_RGB)
-    readout_x = right - PERCENT_WIDTH - NUMBER_WIDTH
     parts += [
-        label('TUI_AAW_XPCaption', None, (x, AA_XP_TOP, readout_x - x, TEXT_HEIGHT), 'AA XP'),
-        *readout,
-        gauge('TUI_AAW_ExpGauge', 'ExpGauge', 5, (x, AA_XP_TOP + BAR_TOP, AA_COLUMN_WIDTH, BAR_HEIGHT), 'TUI_InvFill',
-              GOLD_RGB, track='TUI_InvTrack'),
+        hidden_gauge('TUI_AAW_ExpGauge', 'ExpGauge', 5),
         label('TUI_AAW_PercentLabel', None, (x, AA_SPLIT_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), 'XP to AA',
               screen_id='PercentLabel'),
         icon_button('TUI_AAW_LessExpButton', 'LessExpButton', x, AA_SPLIT_ROW_TOP, None, 'Minus', ARROW_SIZE),
@@ -4483,8 +5026,7 @@ def aa_window():
     parts += [button(f'TUI_AAW_{screen_id}', screen_id, '', x, AA_BUTTONS_TOP + n * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP),
                      AA_COLUMN_WIDTH, TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
               for n, (screen_id, button_name) in enumerate(AA_BUTTONS)]
-    return window('AAWindow', 'Alternate Advancement Window', AA_HEIGHT, parts, width=AA_WIDTH,
-                  inner=[*inner, percent])
+    return window('AAWindow', 'Alternate Advancement Window', AA_HEIGHT, parts, width=AA_WIDTH, inner=inner)
 
 
 def friends_window():
@@ -4586,6 +5128,7 @@ def skin_files(base_animations, stranded=()):
         FIELD_TEXTURE: Texture(BACKGROUND_SIZE, BACKGROUND_SIZE, FIELD_RGBA),
         GUTTER_TEXTURE: clear_texture(BACKGROUND_SIZE, BACKGROUND_SIZE),
         DIVIDER_TEXTURE: Texture(BACKGROUND_SIZE, BACKGROUND_SIZE, ROW_DIVIDER_RGBA),
+        **spell_icon_sheets(),
     }
     # Every pixel on the 16 steps, so the client has nothing to dither (see STEP).
     files = {name: tga_bytes(snapped_art(texture)) for name, texture in textures.items()}
