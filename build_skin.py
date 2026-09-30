@@ -1709,7 +1709,7 @@ AA_HEIGHT = 2 * BORDER + AA_BOTTOM + BOTTOM_GAP
 AA_NUMBERS_TOP = 0
 # (caption's ScreenID, caption, value's ScreenID), each value in the game's green ending at the column's right: the
 # stock captions' ScreenIDs, which nothing looks up.
-AA_NUMBERS = (('TotalLabel', 'Spent', 'TotalCount'), ('CurrentLabel', 'Available', 'CurrentCount'))
+AA_NUMBERS = (('TotalLabel', 'Points spent', 'TotalCount'), ('CurrentLabel', 'Available', 'CurrentCount'))
 # Three paddings either side of each divider (the user's pick), more than the inventory's one, to set the sections apart.
 AA_DIVIDER_GAP = 3 * PADDING
 AA_DIVIDER_TO_NAME = math.ceil(AA_DIVIDER_GAP - TEXT_INK_TOP)  # as DIVIDER_TO_NAME, for the wider gap

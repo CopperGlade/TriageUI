@@ -4811,7 +4811,8 @@ def test_aa_column_has_your_points_the_split_the_reuse_timer_and_the_buttons():
     # Your points spent and available at the inside's top, like the inventory's stats (the first line's ink 7.5px under
     # the edge), stacked on their line height, each value a StaticText as in the stock window, right-aligned in the
     # game's green ending at the column's right. The items are named by the stock captions' ScreenIDs.
-    assert skin.AA_NUMBERS == (('TotalLabel', 'Spent', 'TotalCount'), ('CurrentLabel', 'Available', 'CurrentCount'))
+    assert skin.AA_NUMBERS == (('TotalLabel', 'Points spent', 'TotalCount'),
+                               ('CurrentLabel', 'Available', 'CurrentCount'))
     assert skin.AA_NUMBERS_TOP == 0 and b + skin.AA_NUMBERS_TOP + skin.TEXT_INK_TOP == 7.5
     for n, (caption_id, caption, value_id) in enumerate(skin.AA_NUMBERS):
         top = skin.AA_NUMBERS_TOP + n * skin.TEXT_HEIGHT
