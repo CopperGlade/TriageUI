@@ -192,9 +192,10 @@ What opens when a ranger, druid or bard uses **Track**. Along the top, a button 
 
 Your alternate abilities, laid out as in EverQuest's own AA window. Along the top are the five tabs, **General**, **Archetype**, **Class**, **PoP Advance** and **PoP Ability**, with their names on them. The open tab is lit, and a faint line separates the tabs from its list. Each list shows the abilities on that tab, the rank you have of the most there is, and the cost of the next rank, with each heading on a faint strip like the skills window's. About 18 abilities are in view, and the rest scroll with the same slim scrollbar as the chat windows. Click one to read its description under the list: what it does, and whether it's activated, with its refresh time, or passive.
 
-On the right, past a thin line:
+On the right, past a thin line, with a faint line between each of the first three:
+- the AA points you've **Spent** and those still **Available**, in green;
 - **XP to AA**, how much of your experience goes to AA: click **-** or **+** to change it;
-- your unspent **Points**, the points you've **Spent**, and **Reuse**, the selected ability's reuse timer, in green;
+- **Ability ready in:**, with the selected ability's reuse timer on the line under it, in green;
 - **Train** trains the selected ability, **Hotkey** makes a hotkey for it, and **Done** closes the window.
 
 Your AA XP isn't repeated here: it's in the inventory window, under your XP.

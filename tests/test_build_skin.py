@@ -4760,7 +4760,7 @@ def test_aa_description_is_under_the_list_straight_on_the_panel():
     assert box(window)[3] - (skin.BORDER + y + h) == skin.PADDING
 
 
-def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
+def test_aa_column_has_your_points_the_split_the_reuse_timer_and_the_buttons():
     root, window, found = aa_parts()
     b, x = skin.BORDER, skin.AA_COLUMN_X
     # The divider standing a padding from the list and from the column, from the top padding to the bottom one; the
@@ -4776,13 +4776,39 @@ def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
     assert bar.findtext('GaugeDrawTemplate/Fill') == 'TUI_Clear'
     assert not [e for e in root.iter('Label') if e.findtext('EQType') == '27']
     assert not {'TUI_AAW_XPCaption', 'TUI_AAW_XPPercent', 'TUI_AAW_XPPercentSign'} & {e.get('item') for e in root}
-    # How much of your XP goes to AA: the caption at the inside's top, like the inventory's stats (its ink 7.5px under
-    # the edge); a padding under its ink the row of - and + at the column's ends, the social page arrows' size, with the
-    # client's % between them a padding from each, its digits' ink centered on them, in the game's green.
-    split = found['PercentLabel']
-    assert split.findtext('Text') == 'XP to AA' and box(split)[:2] == (x, skin.AA_SPLIT_TOP) == (x, 0)
-    assert b + skin.AA_SPLIT_TOP + skin.TEXT_INK_TOP == 7.5
+    # Your points spent and available at the inside's top, like the inventory's stats (the first line's ink 7.5px under
+    # the edge), stacked on their line height, each value a StaticText as in the stock window, right-aligned in the
+    # game's green ending at the column's right. The items are named by the stock captions' ScreenIDs.
+    assert skin.AA_NUMBERS == (('TotalLabel', 'Spent', 'TotalCount'), ('CurrentLabel', 'Available', 'CurrentCount'))
+    assert skin.AA_NUMBERS_TOP == 0 and b + skin.AA_NUMBERS_TOP + skin.TEXT_INK_TOP == 7.5
+    for n, (caption_id, caption, value_id) in enumerate(skin.AA_NUMBERS):
+        top = skin.AA_NUMBERS_TOP + n * skin.TEXT_HEIGHT
+        label, value = found[caption_id], found[value_id]
+        assert label.get('item') == f'TUI_AAW_{caption_id}'
+        assert label.findtext('Text') == caption and box(label)[:2] == (x, top)
+        assert box(label)[0] + box(label)[2] == box(value)[0]
+        assert value.tag == 'StaticText' and value.find('EQType') is None
+        assert box(value) == (skin.AA_RIGHT - skin.AA_VALUE_WIDTH, top, skin.AA_VALUE_WIDTH, skin.TEXT_HEIGHT)
+        assert value.findtext('AlignRight') == 'true' and rgb(value, 'TextColor') == skin.VALUE_RGB
+    assert not [e for e in root.iter('Label') if e.findtext('Text') == 'Points']
+    # Each section set apart by the inventory column's divider across the column, a padding under the counts' digits
+    # and under the - and + row's outline, and a padding over the next caption's ink, like the inventory's stats.
+    digits = skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT
     row = skin.AA_SPLIT_ROW_TOP
+    assert skin.AA_COLUMN_WIDTH == skin.INV_COLUMN_WIDTH
+    assert [name for name, _ in skin.AA_COLUMN_DIVIDERS] == ['TUI_AAW_PointsDivider', 'TUI_AAW_SplitDivider']
+    for (name, line_top), above, below in zip(skin.AA_COLUMN_DIVIDERS, (top + digits, row + skin.ARROW_SIZE),
+                                              (skin.AA_SPLIT_TOP, skin.AA_TIMER_TOP)):
+        line = found[name]
+        assert line.tag == 'StaticAnimation' and line.findtext('Animation') == 'TUI_InvDivider'
+        assert box(line) == (x, line_top, skin.AA_COLUMN_WIDTH, skin.DIVIDER_HEIGHT)
+        assert line_top - above == skin.PADDING
+        assert 0 <= below + skin.TEXT_INK_TOP - (line_top + skin.DIVIDER_HEIGHT) - skin.PADDING < 1
+    # How much of your XP goes to AA: a padding under the caption's ink the row of - and + at the column's ends, the
+    # social page arrows' size, with the client's % between them a padding from each, its digits' ink centered on them,
+    # in the game's green.
+    split = found['PercentLabel']
+    assert split.findtext('Text') == 'XP to AA' and box(split)[:2] == (x, skin.AA_SPLIT_TOP)
     assert row - (skin.AA_SPLIT_TOP + skin.PERCENT_INK_TOP + skin.PERCENT_GLYPH_HEIGHT) == skin.PADDING
     less, more, count = found['LessExpButton'], found['MoreExpButton'], found['ExpCount']
     size = (skin.ARROW_SIZE, skin.ARROW_SIZE)
@@ -4795,20 +4821,16 @@ def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
     assert cx - (x + skin.ARROW_SIZE) == skin.PADDING and box(more)[0] - (cx + cw) == skin.PADDING
     assert count.findtext('AlignCenter') == 'true' and rgb(count, 'TextColor') == skin.VALUE_RGB
     assert cy - row + skin.DIGITS_INK_MIDDLE == skin.ARROW_SIZE / 2 and ch == skin.TEXT_HEIGHT
-    # Two paddings under the row (to the ink), your points, those spent and the selected ability's reuse timer, stacked
-    # on their line height, each value right-aligned in the game's green ending at the column's right, in room for the
-    # timer's "00:00:00": the counts StaticText and the timer a label, as in the stock window.
-    assert 0 <= skin.AA_NUMBERS_TOP + skin.TEXT_INK_TOP - (row + skin.ARROW_SIZE) - 2 * skin.PADDING < 1
-    assert skin.AA_NUMBERS == (('CurrentLabel', 'Points', 'CurrentCount'), ('TotalLabel', 'Spent', 'TotalCount'),
-                               (None, 'Reuse', 'Timer'))
-    for n, (caption_id, caption, value_id) in enumerate(skin.AA_NUMBERS):
-        top = skin.AA_NUMBERS_TOP + n * skin.TEXT_HEIGHT
-        label, value = found[caption_id or f'TUI_AAW_{caption}'], found[value_id]
-        assert label.findtext('Text') == caption and box(label)[:2] == (x, top)
-        assert box(label)[0] + box(label)[2] == box(value)[0]
-        assert value.tag == ('Label' if value_id == 'Timer' else 'StaticText') and value.find('EQType') is None
-        assert box(value) == (skin.AA_RIGHT - skin.AA_VALUE_WIDTH, top, skin.AA_VALUE_WIDTH, skin.TEXT_HEIGHT)
-        assert value.findtext('AlignRight') == 'true' and rgb(value, 'TextColor') == skin.VALUE_RGB
+    # The selected ability's reuse timer (the user's call: it matters) on the line under its caption, stacked on their
+    # line height: the client's Timer, a label as in the stock window, right-aligned across the column in the game's
+    # green like the counts.
+    caption, timer = found['TUI_AAW_TimerLabel'], found['Timer']
+    assert skin.AA_TIMER_CAPTION == 'Ability ready in:' and caption.findtext('Text') == skin.AA_TIMER_CAPTION
+    assert caption.find('ScreenID') is None and box(caption) == (x, skin.AA_TIMER_TOP, skin.AA_COLUMN_WIDTH,
+                                                                  skin.TEXT_HEIGHT)
+    assert timer.tag == 'Label' and timer.find('EQType') is None and timer.findtext('Text') == ''
+    assert box(timer) == (x, skin.AA_TIMER_TOP + skin.TEXT_HEIGHT, skin.AA_COLUMN_WIDTH, skin.TEXT_HEIGHT)
+    assert timer.findtext('AlignRight') == 'true' and rgb(timer, 'TextColor') == skin.VALUE_RGB
     # Train, Hotkey and Done down the column's foot a padding apart, Done's bottom level with the description's and the
     # window's edge a padding under it: the confirmation dialog's kind, with no tooltips (the stock ones have none).
     boxes = []
@@ -4820,7 +4842,7 @@ def test_aa_column_has_your_aa_xp_the_split_your_points_and_the_buttons():
     description = box(found['Description'])
     assert boxes[-1][1] + boxes[-1][3] == description[1] + description[3] == skin.AA_BOTTOM
     assert box(window)[3] - (b + skin.AA_BOTTOM) == skin.PADDING
-    assert boxes[0][1] - (skin.AA_NUMBERS_TOP + len(skin.AA_NUMBERS) * skin.TEXT_HEIGHT) >= skin.PADDING
+    assert boxes[0][1] - (skin.AA_TIMER_TOP + skin.TEXT_HEIGHT + digits) >= skin.PADDING
 
 
 # The friends window
@@ -5684,7 +5706,7 @@ def test_preview_draws_the_tracking_window_with_its_dropdowns_and_con_colored_na
 
 def test_preview_fills_in_the_aa_window(tmp_path):
     # One look per tab, each with its tab lit and its list's sample rows, a name, rank and cost on each; the description,
-    # the % to AA, the points and the timer in the column. The widest name any tab lists fits a padding before the rank.
+    # the points, the % to AA and the timer in the column. The widest name any tab lists fits a padding before the rank.
     preview = preview_module()
     images = preview.Preview(files(), eq_dir=tmp_path).render(skin.AA_FILE)
     assert len(images) == len(skin.AA_PAGES)
@@ -5724,6 +5746,15 @@ def test_preview_fills_in_the_aa_window(tmp_path):
     if not any(Path(path).is_file() for path in preview.ARIAL):
         pytest.skip('no Arial to draw font 3 with')
     assert preview.text_mask(widest, skin.TEXT_FONT).getbbox()[2] <= name_width - skin.PADDING
+    # Each count's caption fits its box, a padding clear of a three-digit count, and the box holds four digits.
+    assert preview.text_mask('0000', skin.TEXT_FONT).getbbox()[2] <= skin.AA_VALUE_WIDTH
+    digits = preview.text_mask('000', skin.TEXT_FONT).getbbox()[2]
+    for caption_id, caption, _ in skin.AA_NUMBERS:
+        width = preview.text_mask(caption, skin.TEXT_FONT).getbbox()[2]
+        assert width <= box(found[caption_id])[2] and width + skin.PADDING <= skin.AA_COLUMN_WIDTH - digits, caption
+    # The timer's caption and its longest time fit the column.
+    for text in (skin.AA_TIMER_CAPTION, '00:00:00'):
+        assert preview.text_mask(text, skin.TEXT_FONT).getbbox()[2] <= skin.AA_COLUMN_WIDTH, text
 
 
 def test_preview_fills_in_the_friends_window(tmp_path):

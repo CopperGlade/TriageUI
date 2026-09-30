@@ -1577,11 +1577,11 @@ TRACK_BUTTON_WIDTHS = tuple(_TRACK_SPAN * (c + 1) // len(TRACK_BUTTONS) - _TRACK
 add_text_buttons(TRACK_BUTTON_WIDTHS)
 TRACK_HEIGHT = 2 * BORDER + TRACK_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 # The Alternate Advancement window: a tab for each kind of ability over its list, the selected ability's description
-# under them, and a column on the right with how much of your XP goes to AA, your points and the ability's reuse
+# under them, and a column on the right with your points, how much of your XP goes to AA and the ability's reuse
 # timer, then Train, Hotkey and Done. eqgame.exe looks up the tab box (Subwindows), its pages and their lists
 # (Page%d and List%d, 1 to 5), Description, ExpCount, CurrentCount, TotalCount, Timer, LessExpButton, MoreExpButton,
 # TrainButton, HotButton and DoneButton, and fills them all; nothing looks up the stock bar (ExpGauge, hidden: see
-# AA_SPLIT_TOP) or the stock captions, which keep their ScreenIDs as ours. The user's pick (2026-09-29, from mockups): the stock arrangement,
+# AA_NUMBERS_TOP) or the stock captions, which keep their ScreenIDs as ours. The user's pick (2026-09-29, from mockups): the stock arrangement,
 # a fixed size with no title bar, so it drags by its background.
 AA_FILE = 'EQUI_AAWindow.xml'
 # The stock pages in the stock order: (page's ScreenID, list's ScreenID, name on its tab, the tab art's name).
@@ -1695,19 +1695,27 @@ AA_COLUMN_WIDTH = 3 * HOT_SIZE + 2 * BUTTON_GAP
 AA_RIGHT = AA_COLUMN_X + AA_COLUMN_WIDTH
 AA_WIDTH = AA_RIGHT + LEFT + 2 * BORDER
 AA_HEIGHT = 2 * BORDER + AA_BOTTOM + BOTTOM_GAP
-# The column's sections, two paddings apart like the inventory's: how much of your XP goes to AA, a caption over the
-# client's % between - and + (the social page arrows' size, the digits' ink centered on them), the first line at the
-# inside's top like the inventory's stats (its ink 7.5px under the edge); then your points, those spent and the selected
-# ability's reuse timer, stacked on their line height. No AA XP line: the inventory shows it (the user's pick), and the
-# stock ExpGauge stays, hidden.
-AA_SPLIT_TOP = 0
-AA_SPLIT_ROW_TOP = AA_SPLIT_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
-AA_NUMBERS_TOP = AA_SPLIT_ROW_TOP + ARROW_SIZE + math.ceil(2 * PADDING - TEXT_INK_TOP)
+# The column's sections, in the user's order, each set apart by the row divider across the column like the inventory's
+# stats (a padding under what's above, a padding over the next ink): your points spent and available, stacked on their
+# line height, the first line at the inside's top like the inventory's stats (its ink 7.5px under the edge); how much of
+# your XP goes to AA, a caption over the client's % between - and + (the social page arrows' size, the digits' ink
+# centered on them); and the selected ability's reuse timer, the client's Timer, on the line under its caption. They
+# asked for the points earned on top too, but the client gives only the unspent and spent counts, no label EQType has
+# either, and a skin can't add them. No AA XP line: the inventory shows it (the user's pick), and the stock ExpGauge
+# stays, hidden.
+AA_NUMBERS_TOP = 0
 # (caption's ScreenID, caption, value's ScreenID), each value in the game's green ending at the column's right: the
-# stock captions' ScreenIDs, which nothing looks up; the timer's caption is ours.
-AA_NUMBERS = (('CurrentLabel', 'Points', 'CurrentCount'), ('TotalLabel', 'Spent', 'TotalCount'),
-              (None, 'Reuse', 'Timer'))
-AA_VALUE_WIDTH = 48  # "00:00:00" in font 3 (Arial 12px): the timer's "%02d:%02d:%02d", the longest value
+# stock captions' ScreenIDs, which nothing looks up.
+AA_NUMBERS = (('TotalLabel', 'Spent', 'TotalCount'), ('CurrentLabel', 'Available', 'CurrentCount'))
+AA_POINTS_DIVIDER_TOP = AA_NUMBERS_TOP + (len(AA_NUMBERS) - 1) * TEXT_HEIGHT + INV_DIGITS_BOTTOM + PADDING
+AA_SPLIT_TOP = AA_POINTS_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME
+AA_SPLIT_ROW_TOP = AA_SPLIT_TOP + PERCENT_INK_TOP + PERCENT_GLYPH_HEIGHT + PADDING
+AA_SPLIT_DIVIDER_TOP = AA_SPLIT_ROW_TOP + ARROW_SIZE + PADDING
+AA_TIMER_TOP = AA_SPLIT_DIVIDER_TOP + DIVIDER_HEIGHT + DIVIDER_TO_NAME  # the caption's; the timer's is a line under it
+AA_TIMER_CAPTION = 'Ability ready in:'
+# The dividers are the inventory's column's art, the column being as wide.
+AA_COLUMN_DIVIDERS = (('TUI_AAW_PointsDivider', AA_POINTS_DIVIDER_TOP), ('TUI_AAW_SplitDivider', AA_SPLIT_DIVIDER_TOP))
+AA_VALUE_WIDTH = 28  # "0000" in font 3 (Arial 12px), more than any count reaches
 # Train, Hotkey and Done down the column's foot, Done's bottom level with the description's: the confirmation dialog's
 # kind of button, a padding apart, with no tooltips (the stock ones have none).
 AA_BUTTONS = (('TrainButton', 'Train'), ('HotButton', 'Hotkey'), ('DoneButton', 'Done'))
@@ -2569,6 +2577,16 @@ def tapered(x, y, start, end, r_start, r_end):
     return math.hypot(x - start[0] - t * dx, y - start[1] - t * dy) - (r_start + (r_end - r_start) * t)
 
 
+def curve(start, bend, end, r_start, r_end, steps=10):
+    """A curve from start, pulled toward bend, to end, narrowing from r_start to r_end: a quadratic Bezier as steps
+    tapered pieces. A root coiling round something."""
+    points = [((1 - t) ** 2 * start[0] + 2 * (1 - t) * t * bend[0] + t * t * end[0],
+               (1 - t) ** 2 * start[1] + 2 * (1 - t) * t * bend[1] + t * t * end[1]) for t in (k / steps for k in range(steps + 1))]
+    radii = [r_start + (r_end - r_start) * k / steps for k in range(steps + 1)]
+    pieces = list(zip(points, points[1:], radii, radii[1:]))
+    return lambda x, y: min(tapered(x, y, a, b, ra, rb) for a, b, ra, rb in pieces)
+
+
 def tilted_ellipse(x, y, cx, cy, rx, ry, degrees):
     a = math.radians(degrees)
     u = (x - cx) * math.cos(a) + (y - cy) * math.sin(a)
@@ -2794,15 +2812,23 @@ def summoned_food_picture():
 
 
 def haste_picture():
-    # 16: an upright silver sword with see-through blue butterfly wings behind it.
-    layers = []
-    for cx, cy, rx, ry, degrees in ((3.9, 4.6, 3.8, 2.7, 40), (12.1, 4.6, 3.8, 2.7, -40), (4.4, 9.9, 2.8, 1.8, -35),
-                                    (11.6, 9.9, 2.8, 1.8, 35)):
-        wing = lambda u, v, w=(cx, cy, rx, ry, degrees): tilted_ellipse(u, v, *w)  # noqa: E731
-        layers += [glow(wing, flat((150, 190, 255, 90)), 1.8),
-                   fill(wing, radial((cx, cy), max(rx, ry), [(0, (200, 220, 255, 150)), (1, (120, 150, 255, 230))])),
-                   fill(lambda u, v, wing=wing: abs(wing(u, v) + 0.35) - 0.3, flat((230, 240, 255, 220)))]
-    return layers + sword_layers((8, 11.2), (8, 0.4), (200, 230, 255, 120), half=1.2, guard=2.6)
+    # 16: a silver sword swept up to the right, the middle of its blade near the tile's, with a white feathered wing
+    # springing from each edge there and sweeping back toward the hilt, and speed streaks behind. duxaUI's butterfly
+    # wings behind an upright sword were tried (the user didn't like them), and wings at the guard were moved here.
+    base, tip = (4.0, 12.0), (13.4, 2.6)
+    middle = (base[0] + (tip[0] - base[0]) * 0.46, base[1] + (tip[1] - base[1]) * 0.46)
+    streaks = lambda u, v: min(capsule(u, v, (0.4 + k, 11.2 + k), (2.6 + k, 9.0 + k), 0.3) for k in (0, 1.8))  # noqa: E731
+    layers = [fill(streaks, flat((200, 225, 255, 140)))]
+    feathers = []
+    for side, away in ((-1, 225), (1, 45)):  # up and left, then down and right: out from the blade's edge
+        start = (middle[0] + 0.75 * side, middle[1] + 0.75 * side)
+        for k, (reach, width) in enumerate(((6.0, 1.25), (5.2, 1.1), (4.2, 0.95))):
+            a = math.radians(away + side * 26 * k)  # each further feather turned toward the hilt
+            feathers.append((start, (start[0] + reach * math.cos(a), start[1] + reach * math.sin(a)), width, 0.4))
+    for f in reversed(feathers):
+        feather = lambda u, v, f=f: tapered(u, v, *f)  # noqa: E731
+        layers += [outline(feather, (30, 40, 70, 220), 0.5), shaded(feather, FEATHER, f[0], f[1], 0.7, 0.45)]
+    return layers + sword_layers(base, tip, (210, 230, 255, 120), half=0.95, guard=2.0, grip=1.7)
 
 
 def slow_picture():
@@ -2839,20 +2865,24 @@ def run_speed_picture():
 
 
 def mesmerize_picture():
-    # 35: a closed eye, only its upper lid in skin with the fold drawn above, the dark seam curving along its bottom
-    # and the lashes fanning down past it. With a lower lid under the seam, it read as a mouth.
-    cx, cy, r = 8, 0.4, 8.6
-    lid = lambda u, v: max(almond(u, v), circle(u, v, cx, cy, r))  # noqa: E731
-    seam = lambda u, v: max(arc_distance(u, v, cx, cy, r, 35, 145), -almond(u, v) - 0.2) - 0.5  # noqa: E731
-    fold = lambda u, v: arc_distance(u, v, 8, 11.2, 7.0, 222, 318) - 0.3  # noqa: E731
-    roots = [(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a)), math.radians(90 + 1.6 * spread))
-             for a, spread in ((52, -26), (68, -14), (84, -4), (96, 4), (112, 14), (128, 26))]
-    lashes = lambda u, v: min(tapered(u, v, (x, y), (x + 3.0 * math.cos(a), y + 3.0 * math.sin(a)), 0.42, 0.16)  # noqa: E731
-                              for x, y, a in roots)
+    # 35: a closed eye in skin, a brow over it, the fold of its lid, the lash line curving down across it and long lashes
+    # curling down and out from it, in a soft purple glow. Only the upper lid, with the lashes hanging past it, looked
+    # flat; a hypnotic spiral was offered as well.
+    lid = lambda u, v: max(circle(u, v, 8, 13.8, 7.9), circle(u, v, 8, 5.6, 6.4))  # noqa: E731
+    fold = lambda u, v: arc_distance(u, v, 8, 11.8, 6.8, 228, 312) - 0.28  # noqa: E731
+    lash_line = lambda u, v: arc_distance(u, v, 8, 5.6, 6.4, 38, 142) - 0.45  # noqa: E731
+    brow = lambda u, v: arc_distance(u, v, 8, 14.8, 11.0, 238, 302) - 0.55  # noqa: E731
+    lashes = []
+    for degrees, bend in ((50, -1.3), (66, -0.8), (82, -0.3), (98, 0.3), (114, 0.8), (130, 1.3)):
+        a = math.radians(degrees)
+        root = (8 + 6.4 * math.cos(a), 5.6 + 6.4 * math.sin(a))
+        lashes.append((root, (root[0] + 2.2 * math.cos(a) + bend, root[1] + 2.2 * math.sin(a) + 0.4)))
+    lash = lambda u, v: min(tapered(u, v, a, b, 0.4, 0.14) for a, b in lashes)  # noqa: E731
     lit, mid, rim = SKIN_TONES
-    return [glow(lid, flat((230, 170, 255, 110)), 2.4), outline(lid),
-            fill(lid, bevel(linear((8, 3), (8, 9), [(0, lit), (1, mid)]), rim, 1.2, 0.5)),
-            fill(fold, flat((*rim, 200))), fill(lashes, flat((44, 22, 30))), fill(seam, flat((44, 22, 30)))]
+    return [glow(lambda u, v: circle(u, v, 8, 8.5, 5.5), flat((230, 170, 255, 70)), 2.5), outline(lid),
+            fill(lid, bevel(linear((8, 4.6), (8, 11.6), [(0, lit), (1, mid)]), rim, 1.1, 0.5)),
+            fill(inside(lid, fold), flat((*rim, 190))), fill(lash, flat((44, 22, 30))), fill(lash_line, flat((44, 22, 30))),
+            fill(brow, flat((96, 60, 44)))]
 
 
 def invisibility_picture():
@@ -2869,14 +2899,18 @@ def invisibility_picture():
 
 
 def root_picture():
-    # 117: gnarled brown roots spreading and forking down from a stub of trunk.
-    parts = (((8, 0.2), (8, 5.2), 1.7, 1.3), ((8, 5.0), (4.2, 8.6), 1.2, 0.8), ((4.2, 8.6), (1.8, 13.8), 0.8, 0.4),
-             ((4.4, 8.4), (5.2, 14.8), 0.65, 0.35), ((8, 5.0), (8.8, 10.2), 1.1, 0.75), ((8.8, 10.2), (7.8, 15.2), 0.75, 0.35),
-             ((8, 5.0), (11.8, 8.0), 1.2, 0.8), ((11.8, 8.0), (14.4, 13.0), 0.8, 0.4), ((11.7, 8.0), (11.2, 14.2), 0.6, 0.3),
-             ((2.9, 11.2), (0.8, 11.8), 0.4, 0.2), ((13.1, 10.4), (15.2, 10.0), 0.4, 0.2))
-    roots = lambda u, v: min(tapered(u, v, *p) for p in parts)  # noqa: E731
-    return [glow(roots, flat((120, 200, 110, 90)), 2.2), outline(roots, width=0.55),
-            fill(roots, bevel(linear((6, 1), (10, 15), [(0, (178, 122, 70)), (1, (120, 76, 40))]), (60, 34, 16), 0.8))]
+    # 117: a leather boot held fast, roots coiled round its ankle and growing down into the ground beside it. Roots
+    # alone, spreading down from a stub of trunk, read as a tree (the user's pick over a tangle of roots after duxaUI's).
+    boot = lambda u, v: polygon_signed(u, v, [(5.0, 1.2), (9.8, 1.2), (9.8, 10.6), (14.2, 11.4), (15.0, 12.8),  # noqa: E731
+                                              (15.0, 14.2), (4.6, 14.2), (5.0, 9.0)]) - 0.35
+    coils = [curve((2.2, 5.0), (7.4, 3.4), (11.4, 6.0), 0.75, 0.6), curve((11.4, 6.0), (7.2, 8.8), (3.0, 7.8), 0.65, 0.55),
+             curve((3.0, 7.8), (1.6, 11.0), (2.4, 15.4), 0.6, 0.25), curve((11.2, 6.2), (13.6, 7.2), (13.8, 9.6), 0.4, 0.18),
+             curve((3.4, 5.0), (1.2, 3.6), (0.8, 1.2), 0.5, 0.2)]
+    roots = lambda u, v: min(coil(u, v) for coil in coils)  # noqa: E731
+    return [glow(boot, flat((120, 200, 110, 60)), 2.0), outline(boot), shaded(boot, LEATHER, (5, 2), (12, 14)),
+            fill(lambda u, v: max(boot(u, v), 13.1 - v), flat((50, 28, 12, 220))),  # the sole
+            glow(roots, flat((120, 200, 110, 50)), 2.0), outline(roots, width=0.55),
+            fill(roots, bevel(linear((5, 1), (11, 15), [(0, (184, 128, 74)), (1, (116, 72, 38))]), (58, 32, 14), 0.7, 0.55))]
 
 
 SPELL_PICTURES = {
@@ -4967,8 +5001,8 @@ def tracking_window():
 
 def aa_window():
     """The five stock tabs, each over its list of abilities, a divider under them, the selected ability's description
-    under the list, and the column beside them: how much of your XP goes to AA, your points and the reuse timer, and
-    Train, Hotkey and Done (see AA_FILE). A list's position is from its page's top left, which the tab box
+    under the list, and the column beside them: your points, how much of your XP goes to AA, the reuse timer, and Train,
+    Hotkey and Done (see AA_FILE). A list's position is from its page's top left, which the tab box
     puts a padding under the divider and in from the window's left (see TAB_BORDER)."""
     inner = []
     for screen_id, list_id, _, art in AA_PAGES:
@@ -4998,9 +5032,20 @@ def aa_window():
         node('Style_Border', False),
         node('DrawTemplate', EDIT_TEMPLATE),
     ], 'TUI_AAW_Description'))
-    # The column, with no AA XP line (see AA_SPLIT_TOP).
+    # The column, with no AA XP line (see AA_NUMBERS_TOP). The counts are StaticText and the timer a label, as in the
+    # stock window.
     x, right = AA_COLUMN_X, AA_RIGHT
     parts.append(vertical_divider('TUI_AAW_Divider', AA_DIVIDER_X, LEFT, AA_BOTTOM - LEFT))
+    parts += [picture(name, 'TUI_InvDivider', (x, top, AA_COLUMN_WIDTH, DIVIDER_HEIGHT))
+              for name, top in AA_COLUMN_DIVIDERS]
+    value_x = right - AA_VALUE_WIDTH
+    for n, (caption_id, caption, value_id) in enumerate(AA_NUMBERS):
+        top = AA_NUMBERS_TOP + n * TEXT_HEIGHT
+        parts += [
+            label(f'TUI_AAW_{caption_id}', None, (x, top, value_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
+            static_text(f'TUI_AAW_{value_id}', value_id, (value_x, top, AA_VALUE_WIDTH, TEXT_HEIGHT), align_right=True,
+                        rgb=VALUE_RGB),
+        ]
     parts += [
         hidden_gauge('TUI_AAW_ExpGauge', 'ExpGauge', 5),
         label('TUI_AAW_PercentLabel', None, (x, AA_SPLIT_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), 'XP to AA',
@@ -5011,18 +5056,10 @@ def aa_window():
                      AA_COLUMN_WIDTH - 2 * (ARROW_SIZE + PADDING), TEXT_HEIGHT), align_center=True, rgb=VALUE_RGB),
         icon_button('TUI_AAW_MoreExpButton', 'MoreExpButton', right - ARROW_SIZE, AA_SPLIT_ROW_TOP, None, 'Plus',
                     ARROW_SIZE),
+        label('TUI_AAW_TimerLabel', None, (x, AA_TIMER_TOP, AA_COLUMN_WIDTH, TEXT_HEIGHT), AA_TIMER_CAPTION),
+        label('TUI_AAW_Timer', None, (x, AA_TIMER_TOP + TEXT_HEIGHT, AA_COLUMN_WIDTH, TEXT_HEIGHT), '',
+              align_right=True, screen_id='Timer', rgb=VALUE_RGB),
     ]
-    # The counts are StaticText, the timer a label, as in the stock window.
-    value_x = right - AA_VALUE_WIDTH
-    for n, (caption_id, caption, value_id) in enumerate(AA_NUMBERS):
-        top = AA_NUMBERS_TOP + n * TEXT_HEIGHT
-        rect = (value_x, top, AA_VALUE_WIDTH, TEXT_HEIGHT)
-        parts += [
-            label(f'TUI_AAW_{caption}', None, (x, top, value_x - x, TEXT_HEIGHT), caption, screen_id=caption_id),
-            label(f'TUI_AAW_{value_id}', None, rect, '', align_right=True, screen_id=value_id, rgb=VALUE_RGB)
-            if value_id == 'Timer' else
-            static_text(f'TUI_AAW_{value_id}', value_id, rect, align_right=True, rgb=VALUE_RGB),
-        ]
     parts += [button(f'TUI_AAW_{screen_id}', screen_id, '', x, AA_BUTTONS_TOP + n * (TEXT_BUTTON_HEIGHT + BUTTON_ROW_GAP),
                      AA_COLUMN_WIDTH, TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text=button_name)
               for n, (screen_id, button_name) in enumerate(AA_BUTTONS)]

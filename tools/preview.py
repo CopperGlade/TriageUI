@@ -122,8 +122,9 @@ LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_M
               'LW_CorpseName': "a gnoll pup's corpse", 'BW_BankerName': 'Banker Denston',
               **{f'SBW_SpellName{n}': name for n, (name, _) in enumerate(BOOK)},
               'SBW_LeftPageNum': BOOK_PAGES[0], 'SBW_RightPageNum': BOOK_PAGES[1],
-              # The AA window's: how much XP goes to AA, your points, those spent and the selected ability's timer.
-              'ExpCount': '100%', 'CurrentCount': '12', 'TotalCount': '145', 'Timer': 'Ready'}
+              # The AA window's: how much XP goes to AA, your points available and spent, and the selected ability's
+              # reuse timer.
+              'ExpCount': '100%', 'CurrentCount': '12', 'TotalCount': '145', 'Timer': '00:42:10'}
 EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup', 'NameInput': 'Player 10',
              'INSW_Edit': 'Looking for a group in Lower Guk. Tells welcome, spells for sale.'}
 STML_TEXT = {
