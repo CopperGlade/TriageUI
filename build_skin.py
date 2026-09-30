@@ -10,6 +10,7 @@ Copyright 2026 Sebik <Europa>, licensed under CC BY-NC-SA 4.0: see LICENSE.
 
 import argparse
 import math
+import random
 import re
 import shutil
 import struct
@@ -123,8 +124,10 @@ PERCENT_TEXTURE = 'triageui_percent.tga'
 FIELD_TEXTURE = 'triageui_field.tga'  # the chat input's strip, darker than the panel
 GUTTER_TEXTURE = 'triageui_gutter.tga'  # the scrollbar's track: clear, so only the thumb shows
 DIVIDER_TEXTURE = 'triageui_divider.tga'  # the row divider's color, for a divider standing up (see DIVIDER_TEMPLATE)
-BOOK_TEXTURE = 'triageui_book.tga'  # the spell book's page strips, too tall for the atlas (see BOOK_TURN_WIDTH)
-BOOK_TEXTURE_SIZE = 512  # both sides
+# The spell book's page strips and its pages, too big for the atlas (see BOOK_TURN_WIDTH and book_spread()).
+BOOK_TEXTURE = 'triageui_book.tga'
+BOOK_TEXTURE_WIDTH = 1024
+BOOK_TEXTURE_HEIGHT = 512
 # The skin's copy of the base's EQUI_Animations.xml carries our shared definitions: the client loads it
 # before every window file, so every window can use them.
 ANIMATIONS_FILE = 'EQUI_Animations.xml'
@@ -538,7 +541,8 @@ for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
 # dividers sit in the pixel between. The icon is a padding from the window's top and bottom. The client
 # paints each slot with BlueIconBackground (helpful) or RedIconBackground (harmful), by name, so the skin
 # redefines those two: clear for helpful effects, and a red bar on each side of the icon for harmful ones. The spellbook, item display and combat ability windows use them too and change with them (the
-# user's call); the spell book lays its slots out so the red bars fall under its icons (see BOOK_ICON_X).
+# user's call). The client stretches them to each slot, so the spell book's and item window's slots are shaped so
+# the red bars fall under their icons (see BOOK_SLOT_MARGIN).
 BUFF_FILE = 'EQUI_BuffWindow.xml'
 SONG_FILE = 'EQUI_ShortDurationBuffWindow.xml'
 BUFF_ICONS = 'BuffIcons'  # the stock spell icons the client puts on each slot
@@ -582,8 +586,8 @@ TIMER_WIDTH = 30
 # empty, so every icon and name starts at the same place. The client's art swap (0x409520: the slot's
 # Normal is RedIconBackground when the spell's beneficial byte is 0) is the only sign of an effect's type a
 # skin gets: the names (labels 45-59, 0x436F3D) are set without a color, so they can't turn red (Zeal's
-# label hook could). The art is drawn from the slot's top left at its own size, so clear pixels put the bars
-# in place. Before them: a faint red across the row, then a red square behind the icon at alpha 85, which
+# label hook could). The client stretches the art to the slot, which is the art's own size here, so clear pixels
+# put the bars in place. Before them: a faint red across the row, then a red square behind the icon at alpha 85, which
 # left a 2px ring too faint to see, its left side under Zeal's timer box (the user had it removed), then a
 # single 5px bar between the icon and the name.
 HARMFUL_RGBA = (255, 68, 68, 255)
@@ -976,7 +980,8 @@ CONFIRM_HEIGHT = 2 * BORDER + CONFIRM_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + DIALOG_
 # item's name into the window's title alone (the text never has it), builds the text, and makes the item's icon, an
 # A_DragItem cell 40px square, the icon button's own Normal art, clearing its decal. SetSpell puts the spell's
 # A_SpellIcons cell (40px too) in the decal and has the buff window paint the button BlueIconBackground or
-# RedIconBackground, the effect slots' art. Neither moves nor resizes anything. The window handles one click, on the
+# RedIconBackground, the effect slots' art, stretched to the button, which is the icon's size, so the red bars fall
+# under the icon (see BOOK_SLOT_MARGIN). Neither moves nor resizes anything. The window handles one click, on the
 # icon, which puts a link to the item in the chat input (0x425cf6), and Page Up and Page Down scroll the text
 # (0x425d69). Zeal makes its own item windows (ZealItemDisplay0 to 4 in the character's ini) from the same XML, links
 # only ItemDescription and then IconButton as their children, and keeps no size for them, so they open at the XML's.
@@ -1305,12 +1310,12 @@ COMPASS_NORTH_RGB = SPELL_RGB
 # column and an intercardinal's (12 wide) on the line between two columns, where a half-degree-a-pixel strip puts it.
 COMPASS_MARKS = (('N', 0, COMPASS_NORTH_RGB), ('NE', 45, PET_RGB), ('E', 90, TEXT_RGB), ('SE', 135, PET_RGB),
                  ('S', 180, TEXT_RGB), ('SW', 225, PET_RGB), ('W', 270, TEXT_RGB), ('NW', 315, PET_RGB))
-# The spell book: its two pages side by side, each two tiles across by four down in the stock book's reading order,
-# a spell's icon at the icons' own 40px with its name centered under it, and a divider standing between the pages (the
-# user's pick, 2026-09-30, from mockups, over eight rows a page like the spell bar's: spells are picked in a fight, so
-# each tile, 100 by 94, is as big a target as fits, and lights up under the pointer). A thin bar along the top for
-# memorizing or scribing, like the spell bar's recovery bar; Previous and Next as tall strips down the window's sides;
-# the page numbers and Done along the bottom. eqgame.exe looks up
+# The spell book: two parchment pages side by side in the window's dark panel, its cover, each two spells across by four
+# down in the stock book's reading order, a spell's icon at the icons' own 40px in a thin frame with its name in ink
+# centered under it (the user's picks, 2026-09-30, from mockups: the layout over eight rows a page like the spell
+# bar's, then the parchment over the same layout in the overlay's look, so the book is the one window that leaves it). A
+# thin bar along the top for memorizing or scribing, like the spell bar's recovery bar; Previous and Next as tall
+# strips down the window's sides; the page numbers and Done along the bottom. eqgame.exe looks up
 # SBW_Spell%d and SBW_SpellName%d (16 of each), SBW_PageDown_Button and SBW_PageUp_Button, SBW_MemPage0_Button and
 # SBW_MemPage1_Button (no size in every skin), SBW_LeftPageNum and SBW_RightPageNum, and DoneButton; the bars by
 # EQType, 9 memorizing and 10 scribing, which never run together, so they share a spot (as in duxaUI). The stock
@@ -1318,62 +1323,77 @@ COMPASS_MARKS = (('N', 0, COMPASS_NORTH_RGB), ('NE', 45, PET_RGB), ('E', 90, TEX
 # StaticText, which takes no click (see static_text()).
 SPELLBOOK_FILE = 'EQUI_SpellBookWnd.xml'
 BOOK_SPELLS = 16
-BOOK_COLUMNS = 2  # a page's tiles across
+BOOK_COLUMNS = 2  # a page's spells across
 BOOK_PAGE_ROWS = 4
 BOOK_PAGE_SPELLS = BOOK_COLUMNS * BOOK_PAGE_ROWS
 BOOK_ICON = 40  # A_SpellIcons' cells, drawn at their own size
-# The client paints a detrimental spell's slot RedIconBackground, the Effects window's art, from the slot's top left at
-# its own size, which put its bars over the names (seen in game 2026-09-29). So each slot starts this far left of its
-# icon and this far above it, and the bars (4 + 16 + 4 = 24px wide, 16 tall, see HARMFUL_BARS) fall under the icon's
-# first four columns and its 21st to 24th, opaque there in every A_SpellIcons cell. The tile is as wide again right of
-# the icon, so the icon is centered on it. Panel-colored patches over the bars would show at any Alpha under 255.
-BOOK_ICON_X = HARMFUL_BARS[0] - SLOT_X
-BOOK_ICON_Y = ROW_ICON_MARGIN
-BOOK_TILE_WIDTH = 2 * BOOK_ICON_X + BOOK_ICON
-BOOK_PAGE_WIDTH = BOOK_COLUMNS * BOOK_TILE_WIDTH + (BOOK_COLUMNS - 1) * DIVIDER_HEIGHT  # a divider between its tiles
-# The name a padding in from the tile's sides, centered and wrapping onto as many as 3 lines: at 88px in font 3 (Arial
-# 12px), 739 of the 1789 names a class can scribe (spells_en.txt) take 2 lines and 74 take 3. Only two single words
-# run wider, VampEmbraceNecro and VampEmbraceShadow.
-BOOK_NAME_WIDTH = BOOK_TILE_WIDTH - 2 * PADDING
+# The client paints a detrimental spell's slot RedIconBackground, the Effects window's art, stretched to the slot's
+# size: its bars stood over the names on rows (seen in game 2026-09-29), then down most of a 100 by 92 tile left of its
+# icon (2026-09-30). So each slot is the stock book's, the icon this far in all round: stretched to 44px, the bars (see
+# HARMFUL_BARS) cover x 6 to 10.8 and y 4.4 to 39.6, inside the icon by more than a pixel of filtering, and clear of its
+# bottom row, which six cells of spells01 leave see-through. A bigger slot lets red out (48 with the icon at 4 puts it
+# on the row above the icon and on that bottom row), so only the icon and the ring round it take a click, and the name
+# under it takes none. Panel-colored patches over the bars would show at any Alpha under 255.
+BOOK_SLOT_MARGIN = 2
+BOOK_SLOT = BOOK_ICON + 2 * BOOK_SLOT_MARGIN
+# Each spell's frame, a line on the page just outside its slot, so an empty spot shows where a spell goes.
+BOOK_FRAME_LINE = 1
+BOOK_FRAME = BOOK_SLOT + 2 * BOOK_FRAME_LINE
+# A spell's tile: its name a padding in from each side, centered and wrapping onto as many as 3 lines, with its frame
+# centered over it. At 88px in font 3 (Arial 12px), 739 of the 1789 names a class can scribe (spells_en.txt) take 2
+# lines and 74 take 3. Only two single words run wider, VampEmbraceNecro and VampEmbraceShadow.
+BOOK_NAME_WIDTH = 88
 BOOK_NAME_LINES = 3
-# Down a row: the icon GEM_ICON_MARGIN under the divider above, as on the spell bar; the name's ink a padding under
-# the icon; the last line's letters, which end where the digits do, a padding over the divider under it.
-BOOK_NAME_TOP = GEM_ICON_MARGIN + BOOK_ICON + math.ceil(PADDING - TEXT_INK_TOP)
+BOOK_TILE_WIDTH = BOOK_NAME_WIDTH + 2 * PADDING
+BOOK_FRAME_X = (BOOK_TILE_WIDTH - BOOK_FRAME) // 2  # in its tile
+BOOK_PAGE_WIDTH = BOOK_COLUMNS * BOOK_TILE_WIDTH
+# Down a page: each frame a padding under the page's top edge or the row above's letters, the name's ink a padding
+# under the frame, and a three-line name's letters, which end where the digits do, a padding over the next frame or
+# the page's bottom edge. So a row, frame to frame:
+BOOK_NAME_TOP = BOOK_FRAME + math.ceil(PADDING - TEXT_INK_TOP)  # from the frame's top
 BOOK_INK_BOTTOM = TEXT_INK_TOP + PERCENT_GLYPH_HEIGHT - math.ceil(PERCENT_SUBPIXEL)  # from a line's top
 BOOK_ROW_HEIGHT = math.ceil(BOOK_NAME_TOP + (BOOK_NAME_LINES - 1) * TEXT_HEIGHT + BOOK_INK_BOTTOM + PADDING)
-BOOK_ROW_PITCH = BOOK_ROW_HEIGHT + DIVIDER_HEIGHT
-# Each slot is its whole tile from BOOK_ICON_Y above the icon, so a click anywhere on it counts.
-BOOK_SLOT_WIDTH = BOOK_TILE_WIDTH
-BOOK_SLOT_HEIGHT = BOOK_ROW_HEIGHT - (GEM_ICON_MARGIN - BOOK_ICON_Y)  # to the row's bottom
-# Under the pointer and while pressed, a tile shows the buttons' look for that state, a box this far inside its grid
-# lines all round, so you see which spell a click takes. The client sets the slot's Normal itself (see
-# A_SpellBookSlot); if it sets these too, nothing lights.
-BOOK_HOVER_INSET = BOOK_ICON_Y
 # Previous and Next: strips as tall as the window's inside and as wide as the stock book's arrows, down its sides,
 # where they never move, so a page can be turned again and again without looking, a padding clear of the pages, where
 # a click takes no spell. Their art is too tall for the atlas (see BOOK_TEXTURE).
 BOOK_TURN_WIDTH = 30
 BOOK_ARROWS = (('SBW_PageDown_Button', 'Previous Page', 'Left'), ('SBW_PageUp_Button', 'Next Page', 'Right'))
 BOOK_LEFT = LEFT + BOOK_TURN_WIDTH + PADDING
-BOOK_DIVIDER_X = BOOK_LEFT + BOOK_PAGE_WIDTH + PADDING
-BOOK_PAGE_XS = (BOOK_LEFT, BOOK_DIVIDER_X + DIVIDER_HEIGHT + PADDING)  # each page's left
+# The spine between the pages: a crease a padding from each.
+BOOK_CREASE_X = BOOK_LEFT + BOOK_PAGE_WIDTH + PADDING
+BOOK_PAGE_XS = (BOOK_LEFT, BOOK_CREASE_X + DIVIDER_HEIGHT + PADDING)  # each page's left
 BOOK_RIGHT = BOOK_PAGE_XS[1] + BOOK_PAGE_WIDTH
-BOOK_CONTENT_WIDTH = BOOK_RIGHT - BOOK_LEFT  # both pages, which the bar and the last divider span
+BOOK_CONTENT_WIDTH = BOOK_RIGHT - BOOK_LEFT  # both pages, which the bar spans
 BOOK_TURN_XS = (LEFT, BOOK_RIGHT + PADDING)
 SPELLBOOK_WIDTH = BOOK_TURN_XS[1] + BOOK_TURN_WIDTH + LEFT + 2 * BORDER
 MEMORIZE_TYPE = 9
 SCRIBE_TYPE = 10
 BOOK_BAR_TOP = LEFT
-# The first row's icon a padding under the bar; a divider under each row (the last one's across both pages, meeting
-# the one standing between them), and the band a padding under that.
-BOOK_ROWS_TOP = BOOK_BAR_TOP + TICK_HEIGHT + PADDING - GEM_ICON_MARGIN
-BOOK_LAST_DIVIDER_TOP = BOOK_ROWS_TOP + BOOK_PAGE_ROWS * BOOK_ROW_PITCH - DIVIDER_HEIGHT
-BOOK_BAND_TOP = BOOK_LAST_DIVIDER_TOP + DIVIDER_HEIGHT + PADDING
-# Done the loot and bank windows', centered on the divider between the pages.
+# The pages a padding under the bar, a padding over their first frames, and the band a padding under them.
+BOOK_PAGES_TOP = BOOK_BAR_TOP + TICK_HEIGHT + PADDING
+BOOK_PAGES_HEIGHT = PADDING + BOOK_PAGE_ROWS * BOOK_ROW_HEIGHT
+BOOK_BAND_TOP = BOOK_PAGES_TOP + BOOK_PAGES_HEIGHT + PADDING
+# Done the loot and bank windows', centered on the crease.
 BOOK_DONE_WIDTH = COIN_WIDTH
 add_text_buttons((BOOK_DONE_WIDTH,))
 BOOK_TURN_HEIGHT = BOOK_BAND_TOP + TEXT_BUTTON_HEIGHT - BOOK_BAR_TOP
 SPELLBOOK_HEIGHT = 2 * BORDER + BOOK_BAND_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
+# The pages' look, the book's own: parchment a shade under the cream behind the stock spell icons, so they stand out,
+# a darker edge round it, a grain of single pixels a step darker or lighter, and shading from BOOK_SHADE_WIDTH out of
+# the crease down to BOOK_SPINE_RGB beside it, with the crease a line of its own. The frames a mid brown and the names
+# dark brown ink, as dark as the stock book's black names on its parchment; the ring round an icon gold under the
+# pointer (see book_slot_art()), darker while pressed. Greens are on the 16 steps (see STEP), and the shading's
+# in-between greens are scattered between the steps either side, like the grain, so it never shows bands.
+PARCHMENT_RGB = (224, 204, 160)
+BOOK_PAGE_EDGE_RGB = (150, 119, 80)
+BOOK_SPINE_RGB = (170, 136, 96)
+BOOK_CREASE_RGB = (120, 85, 51)
+BOOK_SHADE_WIDTH = 18
+BOOK_GRAIN = (0.07, 0.03)  # the share of pixels a step darker, and a step lighter
+BOOK_GRAIN_SEED = 1  # the same grain every build
+BOOK_FRAME_RGB = (120, 85, 51)
+BOOK_INK_RGB = (58, 40, 24)
+BOOK_RING_RGB = {'Flyby': (221, 170, 51), 'Pressed': (187, 136, 34)}
 # The inventory window: what you wear, your stats and your coins. eqgame.exe looks up the worn and bag slots
 # (InvSlot%d, EQTypes 1 to 29), the coin boxes (IW_Money0 to 3, see COIN_CAPTIONS), IW_Skills, IW_AltAdvBtn,
 # IW_Destroy and DoneButton, the class picture (ClassAnim, which it sets to A_ClassAnim%02d), the area a dropped item
@@ -2471,12 +2491,19 @@ def labeled_button_art(width, height, label, state, style=BUTTON_STYLE):
 
 
 def book_slot_art(state):
-    """A spell book slot in one state: the buttons' look as a box BOOK_HOVER_INSET inside the tile's grid lines, the
-    slot's top already that far under the divider above, and clear around it."""
-    art = Texture(BOOK_SLOT_WIDTH, BOOK_SLOT_HEIGHT)
-    box = labeled_button_art(BOOK_SLOT_WIDTH - 2 * BOOK_HOVER_INSET, BOOK_SLOT_HEIGHT - BOOK_HOVER_INSET, '', state)
-    art.paste(box, BOOK_HOVER_INSET, 0)
-    return art
+    """A spell book slot hovered or pressed, so you see which spell a click takes: a ring BOOK_SLOT_MARGIN wide round
+    the icon in the state's BOOK_RING_RGB, its outside rounded like the panel's corners, and clear inside, where the
+    icon or the page shows. The client sets the slot's Normal itself (see A_SpellBookSlot); if it sets these too,
+    nothing lights."""
+    icon = range(BOOK_SLOT_MARGIN, BOOK_SLOT - BOOK_SLOT_MARGIN)
+
+    def on_ring(x, y):
+        return (rounded_rect_distance(x, y, 0, 0, BOOK_SLOT, BOOK_SLOT, CORNER_RADIUS) < 0
+                and not (int(x) in icon and int(y) in icon))
+
+    art = ink(Texture(BOOK_SLOT, BOOK_SLOT), BOOK_SLOT, BOOK_SLOT, on_ring)
+    art.rows = [[(*BOOK_RING_RGB[state], alpha) for *_, alpha in row] for row in art.rows]
+    return snapped_art(art)
 
 
 def harmful_row():
@@ -2587,12 +2614,52 @@ def compass_overlay():
     return overlay
 
 
+def book_frames():
+    """Each spell's frame's top left in the spell book, inside the window: spells 0 to 7 on the left page and 8 to 15
+    on the right, two across by four down in the stock reading order."""
+    return [(BOOK_PAGE_XS[n // BOOK_PAGE_SPELLS] + n % BOOK_COLUMNS * BOOK_TILE_WIDTH + BOOK_FRAME_X,
+             BOOK_PAGES_TOP + PADDING + n % BOOK_PAGE_SPELLS // BOOK_COLUMNS * BOOK_ROW_HEIGHT)
+            for n in range(BOOK_SPELLS)]
+
+
+def book_spread():
+    """The spell book's two pages as one picture (see PARCHMENT_RGB): parchment inside a rounded darker edge, with its
+    grain, the shading down to the crease between the pages, and each spell's frame."""
+    fill = (*PARCHMENT_RGB, 255)
+    pages = panel_texture(BOOK_CONTENT_WIDTH, BOOK_PAGES_HEIGHT, fill, (*BOOK_PAGE_EDGE_RGB, 255))
+    crease = BOOK_CREASE_X - BOOK_LEFT
+    grain = random.Random(BOOK_GRAIN_SEED)
+    darker, lighter = BOOK_GRAIN
+    for row in pages.rows:
+        for x, pixel in enumerate(row):
+            if pixel != fill:
+                continue  # the edge and the corners
+            if x == crease:
+                row[x] = (*BOOK_CREASE_RGB, 255)
+                continue
+            shade = max(0, 1 - (abs(x - crease) - 1) / BOOK_SHADE_WIDTH) ** 2
+            roll = grain.random()
+            step = STEP * (-1 if roll < darker else 1 if roll < darker + lighter else 0)
+            red, green, blue = (p + (s - p) * shade + step for p, s in zip(PARCHMENT_RGB, BOOK_SPINE_RGB))
+            low = green // STEP * STEP  # green between two steps lands on either, as likely as it's near it
+            green = low + STEP if grain.random() < (green - low) / STEP else low
+            row[x] = (*(min(max(round(c), 0), 255) for c in (red, green, blue)), 255)
+    frame = panel_texture(BOOK_FRAME, BOOK_FRAME, (*BOOK_FRAME_RGB, 0), (*BOOK_FRAME_RGB, 255))
+    for left, top in book_frames():
+        left, top = left - BOOK_LEFT, top - BOOK_PAGES_TOP
+        for y, frame_row in enumerate(frame.rows):
+            row = pages.rows[top + y]
+            row[left:left + BOOK_FRAME] = [over(pixel, 1, under) for pixel, under in zip(frame_row, row[left:])]
+    return pages
+
+
 def book_pieces():
-    """The spell book's page strips in each state (see BOOK_TURN_WIDTH), for BOOK_TEXTURE: a chevron centered on each,
-    like the Actions window's arrows. Named like pieces() for icon_square()."""
-    return {f'TogglePage{way}{state}': toggle_art(icon_coverage(ARROW_ICONS[way]), state, BOOK_TURN_WIDTH,
-                                                   BOOK_TURN_HEIGHT)
-            for way in ARROW_ICONS for state in ICON_LOOKS}
+    """For BOOK_TEXTURE: the spell book's page strips in each state (see BOOK_TURN_WIDTH), a chevron centered on each,
+    like the Actions window's arrows, named like pieces() for icon_square(), and its pages."""
+    return {**{f'TogglePage{way}{state}': toggle_art(icon_coverage(ARROW_ICONS[way]), state, BOOK_TURN_WIDTH,
+                                                      BOOK_TURN_HEIGHT)
+               for way in ARROW_ICONS for state in ICON_LOOKS},
+            'BookSpread': book_spread()}
 
 
 def pieces():
@@ -2646,13 +2713,10 @@ def pieces():
         'SpellBarDivider': Texture(SPELL_BAR_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the row divider, this window's width
         'RecastFill': Texture(RECAST_WIDTH, TICK_HEIGHT, BAR_FILL),
         'CastRecoveryFill': Texture(SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
-        # The spell book's (see SPELLBOOK_FILE): a spell's slot, clear like a gem's, and lit under the pointer and while
-        # pressed (see BOOK_HOVER_INSET), the row divider at a tile's width and across both pages, and the memorizing
-        # bar across the pages.
-        'BookSlot': clear_texture(BOOK_SLOT_WIDTH, BOOK_SLOT_HEIGHT),
-        **{f'BookSlot{state}': book_slot_art(state) for state in ('Flyby', 'Pressed')},
-        'BookRowDivider': Texture(BOOK_TILE_WIDTH, 1, ROW_DIVIDER_RGBA),
-        'BookDivider': Texture(BOOK_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),
+        # The spell book's (see SPELLBOOK_FILE): a spell's slot, clear like a gem's, and its ring under the pointer and
+        # while pressed (see book_slot_art()), and the memorizing bar across the pages. The pages are in BOOK_TEXTURE.
+        'BookSlot': clear_texture(BOOK_SLOT, BOOK_SLOT),
+        **{f'BookSlot{state}': book_slot_art(state) for state in BOOK_RING_RGB},
         'MemorizeFill': Texture(BOOK_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
         # The hot button window's, all solid (see HOTBUTTON_FILE): the macros' button, whose Normal is also an
         # item's or a spell's hot button under its icon, each empty slot with its icon, and the page arrows, as
@@ -2868,14 +2932,15 @@ def shared_definitions(rects, book_rects):
         texture_info(FIELD_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         texture_info(GUTTER_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
         texture_info(DIVIDER_TEXTURE, BACKGROUND_SIZE, BACKGROUND_SIZE),
-        texture_info(BOOK_TEXTURE, BOOK_TEXTURE_SIZE, BOOK_TEXTURE_SIZE),
+        texture_info(BOOK_TEXTURE, BOOK_TEXTURE_WIDTH, BOOK_TEXTURE_HEIGHT),
         *(animation(f'TUI_{name}', PIECES_TEXTURE, rect) for name, rect in rects.items()),
         *(animation(f'TUI_{name}', BOOK_TEXTURE, rect) for name, rect in book_rects.items()),
         # Far wider than its texture: the client repeats or stretches it, and only the first % is ever
         # inside the clip.
         animation('TUI_PercentSign', PERCENT_TEXTURE, (0, 0, SHOWN_REACH, PERCENT_GLYPH_HEIGHT)),
-        # The stock slot backgrounds the client paints by name, redefined (see REPLACED_ANIMATIONS): clear
-        # rows the slot's size, a harmful one with its red bars (see HELPFUL_RGBA and HARMFUL_RGBA).
+        # The stock slot backgrounds the client paints by name, stretched to each slot, redefined (see
+        # REPLACED_ANIMATIONS): clear rows an effect slot's size, a harmful one with its red bars (see HELPFUL_RGBA and
+        # HARMFUL_RGBA).
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
         # The spellbook slot's art, which the client names itself (default's is a dark 48px square; poweroftwo's, at its
@@ -4158,47 +4223,35 @@ def compass_window():
 
 
 def spellbook_window():
-    """Two pages of spells side by side, each two tiles across by four down (the spell's icon, its name under it), the
-    memorizing and scribing bar along the top, Previous and Next down the sides, and the page numbers and Done along
-    the bottom (see SPELLBOOK_FILE)."""
+    """Two parchment pages side by side, each two spells across by four down (the spell's icon in its frame, its name
+    under it), the memorizing and scribing bar along the top, Previous and Next down the sides, and the page numbers
+    and Done along the bottom (see SPELLBOOK_FILE)."""
     bar_rect = (BOOK_LEFT, BOOK_BAR_TOP, BOOK_CONTENT_WIDTH, TICK_HEIGHT)
     parts = [gauge('TUI_SBW_Memorize', 'SBW_Memorize_Gauge', MEMORIZE_TYPE, bar_rect, 'TUI_MemorizeFill', SPELL_RGB),
-             gauge('TUI_SBW_Scribe', 'SBW_Scribe_Gauge', SCRIBE_TYPE, bar_rect, 'TUI_MemorizeFill', SPELL_RGB)]
-    # Spells 0 to 7 on the left page and 8 to 15 on the right, two across by four down in the stock reading order.
-    tiles = [(BOOK_PAGE_XS[n // BOOK_PAGE_SPELLS] + n % BOOK_COLUMNS * (BOOK_TILE_WIDTH + DIVIDER_HEIGHT),
-              BOOK_ROWS_TOP + n % BOOK_PAGE_SPELLS // BOOK_COLUMNS * BOOK_ROW_PITCH) for n in range(BOOK_SPELLS)]
-    # The dividers standing between the pages and between each page's tiles, from level with the first icons; one
-    # under each tile but the last row's, so the ones standing up run on through; under the last row one line across
-    # both pages, which those meet.
-    divider_top = BOOK_BAR_TOP + TICK_HEIGHT + PADDING
-    standing = [('TUI_SBW_Divider', BOOK_DIVIDER_X),
-                *((f'TUI_SBW_ColumnDivider{p}', x + BOOK_TILE_WIDTH) for p, x in enumerate(BOOK_PAGE_XS))]
-    parts += [vertical_divider(name, x, divider_top, BOOK_LAST_DIVIDER_TOP - divider_top) for name, x in standing]
-    parts += [picture(f'TUI_SBW_Divider{n}', 'TUI_BookRowDivider',
-                      (x, y + BOOK_ROW_HEIGHT, BOOK_TILE_WIDTH, DIVIDER_HEIGHT))
-              for n, (x, y) in enumerate(tiles) if n % BOOK_PAGE_SPELLS < BOOK_PAGE_SPELLS - BOOK_COLUMNS]
-    parts.append(picture('TUI_SBW_LastDivider', 'TUI_BookDivider',
-                         (BOOK_LEFT, BOOK_LAST_DIVIDER_TOP, BOOK_CONTENT_WIDTH, DIVIDER_HEIGHT)))
-    # Each slot is its whole tile, so a click anywhere on it counts; the client puts the spell's icon in the decal and
-    # may paint the slot BlueIconBackground or A_SpellBookSlot, both clear, or RedIconBackground, whose bars fall under
-    # the icon. Hovered or pressed, the buttons' look (see BOOK_HOVER_INSET). The names go over the slots.
+             gauge('TUI_SBW_Scribe', 'SBW_Scribe_Gauge', SCRIBE_TYPE, bar_rect, 'TUI_MemorizeFill', SPELL_RGB),
+             picture('TUI_SBW_Pages', 'TUI_BookSpread', (BOOK_LEFT, BOOK_PAGES_TOP, BOOK_CONTENT_WIDTH,
+                                                          BOOK_PAGES_HEIGHT))]  # the frames drawn on them
+    frames = book_frames()
+    # Each slot inside its frame, the icon and the ring round it (see BOOK_SLOT_MARGIN): the client puts the spell's
+    # icon in the decal and may paint the slot BlueIconBackground or A_SpellBookSlot, both clear, or RedIconBackground,
+    # its bars stretched under the icon. Hovered or pressed, the ring lights (see book_slot_art()).
     lit = {'Pressed': 'TUI_BookSlotPressed', 'Flyby': 'TUI_BookSlotFlyby', 'PressedFlyby': 'TUI_BookSlotPressed'}
     parts += [node('Button', [
         node('ScreenID', f'SBW_Spell{n}'),
         node('RelativePosition', True),
-        point('Location', x, y + GEM_ICON_MARGIN - BOOK_ICON_Y),
-        size(BOOK_SLOT_WIDTH, BOOK_SLOT_HEIGHT),
+        point('Location', x + BOOK_FRAME_LINE, y + BOOK_FRAME_LINE),
+        size(BOOK_SLOT, BOOK_SLOT),
         node('Style_Transparent', False),
         node('Style_Checkbox', False),
         node('ButtonDrawTemplate', [node('Normal', 'TUI_BookSlot'), *(node(state, art) for state, art in lit.items()),
                                     node('NormalDecal', BUFF_ICONS)]),
-        point('DecalOffset', BOOK_ICON_X, BOOK_ICON_Y),
+        point('DecalOffset', BOOK_SLOT_MARGIN, BOOK_SLOT_MARGIN),
         node('DecalSize', [node('CX', BOOK_ICON), node('CY', BOOK_ICON)]),
-    ], f'TUI_SBW_Spell{n}') for n, (x, y) in enumerate(tiles)]
+    ], f'TUI_SBW_Spell{n}') for n, (x, y) in enumerate(frames)]
     parts += [static_text(f'TUI_SBW_SpellName{n}', f'SBW_SpellName{n}',
-                          (x + PADDING, y + BOOK_NAME_TOP, BOOK_NAME_WIDTH, BOOK_NAME_LINES * TEXT_HEIGHT),
-                          align_center=True, wrap=True)
-              for n, (x, y) in enumerate(tiles)]
+                          (x - BOOK_FRAME_X + PADDING, y + BOOK_NAME_TOP, BOOK_NAME_WIDTH, BOOK_NAME_LINES * TEXT_HEIGHT),
+                          align_center=True, rgb=BOOK_INK_RGB, wrap=True)
+              for n, (x, y) in enumerate(frames)]
     parts += [icon_button(f'TUI_{screen_id}', screen_id, x, BOOK_BAR_TOP, tooltip, f'Page{icon}', BOOK_TURN_WIDTH,
                           BOOK_TURN_HEIGHT)
               for x, (screen_id, tooltip, icon) in zip(BOOK_TURN_XS, BOOK_ARROWS)]
@@ -4524,7 +4577,7 @@ def skin_files(base_animations, stranded=()):
     and the stranded definitions (see stranded_definitions) so the base's other windows still find them.
     """
     atlas, rects = build_atlas(pieces())
-    book_atlas, book_rects = build_atlas(book_pieces(), BOOK_TEXTURE_SIZE, BOOK_TEXTURE_SIZE)
+    book_atlas, book_rects = build_atlas(book_pieces(), BOOK_TEXTURE_WIDTH, BOOK_TEXTURE_HEIGHT)
     textures = {
         PIECES_TEXTURE: atlas,
         BOOK_TEXTURE: book_atlas,

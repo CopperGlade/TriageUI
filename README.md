@@ -52,11 +52,11 @@ In a row of its own under the gems, a wide button with a book, across the whole 
 
 ## The spell book
 
-Your spell book, built so you can find and pick a spell quickly in a fight. The two open pages sit side by side with a thin line between them. Each page holds eight spells, two across and four down, in the same spots as in EverQuest's own book. Each spell is a big tile: its icon at full size, with its name centered under it on up to three lines, so every name any class can scribe fits. Empty spots stay blank. **Click anywhere on a spell's tile**, its icon, its name or the space around them. The tile under your mouse lights up, so you can see which spell you'll get before you click.
+Your spell book, built so you can find and pick a spell quickly in a fight. It's the one window that leaves TriageUI's dark look: the two open pages are parchment, shaded toward the spine like a real book, inside the window's dark cover. Each page holds eight spells, two across and four down, in the same spots as in EverQuest's own book. Each spell's icon sits at full size in a thin brown frame, with its name in dark ink centered under it on up to three lines, so every name any class can scribe fits. An empty spot shows an empty frame, so you can see where your next spell will go. **Click a spell's icon** to pick it. The frame under your mouse lights gold, so you can see which spell you'll get before you click. Clicking a name does nothing.
 
 **Previous** and **Next** run down the whole left and right sides of the window as tall strips with an arrow in the middle. They never move, so you can click one again and again to turn pages quickly. A small gap between each strip and the spells means a click that misses a strip never picks up a spell.
 
-The game marks a detrimental spell with the same red bars as a harmful effect in the effects window, in the same spot. In the book they fall behind the spell's icon, so the book shows no red.
+The game marks a detrimental spell with the same red bars as a harmful effect in the effects window, stretched to fit the spell's spot. The book's spots are sized so the bars land behind the icon, so the book shows no red.
 
 While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are each page's number, under its page, and **Done** in the middle. The window has a fixed size, about the size of EverQuest's own book. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
 

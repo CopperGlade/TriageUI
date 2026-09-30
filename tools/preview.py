@@ -52,7 +52,7 @@ INK_SHIFT = {1: 1, 2: 0, 3: 1}  # lowers Pillow's text to the game's ink tops (T
 # character name allowed in the repo is Sebik; group members go by class, pets by generated pet names.
 BUFFS = ['Aegolism', 'Spirit of Wolf', 'Clarity', 'Tashanian', 'Regrowth of Dar Khura', 'Blessing of Temperance',
          'Resist Magic', 'Talisman of Tnarg']
-HARMFUL = {'Buff3'}  # the client paints these slots RedIconBackground
+HARMFUL = {'Buff3', 'SBW_Spell5', 'SBW_Spell12'}  # the client paints these slots RedIconBackground (Root, Stun)
 SONGS = ["Selo's Accelerando", 'Chant of Battle', "Cassindra's Chorus of Clarity"]
 GEMS = ['Complete Healing', 'Divine Aura', 'Superior Healing', 'Symbol of Marzin', 'Resolution', None, 'Root', 'Gate']
 GEM_ICONS = [3, 11, 5, 21, 17, None, 30, 44]  # cells of gemicons01.tga
@@ -505,11 +505,14 @@ class Preview:
         screen_id = element.findtext('ScreenID') or ''
         effect = self.effect(screen_id, defined)
         templates = element.find('ButtonDrawTemplate')
-        name = 'RedIconBackground' if effect is not None and screen_id in HARMFUL else (
+        spell = effect is not None or self.book_cell(screen_id) is not None
+        name = 'RedIconBackground' if spell and screen_id in HARMFUL else (
             templates.findtext(state) or templates.findtext('Normal'))
         art = self.art(name or '')
-        if art is not None:
-            layer.alpha_composite(art.crop((0, 0, *size)), at)
+        if art is not None and all(size):
+            if art.size != tuple(size):  # the client stretches a button's art to the button
+                art = art.resize(tuple(size), Image.BILINEAR)
+            layer.alpha_composite(art, at)
         if templates.find('NormalDecal') is not None:
             kind = 'item' if screen_id in ITEM_DECALS else 'book' if screen_id.startswith('SBW_Spell') else 'spell'
             cell = (7 + 9 * effect if effect is not None else 14 if screen_id in ITEM_DECALS
