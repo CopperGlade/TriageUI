@@ -56,11 +56,12 @@ HARMFUL = {'Buff3'}  # the client paints these slots RedIconBackground
 SONGS = ["Selo's Accelerando", 'Chant of Battle', "Cassindra's Chorus of Clarity"]
 GEMS = ['Complete Healing', 'Divine Aura', 'Superior Healing', 'Symbol of Marzin', 'Resolution', None, 'Root', 'Gate']
 GEM_ICONS = [3, 11, 5, 21, 17, None, 30, 44]  # cells of gemicons01.tga
-# A spread of the spell book: (name, cell of gemicons01.tga) down the left page, then the right, the last slots empty.
-# One name is the longest any class can scribe, to show it fits.
-BOOK = [('Complete Healing', 3), ('Superior Healing', 5), ('Divine Aura', 11), ('Symbol of Marzin', 21),
-        ('Resolution', 17), ('Root', 30), ('Gate', 44), ('Transons Phantasmal Protection', 8),
-        ('Yaulp IV', 12), ('Word of Healing', 6), ('Spirit Armor', 25), ('Heroic Bond', 27), ('Stun', 14)]
+# A spread of the spell book: (name, cell of spells01.tga, the 40px sheet the client draws the book from) in reading
+# order on the left page, then the right, the last slots empty. One name is the longest any class can scribe, to show
+# it fits on its lines.
+BOOK = [('Complete Healing', 0), ('Superior Healing', 10), ('Divine Aura', 21), ('Symbol of Marzin', 1),
+        ('Resolution', 26), ('Root', 30), ('Gate', 31), ('Transons Phantasmal Protection', 35),
+        ('Yaulp IV', 6), ('Word of Healing', 12), ('Spirit Armor', 16), ('Heroic Bond', 27), ('Stun', 32)]
 BOOK_PAGES = ('12', '13')
 # The hot bar's item and spell spots show only on a hot button holding one: one of each here, the rest macros.
 HOT_ITEMS = {'HB_InvSlot3': 20}
@@ -305,14 +306,15 @@ class Preview:
 
     @staticmethod
     def stock_icons(eq_dir):
-        """The stock item and spell icon sheets, (sheet, cell size, cells per row) each, or None."""
+        """The stock item, spell gem and spell book icon sheets, (sheet, cell size, cells per row) each, or None."""
         folders = [Path(eq_dir)] if eq_dir else [Path(d) for d in EQ_DIRS if d]
         for folder in folders:
             default = folder / 'uifiles' / 'default'
-            items, spells = default / 'dragitem1.tga', default / 'gemicons01.tga'
-            if items.is_file() and spells.is_file():
+            items, spells, book = default / 'dragitem1.tga', default / 'gemicons01.tga', default / 'spells01.tga'
+            if items.is_file() and spells.is_file() and book.is_file():
                 return {'item': (Image.open(items).convert('RGBA'), 40, 6),
-                        'spell': (Image.open(spells).convert('RGBA'), 24, 10)}
+                        'spell': (Image.open(spells).convert('RGBA'), 24, 10),
+                        'book': (Image.open(book).convert('RGBA'), 40, 6)}
         return None
 
     def font(self, size):
@@ -466,7 +468,19 @@ class Preview:
         self.text(clip, (0, 0), text, number(element, 'Font', 3), color(element, 'TextColor'), size[0], align)
         layer.alpha_composite(clip, at)
 
-    draw_statictext = draw_label  # no EQType, so its text is by ScreenID (the spellbook's names and page numbers)
+    def draw_statictext(self, layer, element, at, size, *rest):
+        """A label's one line (no EQType, so its text is by ScreenID: the spellbook's names and page numbers), or with
+        NoWrap false the text wrapped at the box's width from its top, each line aligned on its own."""
+        if flag(element, 'NoWrap', True):
+            return self.draw_label(layer, element, at, size, *rest)
+        size_n = number(element, 'Font', 3)
+        text = LABEL_TEXT.get(element.findtext('ScreenID') or '') or element.findtext('Text') or ''
+        align = 'right' if flag(element, 'AlignRight') else 'center' if flag(element, 'AlignCenter') else 'left'
+        clip = Image.new('RGBA', size, (0, 0, 0, 0))
+        for n, line in enumerate(wrapped(text, self.font(size_n), size[0])):
+            self.text(clip, (0, n * LINE_HEIGHT.get(size_n, 14)), line, size_n, color(element, 'TextColor'), size[0],
+                      align)
+        layer.alpha_composite(clip, at)
 
     def draw_gauge(self, layer, element, at, size, *_):
         eq_type = number(element, 'EQType')
@@ -497,7 +511,7 @@ class Preview:
         if art is not None:
             layer.alpha_composite(art.crop((0, 0, *size)), at)
         if templates.find('NormalDecal') is not None:
-            kind = 'item' if screen_id in ITEM_DECALS else 'spell'
+            kind = 'item' if screen_id in ITEM_DECALS else 'book' if screen_id.startswith('SBW_Spell') else 'spell'
             cell = (7 + 9 * effect if effect is not None else 14 if screen_id in ITEM_DECALS
                     else self.book_cell(screen_id))
             icon = self.icon(kind, cell, (number(element, 'DecalSize/CX'), number(element, 'DecalSize/CY')))

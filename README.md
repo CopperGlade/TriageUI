@@ -52,17 +52,21 @@ In a row of its own under the gems, a wide button with a book, across the whole 
 
 ## The spell book
 
-Your spell book in the spell bar's look: the two open pages side by side with a thin line between them, and each spell a row with its icon and then its name, like a spell gem's row. There's room for the longest spell name any class can scribe. Empty spots stay blank. **Click anywhere on a spell's row**, its icon or its name, as you would click its icon in EverQuest's own book.
+Your spell book, built so you can find and pick a spell quickly in a fight. The two open pages sit side by side with a thin line between them. Each page holds eight spells, two across and four down, in the same spots as in EverQuest's own book. Each spell is a big tile: its icon at full size, with its name centered under it on up to three lines, so every name any class can scribe fits. Empty spots stay blank. **Click anywhere on a spell's tile**, its icon, its name or the space around them. The tile under your mouse lights up, so you can see which spell you'll get before you click.
 
-Each page's icons sit a little way in from its edge. The game marks a detrimental spell's row with the same red bars as a harmful effect in the effects window, in the same spot, and there they fall behind the spell's icon, so the book shows no red.
+**Previous** and **Next** run down the whole left and right sides of the window as tall strips with an arrow in the middle. They never move, so you can click one again and again to turn pages quickly. A small gap between each strip and the spells means a click that misses a strip never picks up a spell.
 
-While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are the page arrows at each end, each page's number beside its arrow, and **Done** in the middle. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
+The game marks a detrimental spell with the same red bars as a harmful effect in the effects window, in the same spot. In the book they fall behind the spell's icon, so the book shows no red.
+
+While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are each page's number, under its page, and **Done** in the middle. The window has a fixed size, about the size of EverQuest's own book. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
 
 ## The chat windows
 
 Every chat window is the same: a thin strip along the top with the window's name in small text in the middle (EverQuest writes the name there; a skin can't leave it off) and a small **X** at the right end that closes the window, the chat straight on the panel with a slim scrollbar of small arrows and a thin thumb, and the line you type on a plain strip along the bottom, a little darker than the window, with a faint outline.
 
 **To move a chat window, drag the thin strip along its top.** Resize it from its edges. The strip is there because EverQuest won't let you drag a resizable window that has no title bar.
+
+**Don't blank a chat window's name with a space.** Zeal takes a chat window whose name starts with a space for one of its tell windows, even with tell windows off, and EverQuest leaves it out at your next login. Everything its filters were showing, `/who` included, then goes nowhere. Only your main chat window comes back anyway. If one is gone, see Troubleshooting.
 
 ## The pet window
 
@@ -250,6 +254,7 @@ The release's `TriageUI` folder is built on EverQuest's own UI files. To build i
 - **The game crashes while logging in or loading TriageUI:** EverQuest loads the skin your character last used at every login, so a skin that crashes it crashes every login. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder and change `UISkin=triageui` under `[Main]` to `UISkin=default`, then update TriageUI once there's a fix. The crash report in `crashes` in your EverQuest folder shows where it happened.
 - **Something looks wrong in game:** `UIErrors.txt` in your EverQuest folder lists skin problems. Lines that mention `TargetWindow`, `GroupWindow`, `CastingWindow`, `CastSpellWnd`, `ChatWindow`, `PetInfoWindow`, `SelectorWindow`, `ActionsWindow`, `HotButtonWnd`, `ContainerWindow`, `MerchantWnd`, `BuffWindow`, `ShortDurationBuffWindow`, `PlayerWindow`, `BreathWindow`, `RaidWindow`, `ConfirmationDialogBox`, `ItemDisplayWindow`, `QuantityWnd`, `GiveWnd`, `TradeWnd`, `LootWnd`, `CompassWindow`, `BankWnd`, `SkillsWindow`, `SpellBookWnd`, `InventoryWindow`, `TrackingWnd`, `AAWindow`, `FriendsWindow`, `InspectWnd` or `TUI_` are about TriageUI.
 - **An effect won't click off:** a left click anywhere on its row does it. If pointing at a row shows no name, the game isn't seeing the rows at all: update TriageUI (older builds had rows as wide as the window, which the game ignores). Otherwise make sure Zeal's **Buff click thru** option (Zeal options, General tab) is off, or unlock the window.
+- **A chat window is gone after logging in, or `/who` shows nothing:** a chat window whose name started with a space is left out at login (see *The chat windows*), and its filters go nowhere. While logged out, open `UI_<name>_pq.proj.ini` in your EverQuest folder, change that window's `ChatWindow<n>_Language=@42` under `[ChatManager]` to `ChatWindow<n>_Language=0`, and give its `ChatWindow<n>_Name` a name that doesn't start with a space. Or make a new chat window in game and set its filters again.
 - **After updating or building again:** type `/reloadskin` (from Zeal) to see the changes. It reloads the skin with your saved layout, like `/load TriageUI 1`.
 
 ## Credits
