@@ -32,7 +32,7 @@ LOAD_ORDER = [skin.ANIMATIONS_FILE, skin.GROUP_FILE, skin.TARGET_FILE, skin.CAST
               skin.BUFF_FILE, skin.SONG_FILE, skin.PLAYER_FILE, skin.BREATH_FILE, skin.RAID_FILE, skin.MERCHANT_FILE,
               skin.CONFIRM_FILE, skin.ITEM_FILE, skin.QUANTITY_FILE, skin.GIVE_FILE, skin.TRADE_FILE, skin.LOOT_FILE,
               skin.COMPASS_FILE, skin.BANK_FILE, skin.SKILLS_FILE, skin.SPELLBOOK_FILE, skin.INVENTORY_FILE,
-              skin.TRACKING_FILE, skin.AA_FILE, skin.FRIENDS_FILE]
+              skin.TRACKING_FILE, skin.AA_FILE, skin.FRIENDS_FILE, skin.INSPECT_FILE]
 
 
 @functools.cache
@@ -514,7 +514,7 @@ def test_every_reference_resolves():
     for name in skin.WINDOW_FILES:
         file_root, window = screen(name)
         assert window.find('DrawTemplate').text in (skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.ITEM_TEMPLATE,
-                                                    skin.QUANTITY_TEMPLATE)
+                                                    skin.QUANTITY_TEMPLATE, skin.INSPECT_TEMPLATE)
         defined = set()
         for element in file_root:
             for piece in element.findall('Pieces') + element.findall('Pages'):
@@ -537,12 +537,12 @@ def test_our_names_never_clash_with_the_stock_skin():
                      'HotButtonWnd', 'BreathWindow', 'RaidWindow', 'ContainerWindow', 'MerchantWnd',
                      'ConfirmationDialogBox', 'ItemDisplayWindow', 'QuantityWnd', 'GiveWnd', 'TradeWnd', 'LootWnd',
                      'CompassWindow', 'BankWnd', 'SkillsWindow', 'SpellBookWnd', 'InventoryWindow', 'TrackingWnd',
-                     'AAWindow', 'FriendsWindow'}
+                     'AAWindow', 'FriendsWindow', 'InspectWnd'}
     # The slot backgrounds the client paints by name are redefined on purpose, and the base's own definitions taken
     # out, so each name is still defined once.
     allowed = stock_windows | {skin.FRAME_TEMPLATE, skin.CHAT_TEMPLATE, skin.FIELD_TEMPLATE, skin.EDIT_TEMPLATE,
-                               skin.ITEM_TEMPLATE, skin.QUANTITY_TEMPLATE, skin.DIVIDER_TEMPLATE, skin.COMBO_TEMPLATE,
-                               *skin.REPLACED_ANIMATIONS}
+                               skin.ITEM_TEMPLATE, skin.QUANTITY_TEMPLATE, skin.INSPECT_TEMPLATE, skin.DIVIDER_TEMPLATE,
+                               skin.COMBO_TEMPLATE, *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
 
@@ -4027,6 +4027,124 @@ def test_inventory_hides_the_class_picture_hp_and_the_resists():
     assert not [e for e in root.iter('Label') if e.findtext('EQType') in ('17', '18')]
 
 
+# The inspect window
+
+STOCK_INSPECT = [*(f'InvSlot{n}' for n in range(1, 22)), 'INSW_Edit', 'DoneButton']
+
+
+def inspect_parts():
+    root, window = screen(skin.INSPECT_FILE)
+    return root, window, {e.findtext('ScreenID') or e.get('item'): e for e in direct_pieces(root, window)}
+
+
+def test_inspect_window_keeps_every_control_the_stock_one_has():
+    # eqgame.exe looks up the message and Done, and Zeal finds the worn slots by their ScreenIDs to link an item
+    # Alt+clicked, so each keeps its stock ID and EQType (8000 on). The game writes the player's name over the stock
+    # title, in the window's font, centered across the bar; the bar holds the name alone (the user's pick: in a window
+    # this narrow a longer name would run under the item window's Close), so Done closes it. A fixed size.
+    root, window = check_inside_frame(skin.INSPECT_FILE, skin.INSPECT_WIDTH, bar=skin.INSPECT_TITLE_HEIGHT)
+    assert window.get('item') == 'InspectWnd' and window.findtext('Text') == 'Inspect'
+    assert window.findtext('TooltipReference') == 'Inspect'  # the stock window's
+    assert window.findtext('Font') == str(skin.TEXT_FONT)
+    assert window.findtext('Style_Closebox') == window.findtext('Style_Minimizebox') == 'false'
+    assert window.findtext('Style_Sizable') == 'false' and window.findtext('DrawTemplate') == skin.INSPECT_TEMPLATE
+    assert box(window)[2:] == (skin.INSPECT_WIDTH, skin.INSPECT_HEIGHT) == (216, 353)
+    pieces = direct_pieces(root, window)
+    ids = [e.findtext('ScreenID') for e in pieces if e.findtext('ScreenID')]
+    assert sorted(ids) == sorted(STOCK_INSPECT) and len(set(ids)) == len(ids)
+    _, _, found = inspect_parts()
+    for n in range(1, 22):
+        assert number(found[f'InvSlot{n}'], 'EQType') == skin.INSPECT_SLOT_TYPE + n == 8000 + n
+    for folder in EQ_DIRS:
+        path = Path(folder) / 'uifiles' / 'default' / skin.INSPECT_FILE
+        if folder and path.is_file():
+            stock = path.read_text(encoding='latin-1')
+            assert sorted(re.findall(r'<ScreenID>\s*(\w+)\s*</ScreenID>', stock)) == sorted(STOCK_INSPECT)
+            assert re.findall(r'<EQType>\s*(\d+)\s*</EQType>', stock) == [str(8000 + n) for n in range(1, 22)]
+            break
+
+
+def test_inspect_worn_slots_are_where_the_inventory_has_them():
+    # The same squares and empty-slot icons as the inventory window's, in the same spots under the title bar, so their
+    # gear sits where you see your own (the user's pick). The top row a padding under the bar's divider, where the
+    # controls' inside starts, and the slots a padding from the window's sides.
+    _, _, found = inspect_parts()
+    _, _, inventory = inventory_parts()
+    for eq_type, icon, *_ in skin.INV_WORN:
+        slot, worn = found[f'InvSlot{eq_type}'], inventory[f'InvSlot{eq_type}']
+        assert slot.tag == 'InvSlot'
+        assert slot.findtext('Background') == worn.findtext('Background') == f'TUI_HotSlot{icon}'
+        x, y, w, h = box(worn)
+        assert box(slot) == (x, y - skin.LEFT + skin.INSPECT_DOLL_TOP, w, h)
+    boxes = [box(found[f'InvSlot{n}']) for n in range(1, 22)]
+    assert min(y for _, y, _, _ in boxes) == skin.INSPECT_DOLL_TOP == skin.PADDING
+    assert skin.BORDER + min(x for x, *_ in boxes) == skin.PADDING
+    assert skin.INSPECT_WIDTH - (skin.BORDER + max(x + w for x, _, w, _ in boxes)) == skin.PADDING
+
+
+def test_inspect_title_bar_is_as_tall_as_the_name_needs():
+    # The game writes the title (bar height - 14) // 2 - 1 down the bar (eqgame.exe, 0x5729b0), as the preview draws it.
+    # The bar is the least height that puts its divider, the bottom row, a padding under the name's baseline (where
+    # digits end); the name's ink then sits about 10.5px under the window's edge, where the game puts it.
+    def text_top(height):
+        return (height - skin.TEXT_HEIGHT) // 2 - 1
+
+    def gap(height):  # clear rows from the name's baseline to the divider
+        return height - skin.DIVIDER_HEIGHT - (text_top(height) + skin.INV_DIGITS_BOTTOM)
+
+    height = skin.INSPECT_TITLE_HEIGHT
+    assert gap(height) == skin.PADDING and all(gap(h) < skin.PADDING for h in range(skin.TEXT_HEIGHT, height))
+    assert skin.BORDER + text_top(height) + skin.TEXT_INK_TOP == 10.5
+    # The usual frame with the chat bar's look at that height, and the stock close box, which the window doesn't show.
+    templates = items(everything(), 'WindowDrawTemplate')
+    inspect, usual = templates[skin.INSPECT_TEMPLATE], templates[skin.FRAME_TEMPLATE]
+    assert inspect.findtext('Background') == usual.findtext('Background') == skin.BACKGROUND_TEXTURE
+    for part in ('Border', 'CloseBox'):
+        assert [(e.tag, e.text) for e in inspect.find(part)] == [(e.tag, e.text) for e in usual.find(part)], part
+    assert {inspect.findtext(f'Titlebar/{side}') for side in ('Left', 'Middle', 'Right')} == {'TUI_InspectTitleBar'}
+    anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
+    bar = cut(decode(files()[skin.PIECES_TEXTURE]), anims['TUI_InspectTitleBar'])
+    assert bar.size == (skin.TITLE_PIECE_WIDTH, height)
+    rows = [set(bar.getpixel((x, y)) for x in range(bar.width)) for y in range(bar.height)]
+    assert rows[:-1] == [{skin.PANEL_RGBA}] * (height - 1) and rows[-1] == {skin.TITLE_DIVIDER_RGBA}
+
+
+def test_inspect_message_fills_the_middle_on_the_chat_inputs_strip():
+    # The strip over the inventory's middle, a padding from every slot around it, drawn first. The message box draws
+    # nothing itself: inset the field's padding at the sides and the bottom, its first line's ink about as far under the
+    # strip's edge, in the text's color, wrapping from line to line with no scrollbar, like the stock box.
+    root, window, found = inspect_parts()
+    strip, message = found['TUI_INSW_Field'], found['INSW_Edit']
+    pieces = direct_pieces(root, window)
+    assert pieces.index(strip) + 1 == pieces.index(message)
+    assert strip.tag == 'Screen' and strip.find('ScreenID') is None
+    assert strip.findtext('DrawTemplate') == skin.FIELD_TEMPLATE and strip.findtext('Style_Border') == 'true'
+    x, y, w, h = box(strip)
+    assert (w, h) == (skin.INV_MIDDLE_WIDTH, skin.INV_MIDDLE_HEIGHT) == (120, 162)
+    left, right, top, legs = (box(found[f'InvSlot{t}']) for t in (17, 8, 2, 18))
+    assert x - (left[0] + left[2]) == right[0] - (x + w) == skin.PADDING
+    assert y - (top[1] + top[3]) == legs[1] - (y + h) == skin.PADDING
+    assert message.tag == 'Editbox' and message.findtext('Style_Multiline') == 'true'
+    assert message.findtext('DrawTemplate') == skin.EDIT_TEMPLATE and message.find('Style_VScroll') is None
+    assert message.findtext('Style_Transparent') == 'true' and message.findtext('Style_Border') == 'false'
+    assert message.findtext('Font') == str(skin.TEXT_FONT) and rgb(message, 'TextColor') == skin.TEXT_RGB
+    mx, my, mw, mh = box(message)
+    assert mx - x == (x + w) - (mx + mw) == (y + h) - (my + mh) == skin.FIELD_PADDING
+    assert abs(my - y + skin.TEXT_INK_TOP - skin.FIELD_PADDING) <= 0.5
+
+
+def test_inspect_done_fills_the_row_under_the_worn_slots():
+    # The confirmation dialog's kind, with no tooltip (the stock one has none), a padding under the worn slots and
+    # across them, and the window's edge a padding under it.
+    _, window, found = inspect_parts()
+    done = found['DoneButton']
+    check_confirmation_button(done, 'Done')
+    x, y, w, h = box(done)
+    assert y - max(box(found[f'InvSlot{n}'])[1] + skin.HOT_SIZE for n in range(1, 22)) == skin.BUTTON_ROW_GAP
+    assert (x, w) == (skin.LEFT, skin.INV_DOLL_WIDTH)
+    assert box(window)[3] - (skin.BORDER + skin.INSPECT_TITLE_HEIGHT + y + h) == skin.PADDING
+
+
 # The tracking window
 
 # Every control of the stock window, (tag, ScreenID), in the order ours draws them.
@@ -5188,6 +5306,36 @@ def test_preview_fills_in_the_inventory_window(tmp_path):
         assert set(slots[eq_type]) == {preview.PLACEHOLDER_RGBA}, eq_type
     icons = {icon: tuple(slots[eq_type]) for eq_type, icon, _, _ in skin.INV_WORN if eq_type not in held}
     assert len(set(icons.values())) == len(icons) == 15
+
+
+def test_preview_fills_in_the_inspect_window(tmp_path):
+    # The player's name on the title bar, their message wrapped over more than one line inside the strip, items in the
+    # slots they wear and each empty slot's own icon.
+    preview = preview_module()
+    [image] = preview.Preview(files(), eq_dir=tmp_path).render(skin.INSPECT_FILE)  # grey squares for items here
+    _, _, found = inspect_parts()
+    top = skin.BORDER + skin.INSPECT_TITLE_HEIGHT  # the controls' inside, in the window
+
+    def region(key):
+        x, y, width, height = box(found[key])
+        return image.crop((skin.BORDER + x, top + y, skin.BORDER + x + width, top + y + height))
+
+    def bright(part):
+        return sum(1 for p in pixels(part) if min(p[:3]) > 150)
+
+    assert preview.TITLES['InspectWnd'] == 'Sebik'
+    assert bright(image.crop((skin.BORDER, skin.BORDER, skin.INSPECT_WIDTH - skin.BORDER, top - 1)))
+    message = region('INSW_Edit')
+    lines = {y // skin.TEXT_HEIGHT for y in range(message.height)
+             if any(min(message.getpixel((x, y))[:3]) > 150 for x in range(message.width))}
+    assert {0, 1} <= lines
+    held = {n for n in range(1, 22)} & preview.INSPECTED_SLOTS
+    assert held == {2, 13, 14, 17}
+    slots = {n: pixels(region(f'InvSlot{n}')) for n in range(1, 22)}
+    for n in held:
+        assert set(slots[n]) == {preview.PLACEHOLDER_RGBA}, n
+    icons = {icon: tuple(slots[eq_type]) for eq_type, icon, _, _ in skin.INV_WORN if eq_type not in held}
+    assert len(set(icons.values())) == len(icons)
 
 
 @pytest.mark.parametrize('heading, label', [(0, 'N'), (90, 'E'), (180, 'S'), (270, 'W')])

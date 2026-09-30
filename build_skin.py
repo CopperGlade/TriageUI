@@ -1435,6 +1435,32 @@ INV_BUTTON_WIDTHS = tuple(_INV_SPAN * (c + 1) // len(INV_BUTTONS) - _INV_SPAN * 
                           for c in range(len(INV_BUTTONS)))
 add_text_buttons(INV_BUTTON_WIDTHS)
 INV_HEIGHT = 2 * BORDER + INV_BUTTONS_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
+# The inspect window: another player's worn gear and the message they wrote for it. eqgame.exe looks up the message
+# (INSW_Edit), the worn slots (InvSlot%d, EQTypes 8001 to 8021: the inventory's, INSPECT_SLOT_TYPE on) and DoneButton,
+# and writes the player's name on the title bar. Zeal finds InvSlot1 to 21 by name to link an item Alt+clicked
+# (ui_inspect.cpp). The user's picks (2026-09-30, from mockups): the worn slots where the inventory window has them, the
+# message in their middle and Done along the bottom; a title bar with the name alone, since the game centers it across
+# the bar and in a window this narrow a longer name would run under the item window's Close.
+INSPECT_FILE = 'EQUI_InspectWnd.xml'
+INSPECT_TEMPLATE = 'WDT_TriageInspect'
+INSPECT_SLOT_TYPE = 8000
+# The game writes the name (bar height - TEXT_HEIGHT) // 2 - 1 down the bar (0x5729b0). The least height that puts the
+# divider, the bar's bottom row, a padding under the name's baseline; that leaves its ink about 10.5px under the window's
+# edge, where the game puts it.
+INSPECT_TITLE_HEIGHT = 23
+INSPECT_DOLL_TOP = PADDING  # under the bar's divider, where the controls' inside starts
+INSPECT_WIDTH = INV_DOLL_WIDTH + 2 * LEFT + 2 * BORDER
+# The message on the chat input's strip over the inventory's middle, a padding from every slot around it. The box is
+# inset FIELD_PADDING at the sides and the bottom, and its first line's ink about as far under the strip's top, if the
+# box draws its first line at its top like a label.
+INSPECT_FIELD_X = LEFT + HOT_PITCH
+INSPECT_FIELD_TOP = INSPECT_DOLL_TOP + HOT_PITCH
+INSPECT_TEXT_TOP = math.ceil(FIELD_PADDING - TEXT_INK_TOP)
+# Done a padding under the worn slots, across them: the confirmation dialog's button, with no tooltip (the stock one
+# has none).
+INSPECT_BUTTON_TOP = INSPECT_DOLL_TOP + INV_DOLL_HEIGHT + BUTTON_ROW_GAP
+add_text_buttons((INV_DOLL_WIDTH,))
+INSPECT_HEIGHT = 2 * BORDER + INSPECT_TITLE_HEIGHT + INSPECT_BUTTON_TOP + TEXT_BUTTON_HEIGHT + BOTTOM_GAP
 # The tracking window: which con colors to list, how to sort and whether to list players, then what's in range to track,
 # then Track and Cancel. The stock window's every control is kept: the filters (six checkboxes), the list, the two
 # dropdowns (Combobox) and their captions, Track and DoneButton, and the "Filters" caption, hidden. The client fills
@@ -2599,6 +2625,7 @@ def pieces():
            for state in BUTTON_LOOKS},
         'TitleBar': title_piece(),
         'ItemTitleBar': title_piece(ITEM_TITLE_HEIGHT),
+        'InspectTitleBar': title_piece(INSPECT_TITLE_HEIGHT),
         'QuantityTitle': quantity_title_piece(),
         **{f'ItemClose{state}': close_box_art(state) for state in BUTTON_LOOKS},
         'ListHeaderWash': Texture(PIECE_LENGTH, RAID_HEADER_HEIGHT, HEADER_RGBA),  # see LIST_HEADER
@@ -2815,6 +2842,9 @@ def shared_definitions(rects):
         frame_template(ITEM_TEMPLATE, title='TUI_ItemTitleBar', close=item_close),
         # The quantity window's: the item window's with its name painted on the bar's left (see QUANTITY_TITLE_INK).
         frame_template(QUANTITY_TEMPLATE, title='TUI_ItemTitleBar', close=item_close, title_left='TUI_QuantityTitle'),
+        # The inspect window's: the same with a bar only as tall as the player's name, and no close box of ours (see
+        # INSPECT_TITLE_HEIGHT).
+        frame_template(INSPECT_TEMPLATE, title='TUI_InspectTitleBar'),
         # The chat input's field: a plain strip darker than the panel, outlined by a 1px line in the
         # window edge's color, a faint light line against both the field and the panel around it.
         frame_template(FIELD_TEMPLATE, FIELD_TEXTURE, edge='TUI_FieldEdge'),
@@ -3656,6 +3686,14 @@ def inv_slot(name, screen_id, eq_type, spot, background, side=HOT_SIZE):
     ], name)
 
 
+def worn_slots(prefix, first_type, top):
+    """The 21 worn slots as the inventory window lays them out (see INV_WORN), the top row at top: InvSlot1 to 21,
+    their EQTypes first_type + 1 to 21, each showing its icon while it's empty."""
+    return [inv_slot(f'{prefix}{eq_type}', f'InvSlot{eq_type}', first_type + eq_type,
+                     (LEFT + half * HOT_PITCH // 2, top + row * HOT_PITCH), f'TUI_HotSlot{icon}')
+            for eq_type, icon, half, row in INV_WORN]
+
+
 def hot_button_window():
     """duxaUI's hot button window in our look (see HOTBUTTON_FILE): the page arrows and number, the ten macros
     under them, two to a row, and beside them the weapon slots over the bag slots."""
@@ -4135,9 +4173,7 @@ def inventory_window():
         node('DrawTemplate', EDIT_TEMPLATE),
         node('Style_Border', False),
     ], 'TUI_IW_CharacterView')]
-    parts += [inv_slot(f'TUI_IW_InvSlot{eq_type}', f'InvSlot{eq_type}', eq_type,
-                       (LEFT + half * HOT_PITCH // 2, LEFT + row * HOT_PITCH), f'TUI_HotSlot{icon}')
-              for eq_type, icon, half, row in INV_WORN]
+    parts += worn_slots('TUI_IW_InvSlot', 0, LEFT)
     parts += [inv_slot(f'TUI_IW_InvSlot{eq_type}', f'InvSlot{eq_type}', eq_type, (0, 0), 'TUI_Clear', side=0)
               for eq_type in INV_BAG_TYPES]
     # The middle: the level right-aligned against the class; XP and AA each a caption, its % in the bars' golden yellow
@@ -4210,6 +4246,38 @@ def inventory_window():
     parts.append(picture('TUI_IW_ClassAnim', 'TUI_ClassAnim', (0, 0, 0, 0), screen_id='ClassAnim'))
     return window('InventoryWindow', 'Inventory', INV_HEIGHT, parts, tooltip='Inventory', width=INV_WIDTH,
                   inner=percents)
+
+
+def inspect_window():
+    """Another player's worn gear where the inventory window has yours, the message they wrote on the chat input's
+    strip in the middle, and Done along the bottom; their name on the title bar (see INSPECT_FILE)."""
+    parts = worn_slots('TUI_INSW_InvSlot', INSPECT_SLOT_TYPE, INSPECT_DOLL_TOP)
+    # The field as the quantity window's: a child window drawing the strip, and the see-through message box on it.
+    strip = node('Screen', [
+        node('RelativePosition', True),
+        point('Location', INSPECT_FIELD_X, INSPECT_FIELD_TOP),
+        size(INV_MIDDLE_WIDTH, INV_MIDDLE_HEIGHT),
+        node('DrawTemplate', FIELD_TEMPLATE),
+        node('Style_Transparent', False),
+        node('Style_Border', True),
+    ], 'TUI_INSW_Field')
+    message = node('Editbox', [
+        node('ScreenID', 'INSW_Edit'),
+        node('Font', TEXT_FONT),
+        node('DrawTemplate', EDIT_TEMPLATE),
+        node('RelativePosition', True),
+        point('Location', INSPECT_FIELD_X + FIELD_PADDING, INSPECT_FIELD_TOP + INSPECT_TEXT_TOP),
+        size(INV_MIDDLE_WIDTH - 2 * FIELD_PADDING, INV_MIDDLE_HEIGHT - INSPECT_TEXT_TOP - FIELD_PADDING),
+        node('Style_Border', False),
+        node('Style_Transparent', True),
+        color('TextColor', TEXT_RGB),
+        node('Style_Multiline', True),
+    ], 'TUI_INSW_Edit')
+    done = button('TUI_INSW_DoneButton', 'DoneButton', '', LEFT, INSPECT_BUTTON_TOP, INV_DOLL_WIDTH,
+                  TEXT_BUTTON_HEIGHT, font=ACTION_FONT, text='Done')
+    # The game writes the player's name over "Inspect", the stock placeholder, in the window's font.
+    return window('InspectWnd', 'Inspect', INSPECT_HEIGHT, [*parts, strip, message, done], tooltip='Inspect',
+                  width=INSPECT_WIDTH, template=INSPECT_TEMPLATE, title_bar=True, font=TEXT_FONT)
 
 
 def tracking_window():
@@ -4365,7 +4433,8 @@ WINDOW_FILES = {GROUP_FILE: group_window, TARGET_FILE: target_window, CASTING_FI
                 QUANTITY_FILE: quantity_window, GIVE_FILE: give_window, TRADE_FILE: trade_window,
                 LOOT_FILE: loot_window, COMPASS_FILE: compass_window, BANK_FILE: bank_window,
                 SKILLS_FILE: skills_window, SPELLBOOK_FILE: spellbook_window, INVENTORY_FILE: inventory_window,
-                TRACKING_FILE: tracking_window, AA_FILE: aa_window, FRIENDS_FILE: friends_window}
+                TRACKING_FILE: tracking_window, AA_FILE: aa_window, FRIENDS_FILE: friends_window,
+                INSPECT_FILE: inspect_window}
 
 
 def stranded_definitions(skin_xml):

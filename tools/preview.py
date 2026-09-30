@@ -74,6 +74,9 @@ BANK_ITEMS = 7  # the first bank slots, down the first column and into the secon
 SHARED_ITEMS = 2
 # The primary hand and the first bag, on the hot bar's slots; the head and chest too, in the inventory.
 HELD_SLOTS = {2, 13, 17, 22}
+# What the inspected player wears, by worn slot (the slot's EQType less the inspect window's first): the head, the chest
+# and both hands.
+INSPECTED_SLOTS = {2, 13, 14, 17}
 LABELS = {
     1: 'Sebik', 2: '60', 3: 'Shadow Knight', 4: 'Mithaniel Marr', 5: '185', 6: '210', 7: '110', 8: '95', 9: '80',
     10: '75', 11: '60', 22: '1234', 23: '987', 24: '85', 25: '150', 26: '45', 27: '12',
@@ -110,7 +113,8 @@ LABEL_TEXT = {'GVW_NPCName': 'Captain Tillin', 'TRDW_HisName': 'Trader', 'TRDW_M
               'SBW_LeftPageNum': BOOK_PAGES[0], 'SBW_RightPageNum': BOOK_PAGES[1],
               # The AA window's: how much XP goes to AA, your points, those spent and the selected ability's timer.
               'ExpCount': '100%', 'CurrentCount': '12', 'TotalCount': '145', 'Timer': 'Ready'}
-EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup', 'NameInput': 'Player 10'}
+EDIT_TEXT = {'QTYW_SliderInput': '12', 'CWChatInput': 'Hail, a gnoll pup', 'NameInput': 'Player 10',
+             'INSW_Edit': 'Looking for a group in Lower Guk. Tells welcome, spells for sale.'}
 STML_TEXT = {
     'TextOutput': 'Sebik wants to RESURRECT you. Do you wish this?',
     'CWChatOutput': "You say, 'Hail, a gnoll pup'\nA gnoll pup says, 'Grrr!'\nSebik tells the group, 'incoming'\n"
@@ -181,7 +185,7 @@ LIST_ROWS.update({list_id: [[name, f'{rank}/{most}', str(cost)] for name, rank, 
                   for list_id, abilities in AA_ABILITIES.items()})
 COMBO_TEXT = {'TRW_TrackSortCombobox': 'Distance', 'TRW_TrackPlayersCombobox': 'On'}  # the choice each shows
 COMBO_TEXT_INSET = skin.FIELD_PADDING  # a guess, like the chat input's text: the client's own is unknown
-TITLES ={'ItemDisplayWindow': 'Fine Steel Long Sword', 'ChatWindow': 'Main'}  # names the client writes
+TITLES = {'ItemDisplayWindow': 'Fine Steel Long Sword', 'ChatWindow': 'Main', 'InspectWnd': 'Sebik'}  # the client's
 SLIDER = (12, 20)  # value, most
 ITEM_DECALS = {'IconButton', 'MW_SelectedItem'}  # decals the client fills with an item's icon, not a spell's
 HIDDEN = {'OK_Button'}  # what the client hides in the sample state: a Yes/No question shows no OK
@@ -535,7 +539,8 @@ class Preview:
         looted = skin.LOOT_SLOT_TYPE <= eq_type < skin.LOOT_SLOT_TYPE + LOOT_ITEMS
         banked = (skin.BANK_SLOT_TYPE <= eq_type < skin.BANK_SLOT_TYPE + BANK_ITEMS
                   or skin.SHARED_SLOT_TYPE <= eq_type < skin.SHARED_SLOT_TYPE + SHARED_ITEMS)
-        held = merchant or bag or given or offered or looted or banked or eq_type in HELD_SLOTS
+        inspected = eq_type - skin.INSPECT_SLOT_TYPE in INSPECTED_SLOTS
+        held = merchant or bag or given or offered or looted or banked or inspected or eq_type in HELD_SLOTS
         return (eq_type * 7 + 3) % 36 if held else None
 
     def draw_invslot(self, layer, element, at, size, *_):
@@ -568,10 +573,16 @@ class Preview:
                                          at[1] + number(element, 'SpellIconOffsetY')))
 
     def draw_editbox(self, layer, element, at, size, *_):
+        """One line centered down the box, or a multiline box's text wrapped from its top, like an STMLbox's."""
         size_n = number(element, 'Font', 3)
+        text = EDIT_TEXT.get(element.findtext('ScreenID') or '', '')
+        line = LINE_HEIGHT.get(size_n, 14)
         clip = Image.new('RGBA', size, (0, 0, 0, 0))
-        self.text(clip, (0, (size[1] - LINE_HEIGHT.get(size_n, 14)) // 2),
-                  EDIT_TEXT.get(element.findtext('ScreenID') or '', ''), size_n, color(element, 'TextColor'))
+        if flag(element, 'Style_Multiline'):
+            for n, part in enumerate(wrapped(text, self.font(size_n), size[0])):
+                self.text(clip, (0, n * line), part, size_n, color(element, 'TextColor'))
+        else:
+            self.text(clip, (0, (size[1] - line) // 2), text, size_n, color(element, 'TextColor'))
         layer.alpha_composite(clip, at)
 
     def draw_stmlbox(self, layer, element, at, size, *_):
