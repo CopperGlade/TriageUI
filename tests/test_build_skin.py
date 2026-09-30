@@ -3925,6 +3925,8 @@ def spell_icon(cell, size=skin.BOOK_ICON):
 BATCH_ONE = {161, 51, 42, 99, 56, 41, 1, 153, 38, 37, 16, 17, 4, 35, 18, 117}  # the most-used pictures, drawn first
 BATCH_TWO = {0, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 25, 26, 27, 36, 40, 47, 82, 88, 91, 95, 102, 109, 114, 118, 119, 140,
              163}  # hands, body and mind
+BATCH_THREE = {46, 52, 53, 57, 58, *range(60, 71), 77, 78, 90, 96, 98, 128, *range(130, 134), *range(148, 153), *range(155, 159)}
+# shields and armor
 
 
 def test_every_spell_icon_cell_has_a_tile():
@@ -3935,7 +3937,8 @@ def test_every_spell_icon_cell_has_a_tile():
     assert sorted(cells) == list(range(skin.GEM_ICON_CELLS))
     assert set(skin.SPELL_TILE_CELLS) == set(skin.SPELL_TILES) and len(skin.SPELL_TILES) == 14
     assert all(len(palette) == 3 for palette in skin.SPELL_TILES.values())
-    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO <= set(skin.SPELL_PICTURES)
+    assert set(skin.SPELL_PICTURES) <= set(range(skin.GEM_ICON_CELLS)) and BATCH_ONE | BATCH_TWO | BATCH_THREE <= set(skin.SPELL_PICTURES)
+    assert len(BATCH_THREE) == 35
     assert skin.SPELL_TILE[99] == 'blue' and skin.SPELL_TILE[51] == 'orange' and skin.SPELL_TILE[161] == 'red'
 
 

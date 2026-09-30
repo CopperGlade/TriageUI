@@ -2538,16 +2538,35 @@ def bevel(paint, rim, width=1.0, strength=0.5):
     return shaded
 
 
+_REMEMBERED = {}
+
+
+def remembered(shape):
+    """shape, keeping the distance at the last point asked: a picture's layers ask for the same shape at each pixel
+    several times (its glow, its outline, its fill, parts inside it), which took most of the drawing's time. One
+    stand-in per shape, so they all share it; spell_icon_art() clears them after each icon."""
+    if shape not in _REMEMBERED:
+        last = [None, None, 0.0]
+
+        def distance(u, v):
+            if u != last[0] or v != last[1]:
+                last[0], last[1], last[2] = u, v, shape(u, v)
+            return last[2]
+        _REMEMBERED[shape] = distance
+    return _REMEMBERED[shape]
+
+
 def fill(shape, paint):
-    return ('fill', shape, paint, None)
+    return ('fill', remembered(shape), paint, None)
 
 
 def glow(shape, paint, radius):
     """shape and a halo round it, fading to nothing radius out."""
-    return ('glow', shape, paint, radius)
+    return ('glow', remembered(shape), paint, radius)
 
 
 def outline(shape, color=PICTURE_OUTLINE, width=0.6):
+    shape = remembered(shape)
     return ('fill', lambda u, v: abs(shape(u, v) - width / 2) - width / 2, flat(color), None)
 
 
@@ -2559,6 +2578,7 @@ def shaded(shape, palette, light=(3, 2), dark=(13, 14), width=1.0, strength=0.5)
 
 def inside(shape, part):
     """part, only where it lies within shape."""
+    shape = remembered(shape)
     return lambda u, v: max(part(u, v), shape(u, v))
 
 
@@ -3313,6 +3333,377 @@ def illusion_picture():
             fill(holes, flat((30, 18, 40))), *sparkle_layers(3.0, 3.4, 2.4, rim=(200, 220, 255))]
 
 
+# Batch 3: shields and armor. Most are one steel shield with what duxaUI puts on or beside it.
+
+GLASS_BLUE = ((214, 228, 255), (96, 116, 226), (30, 40, 120))
+RED_METAL = ((255, 178, 150), (206, 64, 44), (90, 20, 10))
+LAVENDER_METAL = ((236, 228, 255), (164, 144, 232), (60, 40, 120))
+BLUE_METAL = ((214, 232, 255), (110, 150, 232), (40, 60, 140))
+ROSE_METAL = ((255, 200, 214), (214, 80, 110), (100, 20, 40))
+GREEN_SCALES = ((206, 242, 196), (96, 166, 96), (30, 70, 30))
+ENAMEL = ((255, 255, 250), (222, 216, 204), (120, 110, 90))
+GREY_FUR = ((222, 218, 212), (132, 126, 122), (54, 50, 50))
+STONE = ((150, 150, 158), (70, 70, 78), (24, 24, 30))
+
+
+def moved(shape, cx, cy, scale, center=(8.0, 8.0)):
+    """shape, drawn round center on the grid, put at (cx, cy) at scale."""
+    return lambda u, v: shape((u - cx) / scale + center[0], (v - cy) / scale + center[1]) * scale
+
+
+def heater(cx=8.0, top=1.6, width=10.0, height=13.8):
+    """A heater shield: a flat top and straight sides curving in to a point at the bottom."""
+    half = width / 2
+    right = [(cx + half, top), (cx + half, top + 0.406 * height), (cx + 0.864 * half, top + 0.625 * height),
+             (cx + 0.432 * half, top + 0.828 * height)]
+    points = [(cx, top + height)] + [(2 * cx - x, y) for x, y in right[::-1]] + right
+    return lambda u, v: polygon_signed(u, v, points) - 0.3
+
+
+SHIELD = heater()
+
+
+def small_shield(cx, top, width):
+    """A heater shield width across, to leave room for something beside it."""
+    return heater(cx, top, width, width * 1.38)
+
+
+def shield_layers(shape=SHIELD, palette=STEEL, halo=None, heraldry=True, cx=8.0):
+    """A shield in a metal: lit from the top left to shadow at the bottom right, a darker rim band round it, a ridge
+    down its middle and a shine along its left side, with a halo. heraldry=False leaves off the ridge and shine, for a
+    shield with something painted on it. Without the rim band and the shading's dark end it looked like paper."""
+    lit, mid, rim = palette
+    return [*([glow(shape, flat(halo), 2.6)] if halo else []), outline(shape),
+            fill(shape, bevel(linear((cx - 4, 1), (cx + 4, 15), [(0, lit), (0.55, mid), (1, rim)]), rim, 1.0, 0.45)),
+            fill(inside(shape, lambda u, v: abs(shape(u, v) + 0.75) - 0.42), flat((*rim, 200))),
+            *([fill(inside(shape, lambda u, v: capsule(u, v, (cx, 2.4), (cx, 13.6), 0.32)), flat((255, 255, 255, 110))),
+               fill(inside(shape, lambda u, v: capsule(u, v, (cx - 3.2, 3.0), (cx - 2.6, 9.4), 0.5)), flat((255, 255, 255, 140)))]
+              if heraldry else [])]
+
+
+def burst_layers(cx, cy, size, rim=(200, 170, 255), halo=160):
+    """A bright light: a big four-pointed star over a turned smaller one, white at its heart, in a glow of rim."""
+    big = lambda u, v: polygon_signed(u - cx, v - cy, four_point_star(0, 0, size, size * 0.2))  # noqa: E731
+    small = lambda u, v: polygon_signed((u - cx + v - cy) * math.sqrt(0.5), (v - cy - u + cx) * math.sqrt(0.5),  # noqa: E731
+                                        four_point_star(0, 0, size * 0.62, size * 0.16))
+    white = (255, 255, 255)
+    return [glow(big, flat((*rim, halo)), size * 0.7), fill(small, radial((cx, cy), size * 0.6, [(0, white), (1, rim)])),
+            fill(big, radial((cx, cy), size, [(0, white), (0.35, white), (1, rim)])),
+            fill(lambda u, v: circle(u, v, cx, cy, size * 0.18), flat(white))]
+
+
+def snowflake_layers(cx, cy, scale):
+    """The cold picture's snowflake, small, at (cx, cy)."""
+    flake = moved(snowflake, cx, cy, scale)
+    return [glow(flake, flat((150, 210, 255, 150)), 1.6), outline(flake, (20, 20, 70, 220), 0.45),
+            fill(flake, bevel(flat((255, 255, 255)), (150, 205, 250), 0.8, 0.6))]
+
+
+def flame_layers(cx, cy, scale):
+    """The fire picture's flame, small, at (cx, cy)."""
+    fire = moved(flame, cx, cy, scale)
+    heart = moved(lambda u, v: min(circle(u, v, 8, 11.5, 2.4), polygon_signed(u, v, [(5.7, 11.0), (7.4, 7.6), (8.8, 4.8), (10.3, 11.0)])),
+                  cx, cy, scale)
+    return [glow(fire, flat((255, 120, 30, 150)), 1.8), outline(fire, (70, 18, 6, 230), 0.5),
+            fill(fire, linear((cx, cy - 7 * scale), (cx, cy + 7 * scale), [(0, (214, 52, 26)), (0.45, (246, 128, 36)), (1, (255, 206, 80))])),
+            fill(heart, linear((cx, cy - 3 * scale), (cx, cy + 6 * scale), [(0, (255, 214, 96)), (1, (255, 250, 214))]))]
+
+
+def vial_layers(start, end, width=1.75):
+    """A glass vial from its bottom at start to its cork at end, half full of glowing green poison."""
+    def at(t, off=0.0):
+        return (start[0] + (end[0] - start[0]) * t + off, start[1] + (end[1] - start[1]) * t + off)
+    glass = lambda u, v: capsule(u, v, at(0.06), at(0.80), width)  # noqa: E731
+    liquid = lambda u, v: capsule(u, v, at(0.06), at(0.52), width * 0.69)  # noqa: E731
+    shine = lambda u, v: capsule(u, v, at(0.18, -0.43 * width), at(0.62, -0.43 * width), 0.16 * width)  # noqa: E731
+    cork = lambda u, v: capsule(u, v, at(0.82), at(0.95), width * 0.71)  # noqa: E731
+    return [glow(liquid, flat((80, 255, 110, 120)), 2.2), outline(glass, (14, 40, 26, 240)), fill(glass, flat((210, 245, 225, 90))),
+            fill(liquid, linear(at(0), at(0.52), [(0, (40, 170, 60)), (1, (120, 255, 130))])),
+            fill(shine, flat((255, 255, 255, 200))), fill(cork, bevel(flat((176, 122, 70)), (90, 56, 30), 0.9, 0.5))]
+
+
+def wolf_face(u, v):
+    # A wolf's face from the front: a broad head, pointed ears, the ruff at its cheeks. duxaUI's howling wolf in
+    # profile read as a rabbit, then a llama, drawn this small.
+    return min(ellipse_signed(u, v, 8, 8.4, 4.8, 4.2),
+               min(polygon_signed(u, v, [(3.6, 7.0), (3.4, 0.8), (7.0, 4.6)]),
+                   polygon_signed(u, v, [(12.4, 7.0), (12.6, 0.8), (9.0, 4.6)])) - 0.3,
+               polygon_signed(u, v, [(3.2, 8.4), (2.2, 11.2), (4.6, 12.6), (8, 15.4), (11.4, 12.6), (13.8, 11.2), (12.8, 8.4)]) - 0.2)
+
+
+def wolf_face_layers(cx, cy, scale):
+    """A grey wolf's face centered at (cx, cy): pointed ears, yellow eyes, a pale muzzle and a black nose."""
+    face = moved(wolf_face, cx, cy, scale)
+    inner_ears = moved(lambda u, v: min(polygon_signed(u, v, [(4.4, 6.0), (4.2, 2.6), (6.4, 4.8)]),
+                                        polygon_signed(u, v, [(11.6, 6.0), (11.8, 2.6), (9.6, 4.8)])), cx, cy, scale)
+    muzzle = moved(lambda u, v: ellipse_signed(u, v, 8, 11.6, 2.4, 2.6), cx, cy, scale)
+    eyes = moved(lambda u, v: min(tilted_ellipse(u, v, 5.9, 8.0, 1.05, 0.62, 20), tilted_ellipse(u, v, 10.1, 8.0, 1.05, 0.62, -20)),
+                 cx, cy, scale)
+    pupils = moved(lambda u, v: min(circle(u, v, 6.0, 8.0, 0.34), circle(u, v, 10.0, 8.0, 0.34)), cx, cy, scale)
+    nose = moved(lambda u, v: ellipse_signed(u, v, 8, 10.4, 1.0, 0.7), cx, cy, scale)
+    lit, mid, rim = GREY_FUR
+    return [outline(face),
+            fill(face, bevel(linear((cx, cy - 7 * scale), (cx, cy + 7 * scale), [(0, lit), (1, mid)]), rim, 0.8 * scale, 0.5)),
+            fill(inner_ears, flat((90, 60, 60))), fill(muzzle, bevel(flat((244, 240, 232)), (180, 170, 160), 0.6 * scale, 0.5)),
+            fill(eyes, flat((250, 200, 60))), fill(pupils, flat((20, 12, 8))), fill(nose, flat((24, 20, 22)))]
+
+
+def scales(shape):
+    """Rows of overlapping rounded scales, 2 across and 1.6 down, as arcs within shape. Only the rows and columns
+    round each point are measured, since every arc would slow the build."""
+    def arcs(u, v):
+        row = round((v - 1.6) / 1.6)
+        best = math.inf
+        for r in (row - 1, row, row + 1):
+            shift = 1.0 if r % 2 else 0.0
+            col = round((u - shift) / 2.0)
+            for c in (col - 1, col, col + 1):
+                best = min(best, arc_distance(u, v, c * 2.0 + shift, 1.6 + r * 1.6, 1.1, 20, 160))
+        return max(best - 0.18, shape(u, v))
+    return arcs
+
+
+def divine_aura_picture():
+    # 46: a steel shield with a bright white-violet light bursting at its middle.
+    return shield_layers(halo=(230, 200, 255, 120)) + burst_layers(8, 7.4, 5.6, (220, 180, 255))
+
+
+def resist_fire_picture():
+    # 52: a steel shield with flames licking up over its lower half.
+    return [*shield_layers(halo=(255, 150, 60, 100)), *flame_layers(4.2, 11.0, 0.55), *flame_layers(11.8, 11.2, 0.55),
+            *flame_layers(8.0, 12.4, 0.5)]
+
+
+def burnout_picture():
+    # 53: a red-orange shield with a flame painted on it.
+    return shield_layers(palette=RED_METAL, halo=(255, 120, 80, 120)) + flame_layers(8.0, 7.4, 0.48)
+
+
+def resist_cold_picture():
+    # 57: a steel shield with a white snowflake over its lower half.
+    return shield_layers(halo=(170, 200, 255, 110)) + snowflake_layers(8.4, 11.2, 0.5)
+
+
+def aura_of_heat_picture():
+    # 58: a glassy blue shield, glowing violet, lighter toward its point.
+    return shield_layers(palette=GLASS_BLUE, halo=(170, 150, 255, 140)) + [
+        fill(lambda u, v: max(SHIELD(u, v), -circle(u, v, 8, 13.5, 6.5) - 2), flat((255, 255, 255, 50)))]
+
+
+def spirit_of_snow_picture():
+    # 60: a steel shield, a wolf's face at its lower left and a snowflake at its lower right.
+    return [*shield_layers(small_shield(8.6, 0.8, 8.4), halo=(170, 200, 255, 100), cx=8.6), *wolf_face_layers(4.4, 11.0, 0.5),
+            *snowflake_layers(11.6, 11.6, 0.44)]
+
+
+def resist_poison_picture():
+    # 61: a steel shield in a green glow, a vial of poison across it.
+    return shield_layers(halo=(90, 255, 120, 110)) + vial_layers((3.4, 14.2), (13.8, 3.0))
+
+
+def aura_of_purity_picture():
+    # 62: a vial of poison at the left, a steel shield at the right.
+    return shield_layers(small_shield(10.2, 1.0, 8.4), cx=10.2) + vial_layers((2.0, 14.6), (9.0, 4.8), 1.5)
+
+
+def vial_and_skull_picture():
+    # 63, in no Quarm spell: a vial of poison and a skull.
+    return vial_layers((1.8, 13.8), (9.6, 2.6), 1.5) + skull_layers(11.4, 11.0, 1.0)
+
+
+def talisman_of_shadoo_picture():
+    # 64: a wolf's face with a vial of poison.
+    return wolf_face_layers(6.6, 8.6, 0.78) + vial_layers((9.0, 14.8), (14.4, 5.4), 1.4)
+
+
+def resist_disease_picture():
+    # 65: a steel shield in a gold glow, a skull at its lower right.
+    return shield_layers(small_shield(7.4, 0.8, 9.2), halo=(255, 220, 120, 130), cx=7.4) + skull_layers(11.4, 11.6, 1.05)
+
+
+def aura_of_antibody_picture():
+    # 66: a skull at the lower left, a steel shield at the right.
+    return shield_layers(small_shield(10.0, 0.8, 8.8), cx=10.0) + skull_layers(4.6, 11.6, 1.05)
+
+
+def shield_and_skull_picture():
+    # 67, in no Quarm spell: a steel shield with a skull at its lower left.
+    return shield_layers(small_shield(9.0, 0.8, 9.2), cx=9.0) + skull_layers(5.2, 11.8, 1.0)
+
+
+def talisman_of_jasinth_picture():
+    # 68: a steel shield, a wolf's face at its lower left and a skull at its lower right.
+    return [*shield_layers(small_shield(8.4, 0.6, 8.4), cx=8.4), *wolf_face_layers(4.2, 11.2, 0.48), *skull_layers(11.8, 12.0, 0.95)]
+
+
+def resist_magic_picture():
+    # 69: a steel shield with a violet light bursting over its lower half.
+    return shield_layers(halo=(200, 160, 255, 120)) + burst_layers(8, 10.4, 5.0, (190, 130, 255))
+
+
+def null_aura_picture():
+    # 70: a steel shield at the right, a crossed violet sparkle at its top left.
+    return shield_layers(small_shield(9.4, 1.6, 9.4), cx=9.4) + sparkle_layers(4.2, 4.4, 4.0, crossed=True, rim=(220, 140, 255))
+
+
+def rune_picture():
+    # 77: a dark round stone with a rune like an elk's antlers on a stave carved into it, glowing faintly. A letter
+    # R read as the alphabet, not a rune.
+    stone = lambda u, v: tilted_ellipse(u, v, 8, 8.2, 6.6, 5.4, -18)  # noqa: E731
+    mark = union(lambda u, v: capsule(u, v, (8, 4.2), (8, 12.4), 0.5), lambda u, v: capsule(u, v, (8, 8.0), (5.0, 4.6), 0.45),
+                 lambda u, v: capsule(u, v, (8, 8.0), (11.0, 4.6), 0.45))
+    return [glow(stone, flat((150, 200, 255, 100)), 2.4), outline(stone),
+            fill(stone, bevel(radial((6, 5.6), 8, [(0, STONE[0]), (1, STONE[1])]), STONE[2], 1.4, 0.6)),
+            fill(inside(stone, lambda u, v: mark(u, v) - 0.25), flat((140, 200, 255, 150))), fill(inside(stone, mark), flat((16, 18, 26)))]
+
+
+def manaskin_picture():
+    # 78: a blue steel shield glowing blue, light welling up from its point.
+    return shield_layers(palette=BLUE_METAL, halo=(120, 160, 255, 170)) + [
+        fill(lambda u, v: max(SHIELD(u, v), circle(u, v, 8, 14, 6.5)), flat((230, 240, 255, 130)))]
+
+
+def divine_glory_picture():
+    # 90: a white crusader's shield with a red cross, a gold rim and a gold boss.
+    rim = lambda u, v: abs(SHIELD(u, v) + 0.45) - 0.4  # noqa: E731
+    cross = union(lambda u, v: rounded_rect_distance(u, v, 6.8, 1.6, 9.2, 14.2, 0.2),
+                  lambda u, v: rounded_rect_distance(u, v, 3.0, 5.0, 13.0, 7.4, 0.2))
+    boss = lambda u, v: circle(u, v, 8, 6.2, 1.5)  # noqa: E731
+    return [*shield_layers(palette=ENAMEL, halo=(255, 230, 150, 110), heraldry=False),
+            fill(inside(SHIELD, cross), flat((200, 30, 40))), fill(inside(SHIELD, rim), flat(GOLD[1])),
+            outline(boss, width=0.4), shaded(boss, GOLD, (7, 5), (9, 7), 0.6, 0.5)]
+
+
+def sentinel_picture():
+    # 96: a steel great helm: a domed top, a band at the eyes with two slits either side of a nose guard, a cross of
+    # breathing holes each side under it, and rivets. A flat-topped one looked like a can.
+    helm = lambda u, v: min(rounded_rect_distance(u, v, 3.2, 5.0, 12.8, 15.0, 1.6), ellipse_signed(u, v, 8, 5.4, 4.8, 4.2))  # noqa: E731
+    band = lambda u, v: rounded_rect_distance(u, v, 3.0, 6.4, 13.0, 9.0, 0.5)  # noqa: E731
+    slits = union(lambda u, v: rounded_rect_distance(u, v, 3.8, 7.2, 7.2, 8.2, 0.35),
+                  lambda u, v: rounded_rect_distance(u, v, 8.8, 7.2, 12.2, 8.2, 0.35))
+    guard = lambda u, v: rounded_rect_distance(u, v, 7.3, 6.0, 8.7, 13.4, 0.5)  # noqa: E731
+    holes = lambda u, v: min(circle(u, v, x, y, 0.34) for x, y in ((10.2, 10.8), (11.4, 10.8), (10.8, 10.0), (10.8, 11.6),  # noqa: E731
+                                                                     (5.8, 10.8), (4.6, 10.8), (5.2, 10.0), (5.2, 11.6)))
+    lit, mid, rim = STEEL
+    return [glow(helm, flat((210, 180, 255, 110)), 2.4), outline(helm),
+            fill(helm, bevel(linear((4, 1), (12, 15), [(0, lit), (0.55, mid), (1, rim)]), rim, 1.4, 0.5)),
+            outline(band, (*rim, 220), 0.4), shaded(band, STEEL, (4, 6), (12, 9), 0.6, 0.45), fill(slits, flat((12, 10, 16))),
+            outline(guard, (*rim, 220), 0.35), shaded(guard, STEEL, (7, 6), (9, 13), 0.5, 0.45), fill(holes, flat((18, 16, 22))),
+            fill(lambda u, v: min(circle(u, v, x, 13.8, 0.4) for x in (4.6, 11.4)), flat((90, 96, 112)))]
+
+
+def mana_shield_picture():
+    # 98: a blue steel shield with a bright blue-white light bursting from it.
+    return shield_layers(palette=BLUE_METAL, halo=(140, 180, 255, 150)) + burst_layers(8, 7.6, 6.6, (150, 190, 255))
+
+
+def plain_shield_picture():
+    # 128, in no Quarm spell: a steel shield.
+    return shield_layers(halo=(150, 240, 240, 90))
+
+
+def talisman_of_tnarg_picture():
+    # 130: a shaman's talisman: a wooden hoop round a painted hide disc, blue beads and feathers hanging from it.
+    hoop = lambda u, v: abs(circle(u, v, 8, 6.4, 4.8)) - 0.6  # noqa: E731
+    disc = lambda u, v: circle(u, v, 8, 6.4, 3.6)  # noqa: E731
+    mark = lambda u, v: max(disc(u, v), min(abs(circle(u, v, 8, 6.4, 1.6)) - 0.35, capsule(u, v, (8, 3.6), (8, 9.2), 0.3)))  # noqa: E731
+    cords = union(*[lambda u, v, x=x: capsule(u, v, (x, 10.6), (x, 12.4), 0.14) for x in (5.4, 8.0, 10.6)])
+    layers = [glow(hoop, flat((255, 220, 120, 120)), 2.4), outline(disc),
+              fill(disc, bevel(radial((7, 5.4), 4, [(0, (244, 226, 190)), (1, (190, 160, 110))]), (110, 80, 40), 0.8, 0.5)),
+              fill(mark, flat((150, 40, 30))), outline(hoop, width=0.5), shaded(hoop, WOOD, (4, 2), (12, 11), 0.5, 0.5),
+              fill(cords, flat((60, 36, 20)))]
+    for top, tip in (((5.4, 11.8), (4.8, 15.6)), ((8.0, 12.0), (8.0, 15.8)), ((10.6, 11.8), (11.2, 15.6))):
+        feather = lambda u, v, top=top, tip=tip: tapered(u, v, top, tip, 0.75, 0.25)  # noqa: E731
+        layers += [outline(feather, width=0.4),
+                   fill(feather, bevel(linear(top, tip, [(0, (255, 255, 255)), (1, (220, 170, 110))]), (120, 90, 60), 0.5, 0.5))]
+    return layers + [fill(lambda u, v: min(circle(u, v, x, 10.9, 0.5) for x in (5.4, 8.0, 10.6)), flat((60, 150, 230)))]
+
+
+def skin_like_wood_picture():
+    # 131: a green shield covered in overlapping scales.
+    return shield_layers(palette=GREEN_SCALES, halo=(150, 230, 140, 110), heraldry=False) + [fill(scales(SHIELD), flat((30, 70, 30, 200)))]
+
+
+def courage_picture():
+    # 132: a steel shield with a crossed white-blue sparkle at its lower right.
+    return [*shield_layers(small_shield(7.6, 1.0, 9.6), halo=(170, 200, 255, 100), cx=7.6),
+            *sparkle_layers(12.0, 11.8, 3.8, crossed=True, rim=(170, 200, 255))]
+
+
+def shielding_picture():
+    # 133: a steel shield with a bright white star at its heart.
+    return shield_layers(halo=(170, 210, 255, 130)) + burst_layers(8, 7.0, 6.8, (170, 210, 255), 180)
+
+
+def elemental_shield_picture():
+    # 148: a steel shield, flames at its lower left and a snowflake at its lower right.
+    return [*shield_layers(small_shield(8.4, 0.8, 9.0), cx=8.4), *flame_layers(4.2, 10.6, 0.62), *snowflake_layers(11.8, 11.8, 0.45)]
+
+
+def resistant_skin_picture():
+    # 149: a steel shield, a vial of poison across its lower left and a skull at its lower right.
+    return [*shield_layers(small_shield(8.4, 0.6, 9.2), halo=(170, 230, 120, 100), cx=8.4), *vial_layers((1.6, 14.6), (7.6, 7.8), 1.35),
+            *skull_layers(11.8, 12.0, 0.95)]
+
+
+def symbol_of_transal_picture():
+    # 150: a lavender shield with a dark blue holy symbol painted on it.
+    symbol = union(curve((10.6, 3.8), (6.0, 3.0), (6.4, 6.6), 0.8, 0.6), curve((6.4, 6.6), (10.2, 7.4), (9.6, 10.4), 0.7, 0.6),
+                   curve((9.6, 10.4), (8.6, 12.2), (5.6, 11.0), 0.6, 0.35))
+    return shield_layers(palette=LAVENDER_METAL, halo=(200, 180, 255, 110), heraldry=False) + [
+        fill(inside(SHIELD, symbol), linear((6, 3), (10, 12), [(0, (60, 70, 200)), (1, (30, 30, 120))]))]
+
+
+def holy_armor_picture():
+    # 151: a steel breastplate: its shoulders, the neck opening, a ridge down its middle, rivets.
+    plate = lambda u, v: max(polygon_signed(u, v, [(2.2, 3.6), (5.2, 1.8), (10.8, 1.8), (13.8, 3.6), (13.4, 8.4), (11.8, 12.4),  # noqa: E731
+                                                   (12.2, 14.8), (3.8, 14.8), (4.2, 12.4), (2.6, 8.4)]) - 0.4, -circle(u, v, 8, 1.2, 2.6))
+    ridge = lambda u, v: capsule(u, v, (8, 4.0), (8, 14.4), 0.35)  # noqa: E731
+    arm_holes = union(lambda u, v: arc_distance(u, v, 1.0, 8.4, 3.2, 290, 70) - 0.3,
+                      lambda u, v: arc_distance(u, v, 15.0, 8.4, 3.2, 110, 250) - 0.3)
+    rivets = lambda u, v: min(circle(u, v, x, y, 0.4) for x, y in ((5.0, 4.0), (11.0, 4.0), (5.2, 13.6), (10.8, 13.6)))  # noqa: E731
+    return [glow(plate, flat((190, 210, 255, 110)), 2.4), outline(plate), shaded(plate, STEEL, (4, 2), (12, 15), 1.3, 0.6),
+            fill(inside(plate, ridge), flat((255, 255, 255, 110))), fill(inside(plate, arm_holes), flat((*STEEL[2], 160))),
+            fill(rivets, flat((90, 96, 112)))]
+
+
+def haze_picture():
+    # 152: a steel shield with a sword slanting down across its right side.
+    return shield_layers(small_shield(7.4, 0.8, 9.8), cx=7.4) + sword_layers((4.8, 4.4), (14.2, 14.6), (200, 240, 240, 80),
+                                                                              half=0.8, guard=1.6, grip=1.4)
+
+
+def shield_of_thorns_picture():
+    # 155: the green scaled shield ringed with brown thorns.
+    ends = [((8 + 5.6 * math.cos(a), 8.2 + 6.4 * math.sin(a)), (8 + 7.6 * math.cos(a), 8.2 + 8.2 * math.sin(a)))
+            for a in (math.radians(360 * k / 14) for k in range(14))]
+    thorns = union(*[lambda u, v, base=base, tip=tip: tapered(u, v, base, tip, 0.55, 0.05) for base, tip in ends])
+    shield = heater(8, 2.2, 8.8, 12.2)
+    return [outline(thorns, width=0.4),
+            fill(thorns, bevel(linear((8, 0), (8, 16), [(0, (220, 170, 100)), (1, (140, 90, 40))]), (70, 40, 14), 0.4, 0.5)),
+            *shield_layers(shield, GREEN_SCALES, (150, 230, 140, 90), heraldry=False), fill(scales(shield), flat((30, 70, 30, 200)))]
+
+
+def mark_of_karn_picture():
+    # 156: a blue steel shield with a white star bursting from it.
+    return shield_layers(palette=BLUE_METAL, halo=(150, 190, 255, 130)) + burst_layers(8, 6.8, 6.4, (180, 210, 255))
+
+
+def shield_of_fire_picture():
+    # 157: a red shield in a ring of fire.
+    ends = [((8 + 4.6 * math.cos(a), 8.2 + 5.4 * math.sin(a)), (8 + 7.8 * math.cos(a + 0.18), 8.2 + 8.2 * math.sin(a + 0.18)))
+            for a in (math.radians(360 * k / 12 + 8) for k in range(12))]
+    corona = union(*[lambda u, v, base=base, tip=tip: tapered(u, v, base, tip, 1.3, 0.1) for base, tip in ends])
+    return [glow(corona, flat((255, 140, 40, 160)), 1.8),
+            fill(corona, radial((8, 8.2), 8.4, [(0, (255, 240, 170)), (0.6, (255, 170, 50)), (1, (220, 60, 20))])),
+            *shield_layers(heater(8, 2.6, 8.4, 11.6), RED_METAL)]
+
+
+def mark_of_retribution_picture():
+    # 158: a rose-red shield with a white star bursting from it.
+    return shield_layers(palette=ROSE_METAL, halo=(255, 140, 170, 130)) + burst_layers(8, 7.0, 6.4, (255, 170, 200))
+
+
 SPELL_PICTURES = {
     161: strike_picture, 51: fire_picture, 42: poison_picture, 99: healing_picture, 56: cold_picture,
     41: disease_picture, 1: phantom_armor_picture, 153: banishing_picture, 38: summoned_weapon_picture,
@@ -3325,6 +3716,15 @@ SPELL_PICTURES = {
     91: animate_dead_picture, 95: voice_graft_picture, 102: call_of_the_hero_picture, 109: summon_corpse_picture,
     114: silence_picture, 118: regeneration_picture, 119: complete_heal_picture, 140: vampiric_embrace_picture,
     163: illusion_picture,
+    46: divine_aura_picture, 52: resist_fire_picture, 53: burnout_picture, 57: resist_cold_picture, 58: aura_of_heat_picture,
+    60: spirit_of_snow_picture, 61: resist_poison_picture, 62: aura_of_purity_picture, 63: vial_and_skull_picture,
+    64: talisman_of_shadoo_picture, 65: resist_disease_picture, 66: aura_of_antibody_picture, 67: shield_and_skull_picture,
+    68: talisman_of_jasinth_picture, 69: resist_magic_picture, 70: null_aura_picture, 77: rune_picture, 78: manaskin_picture,
+    90: divine_glory_picture, 96: sentinel_picture, 98: mana_shield_picture, 128: plain_shield_picture,
+    130: talisman_of_tnarg_picture, 131: skin_like_wood_picture, 132: courage_picture, 133: shielding_picture,
+    148: elemental_shield_picture, 149: resistant_skin_picture, 150: symbol_of_transal_picture, 151: holy_armor_picture,
+    152: haze_picture, 155: shield_of_thorns_picture, 156: mark_of_karn_picture, 157: shield_of_fire_picture,
+    158: mark_of_retribution_picture,
 }
 
 
@@ -3352,6 +3752,7 @@ def spell_icon_art(cell, size):
     Python."""
     tile = SPELL_TILE[cell]
     edge = opaque(SPELL_TILES[tile][2])
+    _REMEMBERED.clear()
     layers = SPELL_PICTURES[cell]() if cell in SPELL_PICTURES else []
     margin = SPELL_ICON_MARGIN[size]
     scale = (size - 2 * margin) / ICON_SIZE
