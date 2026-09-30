@@ -54,6 +54,8 @@ In a row of its own under the gems, a wide button with a book, across the whole 
 
 Your spell book in the spell bar's look: the two open pages side by side with a thin line between them, and each spell a row with its icon and then its name, like a spell gem's row. There's room for the longest spell name any class can scribe. Empty spots stay blank. **Click anywhere on a spell's row**, its icon or its name, as you would click its icon in EverQuest's own book.
 
+Each page's icons sit a little way in from its edge. The game marks a detrimental spell's row with the same red bars as a harmful effect in the effects window, in the same spot, and there they fall behind the spell's icon, so the book shows no red.
+
 While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are the page arrows at each end, each page's number beside its arrow, and **Done** in the middle. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
 
 ## The chat windows
@@ -136,7 +138,7 @@ Your effects as a table, like the EQ Triage overlays: a row for each with the ti
 
 Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
 
-Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, nothing behind a helpful effect's icon and just the red bars beside a harmful one's, so the combat ability window loses its bright blue and red behind icons too. The item window puts them behind a spell's icon too.
+Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, nothing behind a helpful effect's icon and just the red bars beside a harmful one's, so the combat ability window loses its bright blue and red behind icons too. The item window puts them behind a spell's icon too, and the spell book behind a detrimental spell's icon, where the red bars are hidden.
 
 ## The confirmation dialog
 

@@ -530,7 +530,7 @@ for _width in ACTION_WIDTHS:  # no label of ours: the button's text is the name
 # dividers sit in the pixel between. The icon is a padding from the window's top and bottom. The client
 # paints each slot with BlueIconBackground (helpful) or RedIconBackground (harmful), by name, so the skin
 # redefines those two: clear for helpful effects, and a red bar on each side of the icon for harmful ones. The spellbook, item display and combat ability windows use them too and change with them (the
-# user's call).
+# user's call); the spell book lays its slots out so the red bars fall under its icons (see BOOK_ICON_X).
 BUFF_FILE = 'EQUI_BuffWindow.xml'
 SONG_FILE = 'EQUI_ShortDurationBuffWindow.xml'
 BUFF_ICONS = 'BuffIcons'  # the stock spell icons the client puts on each slot
@@ -1310,9 +1310,18 @@ BOOK_SPELLS = 16
 BOOK_PAGE_ROWS = 8
 # Room for the longest name any class can scribe (spells_en.txt), 177px in font 3 (Arial 12px).
 BOOK_NAME_WIDTH = 178
-BOOK_PAGE_WIDTH = GEM_ICON + PADDING + BOOK_NAME_WIDTH
-BOOK_DIVIDER_X = LEFT + BOOK_PAGE_WIDTH + PADDING
-BOOK_PAGE_XS = (LEFT, BOOK_DIVIDER_X + DIVIDER_HEIGHT + PADDING)
+BOOK_PAGE_WIDTH = GEM_ICON + PADDING + BOOK_NAME_WIDTH  # a page's icons and names, which its row dividers span
+# The client paints a detrimental spell's slot RedIconBackground, the Effects window's art, from the slot's top left at
+# its own size, which put its bars over the names (seen in game 2026-09-29). So each slot starts this far left of its
+# icon and this far above it, and the bars (4 + 16 + 4 = 24px wide, 16 tall, see HARMFUL_BARS) fall under the spell's
+# 24px icon, opaque there in every A_SpellIcons cell. Each page's icons stand that far in (the user's pick):
+# panel-colored patches over the bars would show at any Alpha under 255.
+BOOK_ICON_X = HARMFUL_BARS[0] - SLOT_X
+BOOK_ICON_Y = ROW_ICON_MARGIN
+BOOK_SLOT_WIDTH = BOOK_ICON_X + BOOK_PAGE_WIDTH
+BOOK_SLOT_HEIGHT = GEM_ROW_HEIGHT - (GEM_ICON_MARGIN - BOOK_ICON_Y)  # to the row's bottom
+BOOK_DIVIDER_X = LEFT + BOOK_SLOT_WIDTH + PADDING
+BOOK_PAGE_XS = (LEFT + BOOK_ICON_X, BOOK_DIVIDER_X + DIVIDER_HEIGHT + PADDING + BOOK_ICON_X)  # each page's icons
 BOOK_RIGHT = BOOK_PAGE_XS[1] + BOOK_PAGE_WIDTH
 BOOK_CONTENT_WIDTH = BOOK_RIGHT - LEFT
 SPELLBOOK_WIDTH = BOOK_RIGHT + LEFT + 2 * BORDER
@@ -2548,9 +2557,9 @@ def pieces():
         'SpellBarDivider': Texture(SPELL_BAR_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),  # the row divider, this window's width
         'RecastFill': Texture(RECAST_WIDTH, TICK_HEIGHT, BAR_FILL),
         'CastRecoveryFill': Texture(SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
-        # The spell book's (see SPELLBOOK_FILE): a spell's row, clear like a gem's, the row divider at a page's width
+        # The spell book's (see SPELLBOOK_FILE): a spell's slot, clear like a gem's, the row divider at a page's width
         # and across both pages, and the memorizing bar across the window.
-        'BookSlot': clear_texture(BOOK_PAGE_WIDTH, GEM_ROW_HEIGHT),
+        'BookSlot': clear_texture(BOOK_SLOT_WIDTH, BOOK_SLOT_HEIGHT),
         'BookRowDivider': Texture(BOOK_PAGE_WIDTH, 1, ROW_DIVIDER_RGBA),
         'BookDivider': Texture(BOOK_CONTENT_WIDTH, 1, ROW_DIVIDER_RGBA),
         'MemorizeFill': Texture(BOOK_CONTENT_WIDTH, TICK_HEIGHT, BAR_FILL),
@@ -2774,7 +2783,7 @@ def shared_definitions(rects):
         animation('BlueIconBackground', PIECES_TEXTURE, rects['HelpfulRow']),
         animation('RedIconBackground', PIECES_TEXTURE, rects['HarmfulRow']),
         # The spellbook slot's art, which the client names itself (default's is a dark 48px square; poweroftwo's, at its
-        # slots' size, is its "blank spot"): clear at a spell's row, like the slot's own.
+        # slots' size, is its "blank spot"): clear at a spell's slot, like the slot's own.
         animation('A_SpellBookSlot', PIECES_TEXTURE, rects['BookSlot']),
         # The slider's left end cap, with no width (see SLIDER_TEMPLATE): the client draws one, so it must be there.
         animation('TUI_SliderCapLeft', PIECES_TEXTURE, (*rects['SliderCapRight'][:2], 0, SLIDER_HEIGHT)),
@@ -4054,19 +4063,20 @@ def spellbook_window():
     parts.append(picture('TUI_SBW_LastDivider', 'TUI_BookDivider',
                          (LEFT, BOOK_LAST_DIVIDER_TOP, BOOK_CONTENT_WIDTH, DIVIDER_HEIGHT)))
     # Spells 0 to 7 down the left page and 8 to 15 down the right, the stock reading order. Each slot is its whole row,
-    # so a click anywhere on it counts; the client puts the spell's icon in the decal and may paint the slot
-    # BlueIconBackground or A_SpellBookSlot, both clear. The names go over the slots, as in the spell bar.
+    # from BOOK_ICON_X before the icon, so a click anywhere on it counts; the client puts the spell's icon in the decal
+    # and may paint the slot BlueIconBackground or A_SpellBookSlot, both clear, or RedIconBackground, whose bars fall
+    # under the icon. The names go over the slots, as in the spell bar.
     spots = [(BOOK_PAGE_XS[n // BOOK_PAGE_ROWS], BOOK_ROWS_TOP + n % BOOK_PAGE_ROWS * GEM_ROW_PITCH)
              for n in range(BOOK_SPELLS)]
     parts += [node('Button', [
         node('ScreenID', f'SBW_Spell{n}'),
         node('RelativePosition', True),
-        point('Location', x, y),
-        size(BOOK_PAGE_WIDTH, GEM_ROW_HEIGHT),
+        point('Location', x - BOOK_ICON_X, y + GEM_ICON_MARGIN - BOOK_ICON_Y),
+        size(BOOK_SLOT_WIDTH, BOOK_SLOT_HEIGHT),
         node('Style_Transparent', False),
         node('Style_Checkbox', False),
         node('ButtonDrawTemplate', [node('Normal', 'TUI_BookSlot'), node('NormalDecal', BUFF_ICONS)]),
-        point('DecalOffset', 0, GEM_ICON_MARGIN),
+        point('DecalOffset', BOOK_ICON_X, BOOK_ICON_Y),
         node('DecalSize', [node('CX', GEM_ICON), node('CY', GEM_ICON)]),
     ], f'TUI_SBW_Spell{n}') for n, (x, y) in enumerate(spots)]
     parts += [static_text(f'TUI_SBW_SpellName{n}', f'SBW_SpellName{n}',
