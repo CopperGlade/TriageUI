@@ -252,6 +252,16 @@ The release's `TriageUI` folder is built on EverQuest's own UI files. To build i
 
 A few of TriageUI's windows borrow ideas from duxaUI, Duxa's skin based on Savok's port of VertUI: the hot button window's shape, with your weapon and bag slots beside the hot buttons, bag slots two to a row, the loot window's **Link All** and **Loot All**, and the bank window's **Change**. TriageUI includes none of duxaUI's files: its windows and art are its own, and everything else is EverQuest's. Its `EQUI_Animations.xml` is EverQuest's own with TriageUI's pieces added, as a skin's must be.
 
+## License
+
+TriageUI is copyright 2026 Sebik &lt;Europa&gt;, under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0](LICENSE) license (CC BY-NC-SA 4.0). In short:
+
+- **Use it and change it** as you like.
+- **Share it, changed or not,** as long as you credit Sebik &lt;Europa&gt; with a link to [TriageUI](https://github.com/CopperGlade/TriageUI), keep it free and share your version under the same license.
+- **Charging for it** in any form needs permission first: [open an issue](https://github.com/CopperGlade/TriageUI/issues).
+
+Each of the skin's XML files and `TriageUI.txt` carries a line saying so; keep it in anything you share. Only TriageUI's pieces of `EQUI_Animations.xml` are TriageUI's: the rest is EverQuest's own.
+
 ## Development
 
 The builder uses only Python's standard library. The tests also need Pillow and pytest:

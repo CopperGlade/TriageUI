@@ -4,6 +4,8 @@ The script writes a skin folder of TriageUI's own windows and art. For everythin
 back to its own UI files (uifiles/default), so every window TriageUI hasn't redesigned keeps EverQuest's
 own look; --base builds it on another skin of yours instead. It uses only the standard library, and it
 never changes the skin it reads.
+
+Copyright 2026 Sebik <Europa>, licensed under CC BY-NC-SA 4.0: see LICENSE.
 """
 
 import argparse
@@ -25,6 +27,10 @@ DEFAULT_EQ_DIR = Path(r'C:\QUARM')
 DEFAULT_BASE = 'default'
 # Written into every folder this script builds, so a rebuild only ever replaces its own output.
 MARKER_FILE = 'TriageUI.txt'
+# LICENSE's credit and terms, in every XML file the build writes and in MARKER_FILE, so they go along with any one
+# file shared alone. ASCII, with no -- or angle brackets, so it can stand in an XML comment.
+LICENSE_NOTICE = ('TriageUI (github.com/CopperGlade/TriageUI), copyright 2026 Sebik (Europa), licensed under '
+                  'CC BY-NC-SA 4.0: https://creativecommons.org/licenses/by-nc-sa/4.0/')
 
 # The client seems to keep our 32-bit art as 16-bit textures, 16 steps per channel (eqclient.ini has
 # TextureQuality=1), and dithers any value between two steps into a pattern: the buttons' see-through
@@ -1650,8 +1656,8 @@ FRIENDS_ROWS = 12
 FRIENDS_LIST_HEIGHT = FRIENDS_ROWS * TEXT_HEIGHT
 FRIENDS_COLUMNS = (('', FRIENDS_CONTENT_WIDTH - SCROLL_WIDTH),)
 # Under the list the name field and Add, then Delete, Contact and Who, in thirds of the row: the field spans two, Add
-# is over Who, and Delete is in the same spot on both tabs. The field is the quantity window's; the buttons are the
-# confirmation dialog's kind, with no tooltips (the stock ones have none).
+# is over Who, and Delete is in the same spot on both tabs. The field looks like the quantity window's; the buttons are
+# the confirmation dialog's kind, with no tooltips (the stock ones have none).
 FRIENDS_COLUMN_COUNT = 3
 _FRIENDS_SPAN = FRIENDS_CONTENT_WIDTH - (FRIENDS_COLUMN_COUNT - 1) * BUTTON_GAP
 FRIENDS_THIRDS = tuple(_FRIENDS_SPAN * (c + 1) // FRIENDS_COLUMN_COUNT - _FRIENDS_SPAN * c // FRIENDS_COLUMN_COUNT
@@ -2429,6 +2435,17 @@ def slider_track(width):
     return track
 
 
+def field_art(width, height):
+    """The field template's look (FIELD_TEMPLATE: TUI_FieldEdge on every side and corner around FIELD_TEXTURE) as one
+    piece, width by height, for a tab page, which can't hold the strip's Screen (see friends_window())."""
+    field = Texture(width, height, FIELD_RGBA)
+    field.rows[0] = [EDGE_FADED] * width
+    field.rows[-1] = [EDGE_FADED] * width
+    for row in field.rows:
+        row[0] = row[-1] = EDGE_FADED
+    return field
+
+
 def title_piece(height=TITLE_HEIGHT, width=TITLE_PIECE_WIDTH):
     """A title bar: the panel's color with a row divider along its bottom, height tall (a chat window's
     TITLE_HEIGHT unless given). The one piece serves as the bar's left, middle and right, repeated across."""
@@ -2598,9 +2615,10 @@ def pieces():
         **{f'Tab{art}{state}': tab_art((), state, width, name)
            for (_, _, name, art), width in zip(AA_PAGES, AA_TAB_WIDTHS) for state in ('Normal', 'Pressed')},
         'AADivider': Texture(AA_LIST_WIDTH, 1, ROW_DIVIDER_RGBA),
-        # The friends window's tabs, their names on them (see FRIENDS_FILE).
+        # The friends window's tabs, their names on them, and its name fields' strip (see FRIENDS_FILE).
         **{f'Tab{name}{state}': tab_art((), state, width, name)
            for (_, name, *_), width in zip(FRIENDS_PAGES, FRIENDS_TAB_WIDTHS) for state in ('Normal', 'Pressed')},
+        'FriendsField': field_art(FRIENDS_FIELD_WIDTH, INPUT_HEIGHT),
         # The compass's strip, which the game slides, and what it draws over it (see COMPASS_FILE).
         'CompassStrip': compass_strip(),
         'CompassOverlay': compass_overlay(),
@@ -2673,7 +2691,7 @@ def render(element, depth=1):
 
 
 def xml_document(elements):
-    lines = list(XML_HEADER)
+    lines = [*XML_HEADER, f'  <!-- {LICENSE_NOTICE} -->']
     for element in elements:
         lines += render(element)
     lines.append('</XML>')
@@ -2850,6 +2868,8 @@ def with_definitions(base_animations, definitions, stranded=()):
         lines.append('  <!-- TriageUI: kept from the base skin\'s copies of the windows TriageUI replaces -->')
         for text in stranded:
             lines += ['  ' + text.strip().splitlines()[0]] + text.strip().splitlines()[1:]
+    # After the base's and the stranded definitions, since it covers only ours.
+    lines.append(f'  <!-- {LICENSE_NOTICE} -->')
     lines.append('  <!-- TriageUI: the shared frame, bar and button pieces -->')
     for element in definitions:
         lines += render(element)
@@ -4296,16 +4316,12 @@ def friends_window():
     for screen_id, name, list_id, field_id, add_id, delete_id, more in FRIENDS_PAGES:
         names = listbox(f'TUI_FW_{list_id}', list_id, (0, 0, FRIENDS_CONTENT_WIDTH, FRIENDS_LIST_HEIGHT), None,
                         FRIENDS_COLUMNS)
-        # The field as the quantity window's: a child window drawing the strip, and the see-through name box on it,
-        # inset FIELD_PADDING each side.
-        strip = node('Screen', [
-            node('RelativePosition', True),
-            point('Location', 0, FRIENDS_FIELD_TOP),
-            size(FRIENDS_FIELD_WIDTH, INPUT_HEIGHT),
-            node('DrawTemplate', FIELD_TEMPLATE),
-            node('Style_Transparent', False),
-            node('Style_Border', True),
-        ], f'TUI_FW_{field_id}Field')
+        # The field looks like the quantity window's: the strip, and the see-through name box on it, inset
+        # FIELD_PADDING each side. The strip is a picture of the field template's look, not the quantity window's
+        # child Screen: the game can't load a skin whose Page lists a Screen (UIErrors.txt: Couldn't find
+        # class:item ... reference in FieldParseItemOfClass()), though a window's Screen can list one.
+        strip = picture(f'TUI_FW_{field_id}Field', 'TUI_FriendsField',
+                        (0, FRIENDS_FIELD_TOP, FRIENDS_FIELD_WIDTH, INPUT_HEIGHT))
         field = node('Editbox', [
             node('ScreenID', field_id),
             node('Font', TEXT_FONT),
@@ -4446,7 +4462,7 @@ def build(eq_dir, base=DEFAULT_BASE, out=None):
             (out / name).write_bytes(data)
         (out / MARKER_FILE).write_text(
             f'Built by TriageUI {VERSION}\'s build_skin.py from uifiles\\{base}. Rebuild rather than edit: '
-            'the script replaces this folder.\n'
+            f'the script replaces this folder.\n{LICENSE_NOTICE}\n'
         )
     except OSError as error:
         raise BuildError(f'Couldn\'t write {out}: {error}') from error

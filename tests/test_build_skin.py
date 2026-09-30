@@ -448,6 +448,26 @@ def test_a_base_without_a_closing_tag_is_refused():
         skin.with_definitions('<XML>', [])
 
 
+def test_the_license_notice_can_stand_in_an_xml_comment():
+    notice = skin.LICENSE_NOTICE
+    notice.encode('ascii')
+    assert '--' not in notice and '<' not in notice and '>' not in notice
+    assert 'CC BY-NC-SA 4.0' in notice and 'github.com/CopperGlade/TriageUI' in notice
+    ET.fromstring(f'<XML><!-- {notice} --></XML>')
+
+
+@pytest.mark.parametrize('name', [*skin.WINDOW_FILES, skin.ANIMATIONS_FILE])
+def test_every_xml_file_carries_the_license_notice_once(name):
+    assert files()[name].decode('latin-1').count(f'<!-- {skin.LICENSE_NOTICE} -->') == 1
+
+
+def test_the_license_notice_comes_after_every_definition_not_ours():
+    base = '<XML>\n  <Ui2DAnimation item="A_Base" />\n</XML>\n'
+    text = skin.with_definitions(base, [skin.texture_info('x.tga', 1, 1)], ['<Ui2DAnimation item="A_Kept" />'])
+    notice = text.index(skin.LICENSE_NOTICE)
+    assert text.index('A_Base') < text.index('A_Kept') < notice < text.index('x.tga')
+
+
 def test_every_reference_resolves():
     root = everything()
     anims = items(root, 'Ui2DAnimation')
@@ -525,6 +545,18 @@ def test_our_names_never_clash_with_the_stock_skin():
                                *skin.REPLACED_ANIMATIONS}
     assert ours and all(name.startswith('TUI_') or name in allowed or name.endswith('.tga') for name in ours)
     assert len(ours) == len(set(ours))
+
+
+def test_no_page_lists_a_screen():
+    # The game can't load a skin whose tab Page lists a Screen among its pieces, even one defined before it (UIErrors.txt:
+    # Couldn't find class:item ... reference in FieldParseItemOfClass(), then the default skin instead), though a
+    # window's Screen can list one (the quantity and chat windows' field strips).
+    for name in skin.WINDOW_FILES:
+        root = parse(name)
+        defined = {e.get('item'): e for e in root}
+        for page in root.iter('Page'):
+            listed = [defined[p.text].tag for p in page.findall('Pieces')]
+            assert 'Screen' not in listed, (name, page.get('item'))
 
 
 def stock_animations():
@@ -4579,15 +4611,29 @@ def test_friends_lists_are_one_column_of_names_with_no_heading():
         assert listbox.find('TooltipReference') is None
 
 
-def test_friends_fields_are_the_quantity_windows_and_the_buttons_the_confirmation_dialogs_kind():
-    # Each name field is the quantity window's number field: the strip, then the see-through box on it, inset as far,
-    # in the text's color. The buttons have the stock words and no tooltips (the stock ones have none).
+def test_friends_fields_look_like_the_quantity_windows_and_the_buttons_are_the_confirmation_dialogs_kind():
+    # Each name field looks like the quantity window's number field: the strip, then the see-through box on it, inset as
+    # far, in the text's color. A page can't hold the quantity window's strip, a Screen (see
+    # test_no_page_lists_a_screen), so the strip is a picture of the field template's look: its edge on every side and
+    # corner around its background. The buttons have the stock words and no tooltips (the stock ones have none).
+    root = everything()
+    template = items(root, 'WindowDrawTemplate')[skin.FIELD_TEMPLATE]
+    assert {e.text for e in template.find('Border') if not e.tag.startswith('Overlap')} == {'TUI_FieldEdge'}
+    assert template.findtext('Background') == skin.FIELD_TEXTURE
+    anims = items(root, 'Ui2DAnimation')
+    edge, = colors(anims['TUI_FieldEdge'])
+    fill, = set(pixels(decode(files()[skin.FIELD_TEXTURE])))
     _, _, _, pages = friends_parts()
     for (_, _, _, field_id, add_id, delete_id, more), parts in zip(skin.FRIENDS_PAGES, pages.values()):
         strip, field = parts[f'TUI_FW_{field_id}Field'], parts[field_id]
-        assert strip.tag == 'Screen' and strip.findtext('DrawTemplate') == skin.FIELD_TEMPLATE
-        assert strip.findtext('Style_Border') == 'true' and list(parts).index(strip.get('item')) < list(parts).index(
-            field_id)
+        assert strip.tag == 'StaticAnimation' and strip.findtext('Animation') == 'TUI_FriendsField'
+        assert list(parts).index(strip.get('item')) < list(parts).index(field_id)
+        art = cut(decode(files()[skin.PIECES_TEXTURE]), anims['TUI_FriendsField'])
+        assert art.size == box(strip)[2:]
+        for y in range(art.height):
+            for x in range(art.width):
+                ring = x in (0, art.width - 1) or y in (0, art.height - 1)
+                assert art.getpixel((x, y)) == (edge if ring else fill), (x, y)
         fx, fy, fw, fh = box(strip)
         assert box(field) == (fx + skin.FIELD_PADDING, fy, fw - 2 * skin.FIELD_PADDING, fh)
         assert field.findtext('DrawTemplate') == skin.EDIT_TEMPLATE
@@ -4749,8 +4795,28 @@ def test_main_reports_success_and_errors(eq, capsys):
     assert 'no skin folder' in capsys.readouterr().err
 
 
-def test_the_built_folder_names_its_version(eq):
-    assert f'TriageUI {skin.VERSION}\'s build_skin.py' in (skin.build(eq) / skin.MARKER_FILE).read_text()
+def test_the_built_folder_names_its_version_and_license(eq):
+    marker = (skin.build(eq) / skin.MARKER_FILE).read_text()
+    assert f'TriageUI {skin.VERSION}\'s build_skin.py' in marker and skin.LICENSE_NOTICE in marker
+
+
+# The license
+
+def test_the_license_file_holds_the_notice_and_the_legal_code():
+    text = (REPO / 'LICENSE').read_text(encoding='utf-8')
+    assert text.startswith('TriageUI\nCopyright 2026 Sebik <Europa>\n')
+    # The built files' notice points to the license this file holds.
+    url = skin.LICENSE_NOTICE.rsplit(' ', 1)[1]
+    assert url == 'https://creativecommons.org/licenses/by-nc-sa/4.0/' and url in text
+    assert '\nAttribution-NonCommercial-ShareAlike 4.0 International\n' in text
+    assert 'Section 1 -- Definitions.' in text and 'Section 8 -- Interpretation.' in text
+
+
+def test_the_readme_gives_the_license():
+    readme = (REPO / 'README.md').read_text(encoding='utf-8')
+    section = readme.split('\n## License\n', 1)[1].split('\n## ', 1)[0]
+    assert '(CC BY-NC-SA 4.0)' in section and '](LICENSE)' in section
+    assert 'Sebik &lt;Europa&gt;' in section
 
 
 # The window plan
