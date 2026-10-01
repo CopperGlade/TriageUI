@@ -46,8 +46,9 @@ CHARACTER_FILE = re.compile(r'(?:UI_|BZR_)?([A-Za-z]+)_(?:pq\.proj|spellsets)\.i
 ALLOWED_NAMES = {'sebik'}
 CONFTEST = REPO / 'tests' / 'conftest.py'  # its SECOND_PLAYER may appear under tests/
 # Project Quarm forbids playing several characters at once, so nothing mentions it. A close box, a tab box or a
-# dialog box is the skin's own word.
-BOXING = re.compile(r'multi-?box|\bboxing\b|\bboxers?\b|\bdual[- ]?box', re.I)
+# dialog box is the skin's own word. The pattern's name avoids the words it looks for, since the check reads this
+# file too.
+SEVERAL_AT_ONCE = re.compile(r'multi-?box|\bboxing\b|\bboxers?\b|\bdual[- ]?box', re.I)
 VERSION_PATTERN = r'\d+\.\d+\.\d+'
 
 Commit = namedtuple('Commit', 'hash author author_email author_date committer committer_email committer_date message')
@@ -170,7 +171,7 @@ def name_problems(texts, names, test_name=None):
 def boxing_problems(texts):
     return [f'{where}:{number}: mentions playing several characters at once'
             for where, text in texts.items() for number, line in enumerate(text.splitlines(), 1)
-            if BOXING.search(line)]
+            if SEVERAL_AT_ONCE.search(line)]
 
 
 def zip_name(version):

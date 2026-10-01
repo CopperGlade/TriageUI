@@ -5979,6 +5979,8 @@ def test_nothing_mentions_playing_several_characters_at_once():
     words = ['multi' + 'box', 'Multi-' + 'box' + 'ing', 'box' + 'ing', 'dual ' + 'box', 'box' + 'ers']
     texts = {'README.md': '\n'.join(['the close box', 'a tab box', 'the dialog box', 'two boxes', 'a boxed set', *words])}
     assert [problem.split(':')[1] for problem in release.boxing_problems(texts)] == ['6', '7', '8', '9', '10']
+    # The check's own file passes it.
+    assert release.boxing_problems({'tools/release.py': (REPO / 'tools' / 'release.py').read_text()}) == []
 
 
 def test_the_release_zip_is_the_built_skin_in_a_triageui_folder(eq, tmp_path):
