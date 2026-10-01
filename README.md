@@ -4,6 +4,8 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays. It's a UI skin: it only changes how windows look, and it never plays for you. Every window it hasn't redesigned keeps EverQuest's own look.
 
+<img src="docs/in-a-fight.png" width="573" alt="The target and casting windows during a fight">
+
 ## The look
 
 Quiet and dark, so the game stays in front: each window shows what you need at a glance, then stays out of the way.
@@ -57,6 +59,8 @@ TriageUI has redesigned these. The ones that differ most from EverQuest's own ha
 - **Compass:** a strip of directions sliding past a soft red line: the direction under the line is the way you face. **N** is soft red too, and a faint tick marks every 10°.
 - **Spell icons:** every spell's icon is TriageUI's own (see *The spell icons*).
 
+<img src="docs/loot.png" width="551" alt="The loot window open on a corpse">
+
 ## The player window
 
 Just what you need at a glance:
@@ -85,6 +89,8 @@ Both windows share the game's blue and red effect backgrounds with a few other w
 
 Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. **Click anywhere on a row to cast that spell.**
 
+<img src="docs/spell-bar-and-effects.png" width="444" alt="The spell bar beside the effects window">
+
 A thin white bar under a spell's name shows how long until you can cast it again. A soft red bar along the top of the window shows the short global cooldown after every cast. Both come from Zeal.
 
 In a row of its own under the gems, a wide button with a book, across the whole window so it's easy to hit in a hurry, opens and closes your spell book. It stays lit while the book is open. Zeal's right-click menus are where they always are: right-click an empty gem to pick a spell, or the book button for your spell sets.
@@ -109,6 +115,8 @@ Every spell in Project Quarm has its picture. While TriageUI is loaded, its icon
 
 Your hot bar in duxaUI's shape, so everything is where you're used to it, on a grid of square buttons. On the left, the page arrows with the page number between them, and your ten hot buttons under them, two to a row, each with its name in the game's small font (or the item's or spell's icon). On the right, your **Primary** and **Secondary**, **Range** and **Ammo** slots, then your eight bag slots in two columns, 1 to 4 and 5 to 8. An empty weapon slot shows a large, faint icon of what goes there: a sword, a shield, a bow and an arrow. An empty bag slot is a plain square.
 
+<img src="docs/hot-buttons-and-bags.png" width="402" alt="The actions window over the hot button window, beside two open bags">
+
 ## The actions window
 
 The game's four pages behind a row of icon tabs in the window selector's style: **Main** (a house), **General Skills** (a compass), **Combat Skills** (a sword) and **Socials** (a speech bubble). The open page's tab is lit. Point at a tab for its page's name. On every page the actions are two columns of buttons, their names in a small font.
@@ -129,6 +137,8 @@ Every chat window is the same: a thin strip along the top with the window's name
 **Don't blank a chat window's name with a space.** Zeal takes a chat window whose name starts with a space for one of its tell windows, even with tell windows off, and EverQuest leaves it out at your next login. Everything its filters were showing, `/who` included, then goes nowhere. Only your main chat window comes back anyway. If one is gone, see Troubleshooting.
 
 ## The inventory window
+
+<img src="docs/inventory.png" width="380" alt="The inventory window">
 
 Your gear is laid out as in EverQuest's own inventory, on the hot button window's squares:
 - ears, neck, head and face along the top;
