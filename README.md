@@ -2,63 +2,102 @@
 
 EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.0.0 · by Sebik &lt;Europa&gt;
 
-TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays: a translucent dark panel, a faint rounded edge and plain text. It's a UI skin: it only changes how windows look, and it never plays for you.
+TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays. It's a UI skin: it only changes how windows look, and it never plays for you. Every window it hasn't redesigned keeps EverQuest's own look.
 
-It is built one window at a time. **So far it has the target, group, raid, casting, air, chat, pet, window selector, actions, hot button, bag, inventory, inspect, merchant, item, effects, songs, player, quantity, give, trade, loot, bank, skills, tracking, alternate advancement and friends windows, the spell bar, the spell book, the confirmation dialog and the compass, and its own spell icons.** Everything else keeps EverQuest's own look.
+## The look
 
-They all sit on the overlays' dark panel, with no title bar, like the overlays with their header bar hidden, except for a really thin one on the chat windows, one with a **Close** button on the item and quantity windows, and one with the player's name on the inspect window. Drag a window by its background to move it, and a chat, item, quantity or inspect window by the strip along its top.
+Quiet and dark, so the game stays in front: each window shows what you need at a glance, then stays out of the way.
 
-The panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
+- **One dark panel.** Every window sits on the overlays' dark panel with a faint rounded edge. Almost none has a title bar, like the overlays with their header bar hidden. The exceptions are a really thin strip on the chat windows, a bar with **Close** on the item and quantity windows, and the player's name on the inspect window.
+- **Plain text, color with a meaning.** Text is white, in EverQuest's own font. Color is kept for what it tells you: green for your values, as EverQuest colors a raised stat; soft blue for mana and your group; grey for pets; soft red for casting and harmful effects; cyan for air; classic golden yellow for XP and AA; and each con color in the tracking window. The spell book is the one window that leaves the dark look, with parchment pages inside a dark cover.
+- **Thin, soft bars.** Health, mana, casting and recast bars are thin lines in soft colors that don't glare next to the text. Where the full length matters, as on the target's health, a faint track shows it.
+- **Rows, not grids.** Your effects, songs and spell gems are tables: a row each with the icon and the name, and a faint line between rows. Click anywhere on a row to act on it. In the group window, each pet gets a row of its own.
+- **Quiet buttons.** A faint wash with a thin outline, solid slate while you point at them. Their names are TriageUI's own crisp pixel lettering, or EverQuest's small font on the taller buttons of the dialogs and bigger windows. Buttons that open a window, like the window selector's, carry simple line icons and stay lit while it's open.
+- **Even spacing, matching widths.** The same small gap everywhere: from a window's edge to what's inside it, and between everything in it. Dialogs get twice that room, so a question stands out. Windows that stack share their widths: the group, pet, actions, player and hot button windows are one width, and the target, casting and air windows are one size.
 
-Buttons are a faint wash over the panel with a thin outline, and turn solid slate while you point at them. Most buttons' labels are TriageUI's own crisp pixel lettering with room between the letters. The actions window, the confirmation dialog and the quantity, merchant, give, trade, loot, inventory, inspect, tracking, alternate advancement and friends windows have taller buttons that show their names in EverQuest's own small font instead, which is easier to read. The **Close** button on the item and quantity windows' title bars matches them. Buttons side by side are as far apart as the window's edge is from its text.
+### Moving and fading
 
-## The target window
+- **Moving:** drag a window by its background. Drag a chat window by the strip along its top, and an item, quantity or inspect window by its title bar. Only chat windows can be resized; the rest have a fixed size.
+- **Closing:** a window with no close box closes with its **Done** or **Cancel** button, Esc, or the button that opened it.
+- **Fading:** the panel is solid, so each window is as see-through as you set it. EverQuest keeps a transparency and a fade for every window, per character: `Alpha` (0 to 255), `FadeToAlpha` (what it fades to when the pointer leaves) and `Fades` in your character's `UI_<name>_pq.proj.ini`. The overlays' look is about `Alpha=217` (85%). Edit that file only while the character is camped: logging in and `/load` rewrite it.
 
-The target's name has the whole first line, so long mob names fit. Below it, a thin health bar on a faint background that shows its full length even when it's nearly empty, then the health %. With nothing targeted, only the empty bar shows. It's a little narrower than the other windows and sits well next to EQ Triage's Distance overlay.
+## The windows
 
-Health bars are the name's color, softened to 70% so they don't glare next to the text.
+TriageUI has redesigned these. The ones that differ most from EverQuest's own have a section of their own below.
+
+- **Player:** health, mana, the server tick, XP and AA per hour and your resists (see *The player window*).
+- **Target:** the name on a line of its own, so long mob names fit, over a thin health bar and the %. With nothing targeted, only the empty bar shows. It's a little narrower than the others, and sits well next to EQ Triage's Distance overlay.
+- **Group:** each member and each pet on a row of its own (see *The group window*).
+- **Raid:** everyone in two lists, those in a group and those **Not in a group**, with group, name, class and rank. There's no level column, player count or average level. Two rows of buttons under the lists, among them **Options** for the class colors; point at one for what it does.
+- **Pet:** the target window's shape: the pet's name, then its health bar and %, then six commands in pairs, **Attack** over **Back**, **Guard** over **Follow** and **Taunt** over **Dismiss**. There's no Sit button; type `/pet sit`.
+- **Casting:** **Casting:** and the spell's name (from Zeal) in soft red, over a bar that fills as the cast completes. It's the target window's size, so the two line up when stacked. The game gives skins no cast time as a number.
+- **Air:** **Air Remaining** in cyan, over a bar that empties as your air runs out. It's the casting window's size.
+- **Effects and songs:** tables, a row per effect (see *The effects and songs windows*).
+- **Spell bar:** a row per spell gem, with its recast (see *The spell bar*).
+- **Spell book:** parchment pages, built for picking a spell in a hurry (see *The spell book*).
+- **Hot buttons:** your hot buttons beside your weapon and bag slots (see *The hot button window*).
+- **Actions:** four pages behind icon tabs, with some buttons and socials left out (see *The actions window*).
+- **Window selector:** a line icon on each button (point at one for its name), lit while its window is open. There's no Help button.
+- **Chat:** a thin strip along the top and the chat straight on the panel (see *The chat windows*).
+- **Inventory:** your gear around your XP and AA, with your stats and coins beside them (see *The inventory window*).
+- **Bag:** slots two to a row, as in duxaUI, with **Combine** over **Done** in a tradeskill container. The game sizes the window to each bag; the bag's name isn't shown.
+- **Inspect:** their gear where your inventory shows yours, and their message in the middle. EverQuest writes their name on the title bar. With Zeal, Alt+click one of their items to open it in the item window.
+- **Merchant:** all 80 slots at once, eight to a row, so there's nothing to scroll, and the item you're considering under them. For one of your items with charges, Project Quarm's recharge shows beside it: its charges, the next charge's price and **Recharge**. The merchant's name isn't shown.
+- **Item:** the name on a title bar with **Close**, the icon at the top left and the details beside it, which scroll when they don't fit (Page Up and Page Down work too). Zeal's extra item windows look the same.
+- **Confirmation dialog:** twice the usual room around the question and the buttons, with room for three lines. For a question with a time limit, such as a resurrection, Zeal shows the time left at its top right.
+- **Quantity:** the item window's title bar with **Quantity** and **Close**, a slider, and the number beside **Accept**. What you type is added after the number shown, so delete it first to type a new one. Enter or Accept takes that many; Close or Esc takes none.
+- **Give:** the NPC's name along the top, your four slots in a row and the coin boxes, **pp**, **gp**, **sp** and **cp**. Drop coins from your inventory on their box.
+- **Trade:** their offer on the left under their name, and yours on the right under yours, each with eight slots and its coin boxes. An amount of 100,000 or more of one coin runs into its name.
+- **Loot:** all 30 slots six to a row, so there's nothing to scroll, with Zeal's **Link All** and **Loot All** beside **Done**.
+- **Bank:** the shared bank's ten slots beside your 30, both in EverQuest's own order, with your bank's coin boxes under them. **Change** is Zeal's button for changing your coins, your bank's and then your inventory's.
+- **Skills:** one list, with no rank column. Click **Skill** or **Value** to sort by it, and again to reverse it (from Zeal).
+- **Tracking:** a button for each con color along the top, bright while that color is listed and dim while it's filtered out. **Sort** and **Players** open their choices over the list, where each name is in its con color.
+- **Alternate advancement:** the five tabs with their names on them, the abilities, and the selected one's description under them. On the right: your **Points spent** and those **Available**, **XP to AA allocation** with **-** and **+**, the selected ability's **Reuse** time or Ready, and **Train**, **Hotkey** and **Done**. Your AA XP is in the inventory window.
+- **Friends:** **Friends** and **Ignored** on two tabs, with **Add** and **Delete** under the list, and **Contact** and **Who** on the Friends tab. Close it with the window selector's Friends button.
+- **Compass:** a strip of directions sliding past a soft red line: the direction under the line is the way you face. **N** is soft red too, and a faint tick marks every 10°.
+- **Spell icons:** every spell's icon is TriageUI's own (see *The spell icons*).
+
+## The player window
+
+Just what you need at a glance:
+- **Health** and **Mana**, each with its % in the middle of the line, your current/max on the right and a bar under it, soft green for health and soft blue for mana. Mana's current/max come from Zeal.
+- Just under the mana bar, a thin white line shows the server tick (from Zeal). It drains to empty at each tick, the moment your mana and health come in, so you can stand up to cast right after one. Type `/tickreverse` to have it fill up to the tick instead.
+- **XP/h** and **AA/h** on one line, from Zeal: the percent of a level, and of an AA point, you're gaining an hour, each averaged over up to the last two hours. Both start over when you `/load` a skin; type `/resetexp` to start them over yourself. XP/h counts regular experience only, so it reads 0% while your AA experience is at 100%, and AA/h reads 0% while it's at 0%.
+- Your resists as a small table, **DR**, **PR**, **MR**, **FR** and **CR**, each over its value.
+
+The values are green, with a white slash between current and max. The game colors your max HP and resists itself, whatever a skin sets: green while buffs or gear raise them, grey at their base and red while lowered.
 
 ## The group window
 
-As wide as the pet and hot button windows. Each group member is one line: their name, and their health % on the right (only for group slots with someone in them), both in the soft blue of the player window's mana bar, with a thin health bar in the same blue under the name. A faint line separates each member from the one above, as in the effects window. Empty slots show nothing, not even a 0. Under each member, their pet gets a line of its own, indented, with its name smaller and in grey and a thin grey health bar: the game gives skins no number for a pet's health.
+Each member is a line: their name and their health %, both in soft blue, with a thin health bar in the same blue under the name. A faint line separates each member from the one above. Empty slots show nothing, not even a 0. Under each member, their pet gets an indented line of its own, its name smaller and in grey over a thin grey health bar: the game gives skins no number for a pet's health.
 
-**Click anywhere on a row to target that member or pet.** Pet rows are as big as member rows, instead of the hairline pet bars of most skins. A member without a pet leaves their pet row empty.
+**Click anywhere on a row to target that member or pet.** Pet rows are as easy to click as members', instead of the hairline pet bars of most skins.
 
 The buttons along the bottom are **Invite** and **Disband**. While you have an invitation, **Follow** (accept) and **Decline** take their place.
 
-## The raid window
+## The effects and songs windows
 
-Everyone in your raid in two lists straight on the panel: the players in a group, then, under **Not in a group**, the players in none. Each list shows the group number, name, class and rank (Raid Leader or Group Leader), with each heading on a faint strip like the overlays' header. There's no level column, and the player count and average level are left out. The lists scroll with the same slim scrollbar as the chat windows.
+Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect gets a red bar at the end of its row (the game gives a skin no way to color the name itself). The songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row, in a column of its own. Both windows are a little wider than the others, so longer effect names fit. **Click anywhere on a row to click that effect off**; pointing at a row shows the effect's name.
 
-Under the lists are two rows of buttons: **Invite**, **Disband** and **Make Leader**, then **Add Looter**, **Remove Looter** and **Options** (the raid options, where the class colors are set). While you have a raid invitation, **Accept** and **Decline** take the place of Invite and Disband. Point at a button to see what it does.
-
-Unlike EverQuest's own raid window, it has a fixed size, like the other TriageUI windows, so you drag it by its background.
-
-## The casting window
-
-**Casting:** and the spell's name, in a soft red, above a bar in the same red across the whole window that fills as the cast completes. It's as wide as the target window, so the two line up when stacked. The spell's name comes from Zeal. The bar is the countdown: the game doesn't give skins the remaining time as a number.
-
-## The air window
-
-Your air while you're underwater: **Air Remaining**, in a soft cyan, above a bar in the same cyan across the whole window that empties as your air runs out. It's the casting window's size, so the two line up when stacked. The bar is all there is: the game doesn't give skins your air as a number.
+Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, with only the red bar on a harmful one's, so the combat ability window loses its bright blue and red behind icons too. The item window puts them behind a spell's icon, where the bar is hidden, and the spell book squeezes the bar into a thin line beside a detrimental spell's icon.
 
 ## The spell bar
 
-Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. The gem icons are TriageUI's own (see *The spell icons*). **Click anywhere on a row to cast that spell.**
+Your memorized spells as a table, like the effects window: a roomy row for each spell gem with its icon and the spell's name, and a faint line under each row. **Click anywhere on a row to cast that spell.**
 
-A thin white bar under a spell's name shows how long until you can cast it again. A soft red bar along the top of the window, the red of the casting window, shows the short global cooldown after every cast. Both come from Zeal.
+A thin white bar under a spell's name shows how long until you can cast it again. A soft red bar along the top of the window shows the short global cooldown after every cast. Both come from Zeal.
 
-In a row of its own under the gems, a wide button with a book, across the whole window so it's easy to hit in a hurry, opens and closes your spellbook. It stays lit while the book is open. Zeal's right-click menus are where they always are: right-click an empty gem to pick a spell, or the book button for your spell sets.
+In a row of its own under the gems, a wide button with a book, across the whole window so it's easy to hit in a hurry, opens and closes your spell book. It stays lit while the book is open. Zeal's right-click menus are where they always are: right-click an empty gem to pick a spell, or the book button for your spell sets.
 
 ## The spell book
 
-Your spell book, built so you can find and pick a spell quickly in a fight. It's the one window that leaves TriageUI's dark look: the two open pages are parchment, shaded toward the spine like a real book, inside the window's dark cover. Each page holds eight spells, two across and four down, in the same spots as in EverQuest's own book. Each spell's icon sits at full size in a thin brown frame, with its name in dark ink centered under it on up to three lines, so every name any class can scribe fits. An empty spot shows an empty frame, so you can see where your next spell will go. **Click a spell's icon** to pick it. The frame under your mouse lights gold, so you can see which spell you'll get before you click. Clicking a name does nothing.
+Built so you can find and pick a spell quickly in a fight. The two open pages are parchment, shaded toward the spine like a real book, inside the window's dark cover. Each page holds eight spells, two across and four down, in the same spots as in EverQuest's own book. Each spell's icon sits at full size in a thin brown frame, with its name in dark ink centered under it on up to three lines, so every name any class can scribe fits. An empty spot shows an empty frame, so you can see where your next spell will go. **Click a spell's icon** to pick it. The frame under your mouse lights gold, so you can see which spell you'll get before you click. Clicking a name does nothing.
 
 **Previous** and **Next** run down the whole left and right sides of the window as tall strips with an arrow in the middle. They never move, so you can click one again and again to turn pages quickly. A small gap between each strip and the spells means a click that misses a strip never picks up a spell.
 
-A detrimental spell has a thin red line down the right side of its icon: the effects window's red bar, which the game squeezes to fit the spell's spot. To move a spell, **right-click it**: a thin red line flickers beside it until you right-click the spot to swap it with. Right-click the same spell again to put it back.
+A detrimental spell has a thin red line down the right side of its icon. To move a spell, **right-click it**: a thin red line flickers beside it until you right-click the spot to swap it with. Right-click the same spell again to put it back.
 
-While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is, like the spell bar's bar along its top. Along the bottom are each page's number, under its page, and **Done** in the middle. The window has a fixed size, about the size of EverQuest's own book. There's no title bar or close box: drag the window by its background, and click Done or the spell bar's book button to close it.
+While you memorize or scribe a spell, a thin soft red bar along the top of the window shows how far along it is. Along the bottom are each page's number, under its page, and **Done** in the middle. Click Done or the spell bar's book button to close the book.
 
 ## The spell icons
 
@@ -66,40 +105,28 @@ Every spell's icon is TriageUI's own, wherever the game shows it: the spell bar,
 
 Every spell in Project Quarm has its picture. While TriageUI is loaded, its icons replace every other skin's.
 
-## The chat windows
+## The hot button window
 
-Every chat window is the same: a thin strip along the top with the window's name in small text in the middle (EverQuest writes the name there; a skin can't leave it off) and a small **X** at the right end that closes the window, the chat straight on the panel with a slim scrollbar of small arrows and a thin thumb, and the line you type on a plain strip along the bottom, a little darker than the window, with a faint outline.
-
-**To move a chat window, drag the thin strip along its top.** Resize it from its edges. The strip is there because EverQuest won't let you drag a resizable window that has no title bar.
-
-**Don't blank a chat window's name with a space.** Zeal takes a chat window whose name starts with a space for one of its tell windows, even with tell windows off, and EverQuest leaves it out at your next login. Everything its filters were showing, `/who` included, then goes nowhere. Only your main chat window comes back anyway. If one is gone, see Troubleshooting.
-
-## The pet window
-
-Your pet in the target window's shape, as wide as the hot button window: its name on the first line, its health bar and % on the second (the % only while you have a pet), and its commands below in three columns of related pairs: **Attack** over **Back** (fight, stop fighting), **Guard** over **Follow** (hold a spot, stop holding it), and **Taunt** over **Dismiss** (`/pet get lost`). There's no Sit button; type `/pet sit` if you ever need it.
-
-## The window selector
-
-The row of buttons that opens and closes your other windows, each with a simple line icon: **Options** (sliders), **Inventory** (a backpack), **Actions** (crossed swords), **Friends** (two people), **Hotbuttons** (a grid), **Spells** (a wand), **Pet Info** (a paw) and **Effects** (a sparkle). A button stays lit in slate while its window is open. Point at one for its name. There's no Help button.
+Your hot bar in duxaUI's shape, so everything is where you're used to it, on a grid of square buttons. On the left, the page arrows with the page number between them, and your ten hot buttons under them, two to a row, each with its name in the game's small font (or the item's or spell's icon). On the right, your **Primary** and **Secondary**, **Range** and **Ammo** slots, then your eight bag slots in two columns, 1 to 4 and 5 to 8. An empty weapon slot shows a large, faint icon of what goes there: a sword, a shield, a bow and an arrow. An empty bag slot is a plain square.
 
 ## The actions window
 
-As wide as the hot button window, with the game's four pages behind a row of icon tabs in the window selector's style: **Main** (a house), **General Skills** (a compass), **Combat Skills** (a sword) and **Socials** (a speech bubble). The open page's tab is lit, and a faint line, like the effects window's, separates the tabs from the page. Point at a tab for its page's name. On every page the actions are two columns of buttons, their names in a small font.
+The game's four pages behind a row of icon tabs in the window selector's style: **Main** (a house), **General Skills** (a compass), **Combat Skills** (a sword) and **Socials** (a speech bubble). The open page's tab is lit. Point at a tab for its page's name. On every page the actions are two columns of buttons, their names in a small font.
 
 - **Main:** **Camp**, **Sit** or **Stand**, **Run** or **Walk** (the game shows whichever you can switch to), and **Invite**, which becomes **Follow** while you have a group invitation: Follow joins the group. It doesn't follow your target; for that, make a hot button with `/follow`. There's no Who or Disband: use `/who`, or the group window's Disband button.
 - **General Skills** (the game's Abilities page): your six skill buttons, such as Sense Heading, Forage or Hide. The game writes each skill's name on its button.
 - **Combat Skills** (the game's Combat page): **Melee Attack** and **Range Attack**, then your four combat skills, such as Kick or Taunt.
 - **Socials:** six of the twelve socials on each social page, 1 to 3 and 7 to 9, under the page arrows and the page number. Socials 4, 5, 6, 10, 11 and 12 are hidden to keep the window short: put what you need in the slots shown, or on a hot bar.
 
-The window is only as tall as the socials page, the tallest. The game needs all four pages: it sends a button's click to the page that's open, so a button moved to another page would stop working.
+The game needs all four pages: it sends a button's click to the page that's open, so a button moved to another page would stop working.
 
-## The hot button window
+## The chat windows
 
-Your hot bar in duxaUI's shape, so everything is where you're used to it, on a grid of square buttons. On the left, the page arrows with the page number between them, and your ten hot buttons under them, two to a row, each with its name in the game's small font (or the item's or spell's icon). On the right, your **Primary** and **Secondary**, **Range** and **Ammo** slots, then your eight bag slots in two columns, 1 to 4 and 5 to 8. An empty weapon slot shows a large, faint icon of what goes there, in the color of the lines between rows elsewhere: a sword, a shield, a bow and an arrow. An empty bag slot is a plain square.
+Every chat window is the same: a thin strip along the top with the window's name in small text in the middle (EverQuest writes the name there; a skin can't leave it off) and a small **X** at the right end that closes the window, the chat straight on the panel with a slim scrollbar, and the line you type on a plain strip along the bottom, a little darker than the window, with a faint outline.
 
-## The bag window
+**To move a chat window, drag the thin strip along its top.** Resize it from its edges. The strip is there because EverQuest won't let you drag a resizable window that has no title bar.
 
-Each bag you open gets its slots two to a row, as in duxaUI, the size of the hot button window's squares, with **Done** across the bottom to close it. A tradeskill container such as a sewing kit or a forge also gets **Combine** above Done. The game sizes the window to each bag, so a 4-slot bag is two rows and a 10-slot bag five. Every bag's window is the same width, and the bag's name isn't shown. You can also close a bag by clicking its slot again or pressing Esc.
+**Don't blank a chat window's name with a space.** Zeal takes a chat window whose name starts with a space for one of its tell windows, even with tell windows off, and EverQuest leaves it out at your next login. Everything its filters were showing, `/who` included, then goes nowhere. Only your main chat window comes back anyway. If one is gone, see Troubleshooting.
 
 ## The inventory window
 
@@ -111,104 +138,13 @@ Your gear is laid out as in EverQuest's own inventory, on the hot button window'
 
 An empty slot shows a large, faint icon of what goes there, like the hot button window's weapon slots.
 
-The middle shows your name, your level and class, and your deity in grey. Under them are your **XP** and **AA**, each with the % of the way to your next level or AA point and a bar under it, both in EverQuest's classic golden yellow. Drop an item anywhere in the middle to equip it.
+The middle shows your name, your level and class, and your deity in grey. Under them are your **XP** and **AA**, each with the % of the way to your next level or AA point and a bar under it, in classic golden yellow. Drop an item anywhere in the middle to equip it.
 
 On the right, past a thin line:
-- your stats, then your **AC** and **ATK**, then your **Weight**, each group under a thin line, with the numbers in green as in the player window;
-- your coin boxes, marked **pp**, **gp**, **sp** and **cp** as in the give window. They're wide enough for a large amount of platinum; click one to pick up some coins.
+- your stats, then your **AC** and **ATK**, then your **Weight**, each group under a thin line, the numbers in green;
+- your coin boxes, **pp**, **gp**, **sp** and **cp**, wide enough for a large amount of platinum; click one to pick up some coins.
 
-Your HP and resists are in the player window, and your bag slots in the hot button window.
-
-Along the bottom:
-- **Skills** and **AA** open those windows;
-- **Destroy** destroys the item you're holding;
-- **Done** closes the window.
-
-The window has a fixed size, with no title bar or close box: drag it by its background.
-
-## The inspect window
-
-What opens when you inspect another player. Their gear sits exactly where your inventory window shows yours, on the same squares, and an empty slot shows the same faint icon. Their inspect message fills the middle, on the chat input's dark strip, wrapping from line to line. EverQuest writes their name on a title bar along the top: **drag the window by its title bar**. **Done** along the bottom closes it, and so does Esc. With Zeal, Alt+click one of their items to open it in the item window, as clicking an item link in chat does.
-
-## The merchant window
-
-All 80 of a merchant's slots at once, eight to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Under them, past a thin divider, the item you're considering, and across the bottom **Buy** (for the merchant's items) or **Sell** (for yours) and **Done**. The item's name and price come in chat, as always.
-
-When you select one of your own items with charges, Project Quarm's recharge shows beside it: its charges, the price of the next charge, and a **Recharge** button. Point at Recharge for the price per charge. The merchant's name isn't shown. Like the other TriageUI windows, it has a fixed size and you drag it by its background.
-
-## The item window
-
-What you see when you right-click an item, or a spell with Zeal's spell info on. The item's name is on a title bar along the top, with a **Close** button at its right end, the same size as the quantity window's **Accept**. Under it, the item's icon sits in the top left corner, with its details in a column beside it, straight on the panel. When the details don't all fit, they scroll with the chat windows' slim scrollbar, or with Page Up and Page Down. Zeal's extra item windows, which let you keep several open, look the same.
-
-The window has a fixed size, like the other TriageUI windows. **Drag it by its title bar.** EverQuest writes the name on the bar itself, in its own color, since the details never include it.
-
-## The player window
-
-Just what you need at a glance, as wide as the hot button and actions windows. **Health** at the top, with your health % in the middle of the line, your current/max on the right and your health bar under it in a soft green, then **Mana** the same way, its bar in the soft blue of the group window's names. Just under the mana bar, a thin white line shows the server tick (from Zeal): it drains to empty at each tick, the moment your mana and health come in, so you can stand up to cast right after one. Type `/tickreverse` to have it fill up to the tick instead. Every value in the window, the health and mana %, the current/max numbers, the XP/h and AA/h below and the resists, is the green EverQuest gives a stat raised above its base, with a white slash between current and max. The game colors your max HP and resists itself, whatever a skin sets: green while buffs or gear raise them, grey at their base and red while lowered. Mana's current/max come from Zeal. Then, on one line, **XP/h** at the left and **AA/h** at the right, each followed by its %, from Zeal: the percent of a level, and of an AA point, you're gaining an hour, each averaged over up to the last two hours (both start over when you `/load` a skin; type `/resetexp` to start them over yourself). XP/h counts regular experience only, so it reads 0% while your AA experience is at 100%, and AA/h reads 0% while it's at 0%. Under them, your resists as a small table: **DR**, **PR**, **MR**, **FR** and **CR**, each over its value. The captions are white. Health, Mana, the XP/h line and the resists are spaced evenly apart, so each reads on its own.
-
-## The effects and songs windows
-
-Your effects as a table, like the EQ Triage overlays: a row for each with the time left, the spell icon and its name, and a faint line between rows. A harmful effect gets a red bar at the end of its row (the game gives a skin no way to color the name itself). The Songs window (short effects such as bard songs, with names from Zeal) is the same table with six rows. The time left comes from Zeal's **Buff Timers** option, which draws it at the start of each row, in a column of its own before the icons. Both windows are a little wider than the others, so longer effect names fit. Click anywhere on a row to click that effect off; pointing at a row shows the effect's name.
-
-Each row is inset a little from the window's sides, like the lines between rows. The game places the rows itself and needs that room: rows as wide as the window ignored the pointer altogether.
-
-Both windows share the game's blue and red effect backgrounds with a few other windows. TriageUI replaces them with see-through ones, with only the red bar on a harmful one's, so the combat ability window loses its bright blue and red behind icons too. The item window puts them behind a spell's icon, where the bar is hidden, and the spell book squeezes the bar into a thin line beside a detrimental spell's icon (see the spell book).
-
-## The confirmation dialog
-
-The box that asks before something happens, such as a resurrection, looting a no-drop item, destroying an item or a translocation. Since these matter, it has twice the usual room inside, around the question and above and below the buttons. The question sits straight on the panel, with room for three lines, and **Yes** and **No** side by side under it, as big as the actions window's buttons and with their names in the same small font. A notice gets **OK** alone, in the middle. It's as wide as the window selector, so most questions fit on two lines. The game puts it in the middle of the screen. For a question with a time limit, such as a resurrection, Zeal shows the time left at its top right corner.
-
-## The quantity window
-
-What EverQuest asks when you pick up part of a stack, or some of your coins. It has the item window's title bar, with **Quantity** at the left and **Close** at the right. Under it, a slider runs across the window: a small knob on a faint line, which you drag, or click anywhere on the line to jump there. Under that, the number and **Accept** side by side. Like the confirmation dialog, it has twice the usual room inside. It's as wide as the hot button window, and the game opens it at the slot you clicked, with the whole stack filled in.
-
-The number takes digits only. What you type is added after the number that's there, so delete it first (Backspace) to type a new one. Press Enter or click **Accept** to take that many. Click **Close** or press Esc to close the window without taking any. Drag it by its title bar or its background.
-
-## The give window
-
-What opens when you hand an NPC an item or some coins. The NPC's name is along the top, so you can see who gets them; a very long name is cut off. Under it, your four item slots sit in a row on the hot button window's squares. Then come the coin boxes, two to a row, **pp** and **gp**, then **sp** and **cp**, each showing how many of that coin you're giving. The coin's name is as big as the amount and level with it. To give coins, pick them up from your inventory and drop them on their box. **Give** and **Cancel** are along the bottom, under a thin line, each half the window wide, so there's room around their names. The window is as wide as the hot button window and has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
-
-## The trade window
-
-What opens when you trade with another player. What they offer is on the left, under their name, and what you offer is on the right, under yours, with a thin line between the two sides. Each side has its eight item slots, two to a row, and under them its coin boxes, one to a row, marked **pp**, **gp**, **sp** and **cp** as in the give window. An amount of 100,000 or more of one coin runs into its name. To offer coins, pick them up from your inventory and drop them on one of your boxes; the other side's boxes only show what they offer. **Trade** and **Cancel** are along the bottom, under a thin line across the window, as in the give window. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Cancel to close it.
-
-## The loot window
-
-What opens when you loot a corpse. The corpse's name is along the top. Under it, all 30 of its slots sit six to a row on the hot button window's squares, so there's nothing to scroll. Empty slots are plain squares. Along the bottom are **Link All**, which puts a link to every item in your chat line, **Loot All**, which takes everything, and **Done**. Link All and Loot All are Zeal's, the same as `/linkall` and `/lootall`. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
-
-## The bank window
-
-What opens when you talk to a banker. The shared bank is on the left, its ten slots two to a row under **Shared Bank**, and your own bank is on the right, all 30 slots six to a row under the banker's name, with a thin line between the two. Both keep EverQuest's own order, down each column, so your items sit where you're used to seeing them. Under your slots are your bank's coin boxes, marked **pp**, **gp**, **sp** and **cp** as in the give window and wide enough for a large amount of platinum. Drop coins from your inventory on a box to bank them, or click a box to take some out. Under the shared slots are **Change**, Zeal's button for changing your coins, your bank's and then your inventory's, and **Done**. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
-
-## The skills window
-
-Your skills and their values in one list straight on the panel, with each heading on a faint strip like the raid window's. Click **Skill** or **Value** to sort the list by it, and again to reverse it (a Zeal feature). There's no rank column, the word such as Very Good or Master beside each value. About 24 skills are in view, and the rest scroll with the same slim scrollbar as the chat windows. **Done** is along the bottom. The window has a fixed size. There's no title bar or close box: drag the window by its background, and click Done to close it.
-
-## The tracking window
-
-What opens when a ranger, druid or bard uses **Track**. Along the top, a button for each con color: red, yellow, white, blue, light blue and green. Each shows a square of its color, bright while NPCs of that color are listed and dim while they're filtered out; click one to switch it, and point at one for its color. Under them, **Sort** and **Players** pick how the list is sorted and whether it lists players; each opens its choices over the list below. Then the list itself: about 24 names are in view, each in its con color, and the rest scroll with the same slim scrollbar as the chat windows. Select a name and click **Track**, or click **Cancel** to close the window. It's as wide as the hot button window and has a fixed size. There's no title bar or close box: drag the window by its background.
-
-## The alternate advancement window
-
-Your alternate abilities, laid out as in EverQuest's own AA window. Along the top are the five tabs, **General**, **Archetype**, **Class**, **PoP Advance** and **PoP Ability**, with their names on them. The open tab is lit, and a faint line separates the tabs from its list. Each list shows the abilities on that tab, the rank you have of the most there is, and the cost of the next rank, with each heading on a faint strip like the skills window's. About 18 abilities are in view, and the rest scroll with the same slim scrollbar as the chat windows. Click one to read its description under the list: what it does, and whether it's activated, with its refresh time, or passive.
-
-On the right, past a thin line, with a faint line between each of the first three and plenty of room above and below it:
-- the AA **Points spent** and those still **Available**, in green;
-- **XP to AA allocation**, how much of your experience goes to AA: click **-** or **+** to change it;
-- **Reuse**, the selected ability's time left until you can use it again, or Ready, in green;
-- **Train** trains the selected ability, **Hotkey** makes a hotkey for it, and **Done** closes the window.
-
-Your AA XP isn't repeated here: it's in the inventory window, under your XP.
-
-The window has a fixed size. There's no title bar or close box: drag the window by its background.
-
-## The friends window
-
-Your friends and the players you ignore, on two tabs along the top, **Friends** and **Ignored**, with their names on them like the alternate advancement window's. The open tab is lit, and a faint line separates the tabs from its list. About 12 names are in view, and the rest scroll with the same slim scrollbar as the chat windows. Under the list, type a name in the field and click **Add**, or select a name and click **Delete** to remove it. The Friends tab also has EverQuest's **Contact** and **Who** buttons. The window is as wide as the actions window and has a fixed size. There's no title bar or close box: drag the window by its background, and close it with the window selector's Friends button.
-
-## The compass
-
-A strip of directions slides past a thin soft red line in the middle as you turn: the direction under the line is the way you face. **N**, **E**, **S** and **W** each have a taller tick under them, with **N** in the same soft red as the line, so north stands out, and **NE**, **SE**, **SW** and **NW** sit between them in grey. A faint tick marks every 10°. The strip moves at EverQuest's own scale, so about half the circle is in view, and it fades out toward the window's sides. It's the size of EverQuest's own compass, with no title bar: drag it by any part.
+Along the bottom, **Skills** and **AA** open those windows, **Destroy** destroys the item you're holding, and **Done** closes the window. Your HP and resists are in the player window, and your bag slots in the hot button window.
 
 ## Install
 
