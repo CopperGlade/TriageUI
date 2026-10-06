@@ -22,7 +22,7 @@ from xml.sax.saxutils import escape
 SKIN_NAME = 'TriageUI'
 # The release's version, the only place it's set: README's first line shows it and tools/release.py checks it
 # against the git tags.
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 DEFAULT_EQ_DIR = Path(r'C:\QUARM')
 # The game's own UI files. The client falls back to them file by file, so a build on them copies nothing: the skin
 # is only TriageUI's files, and nothing in it comes from another skin.
