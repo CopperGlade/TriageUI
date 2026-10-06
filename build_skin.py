@@ -587,14 +587,14 @@ TIMER_WIDTH = 30
 TIMER_CLEARANCE = 4
 # A harmful effect's mark: a solid red bar HARMFUL_BAR_WIDTH wide at the row's end, a padding from the window's edge,
 # as tall as the icon and level with it, the names ending a padding before it (the user's pick, 2026-09-30: easier
-# on the eyes; 4px wide at first, then 2 more). The client's art swap (0x409520: the slot's Normal is RedIconBackground when the spell's beneficial
+# on the eyes; 4px wide at first, then 2 more, then 1 more). The client's art swap (0x409520: the slot's Normal is RedIconBackground when the spell's beneficial
 # byte is 0) is the only sign of an effect's type a skin gets: the names (labels 45-59, 0x436F3D) are set without a
 # color, so they can't turn red (Zeal's label hook could). The client stretches the art to the slot, which is the
 # art's own size here, so clear pixels put the bar in place. Tried before: a faint red across the row; a red square
 # behind the icon at alpha 85, which left a 2px ring too faint to see, its left side under Zeal's timer box; a single
 # 5px bar between the icon and the name; a 4px bar each side of the icon, touching it.
 HARMFUL_RGBA = (255, 68, 68, 255)
-HARMFUL_BAR_WIDTH = 6
+HARMFUL_BAR_WIDTH = 7
 HARMFUL_BAR_X = EFFECTS_RIGHT - HARMFUL_BAR_WIDTH  # from the inside's left edge
 ROW_ICON_X = SLOT_X + TIMER_WIDTH + TIMER_CLEARANCE  # from the inside's left edge
 ROW_NAME_X = ROW_ICON_X + ROW_ICON + PADDING
@@ -1338,7 +1338,7 @@ BOOK_ICON = 40  # A_SpellIcons' cells, drawn at their own size
 # The client paints a spell's slot Blue- or RedIconBackground, the Effects window's art, stretched to the slot's size:
 # red bars once stood over the names on rows (seen in game 2026-09-29), then down most of a 100 by 92 tile left of its
 # icon (2026-09-30). So each slot is the stock book's, the icon this far in all round: stretched to 44px, the harmful
-# bar at the row's end (see HARMFUL_BAR_X) becomes a 1px red line right of the icon, x 43, y 4.4 to 39.6. The client
+# bar at the row's end (see HARMFUL_BAR_X) becomes a thin red line right of the icon, x 42.4 to 43.8, y 4.4 to 39.6. The client
 # cycles the slot of the spell you right-click to move through no art, red and blue every frame (eqgame.exe 0x435434),
 # so that spell's line flickers. Only the icon and the ring round it take a click, and the name under it takes none.
 BOOK_SLOT_MARGIN = 2
@@ -5950,8 +5950,11 @@ def spell_bar_window():
                      (LEFT, 0, SPELL_BAR_CONTENT_WIDTH, TICK_HEIGHT), 'TUI_CastRecoveryFill', SPELL_RGB)
     book = toggle_button('TUI_CSPW_SpellBook', 'CSPW_SpellBook', LEFT, BOOK_TOP, 'Opens and closes Your Spellbook',
                          'Book', BOOK_WIDTH)
-    # The names and bars over the gems, which are solid, as duxaUI's names are over its gems.
-    return window('CastSpellWnd', 'Spells', SPELL_BAR_HEIGHT, dividers + gems + names + recasts + [recovery, book],
+    # The recast bars under the gems, which are clear, so the bars show through and the gem is the topmost
+    # control over its whole row: a bar listed over the gem took the pointer in its 2px band, so a click there
+    # cast nothing and the hover showed the bar's hidden text, Zeal's "0" for a gem off cooldown, as a tooltip.
+    # The names stay over the gems, as duxaUI's are: labels let clicks through.
+    return window('CastSpellWnd', 'Spells', SPELL_BAR_HEIGHT, dividers + recasts + gems + names + [recovery, book],
                   tooltip='Allows you to cast your memorized spells', width=SPELL_BAR_WIDTH)
 
 

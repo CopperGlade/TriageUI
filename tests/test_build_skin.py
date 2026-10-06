@@ -1653,7 +1653,7 @@ def test_effects_are_a_table_of_rows_icon_then_name(name, item, slots, first_typ
         assert lx == skin.ROW_NAME_X == skin.ROW_ICON_X + skin.ROW_ICON + skin.PADDING
         assert skin.HARMFUL_BAR_X - (lx + lw) == skin.PADDING
         assert skin.HARMFUL_BAR_X + skin.HARMFUL_BAR_WIDTH == skin.EFFECTS_RIGHT
-        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 151
+        assert skin.BORDER + skin.EFFECTS_RIGHT == skin.EFFECTS_WIDTH - skin.PADDING and lw == 150
         assert ly - y == (skin.ROW_HEIGHT - lh) // 2
     # A divider in each pixel between rows, as long as the slots, softer than the bars' track (the user).
     dividers = [box(e) for e in root.iter('StaticAnimation')]
@@ -1691,6 +1691,7 @@ def test_spell_bar_is_a_table_of_gems_with_names_recast_bars_and_the_book():
     assert [b.findtext('ScreenID') for b in root.iter('Button')] == ['CSPW_SpellBook']
     names = {e.findtext('ScreenID'): e for e in root.iter('Label')}
     gauges = {e.findtext('ScreenID'): e for e in root.iter('Gauge')}
+    pieces = [p.text for p in window.findall('Pieces')]
     for n, gem in enumerate(gems):
         x, y, w, h = box(gem)
         # As wide as the window's inside, so a click anywhere on the row casts; a pixel between rows.
@@ -1719,6 +1720,11 @@ def test_spell_bar_is_a_table_of_gems_with_names_recast_bars_and_the_book():
         assert recast.findtext('EQType') == str(26 + n) and number(recast, 'TextOffsetY') == 8000
         assert box(recast) == (nx, ny + nh + skin.PET_BAR_GAP, nw, skin.TICK_HEIGHT)
         assert ny + nh + skin.PET_BAR_GAP + skin.TICK_HEIGHT <= y + h
+        # The bar under the gem in drawing order (the gem's art is clear, so it shows through), and the name over
+        # it: a gauge over the gem took the pointer in its 2px band, so a click there cast nothing and the hover
+        # showed the gauge's hidden text, Zeal's "0" for a gem off cooldown, as a tooltip. Labels let clicks through.
+        order = [pieces.index(f'TUI_CSPW_Spell{n}{suffix}') for suffix in ('_Recast', '', '_Name')]
+        assert order == sorted(order)
     # Zeal's global recovery along the top, the first icon a padding under it.
     recovery = gauges['CSPW_Global_Recast']
     assert recovery.findtext('EQType') == '25' and number(recovery, 'TextOffsetY') == 8000
@@ -4045,10 +4051,10 @@ def test_slot_backgrounds_are_clear_with_a_red_bar_at_a_harmful_rows_end():
     # the only sign of an effect's type a skin gets: the skin's are the slot's size (the client stretches
     # them to each slot), replacing the base's own. Clear, so the row is the panel at the window's own alpha (solid
     # rows in the panel's color showed as darker stripes at Alpha 205 in game), with no line along the top and bottom
-    # (soft blue and red ones were ugly). A harmful effect's has a solid red bar 6px wide at the row's end, as tall as
+    # (soft blue and red ones were ugly). A harmful effect's has a solid red bar 7px wide at the row's end, as tall as
     # the icon and level with it (the user's pick, after a faint red across the row, a red square behind the icon,
     # which left a ring too faint to see, a single 5px bar between the icon and the name, a 4px bar each side of the
-    # icon, and this bar 4px wide).
+    # icon, and this bar 4px then 6px wide).
     data = files()[skin.ANIMATIONS_FILE].decode('latin-1')
     assert data.count('item="BlueIconBackground"') == data.count('item="RedIconBackground"') == 1
     anims = items(parse(skin.ANIMATIONS_FILE), 'Ui2DAnimation')
@@ -4058,7 +4064,7 @@ def test_slot_backgrounds_are_clear_with_a_red_bar_at_a_harmful_rows_end():
     assert blue.size == red.size == (skin.SLOT_WIDTH, skin.ROW_HEIGHT)
     assert set(pixels(blue)) == {skin.HELPFUL_RGBA} == {skin.CLEAR} and skin.CLEAR[3] == 0
     assert skin.snapped(skin.HARMFUL_RGBA) == skin.HARMFUL_RGBA and skin.HARMFUL_RGBA[3] == 255
-    assert skin.HARMFUL_BAR_WIDTH == 6
+    assert skin.HARMFUL_BAR_WIDTH == 7
     # Within the slot, which the client puts at SLOT_X: the bar ending a padding from the window's edge.
     bar = skin.HARMFUL_BAR_X - skin.SLOT_X
     assert skin.BORDER + skin.HARMFUL_BAR_X + skin.HARMFUL_BAR_WIDTH == skin.EFFECTS_WIDTH - skin.PADDING
