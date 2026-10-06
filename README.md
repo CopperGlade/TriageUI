@@ -4,7 +4,7 @@ EverQuest windows for Project Quarm in the look of the EQ Triage overlays · v1.
 
 TriageUI restyles EverQuest's own windows with the clean look of [EQ Triage](https://github.com/CopperGlade/EQTriage)'s overlays. It's a UI skin: it only changes how windows look, and it never plays for you. Every window it hasn't redesigned keeps EverQuest's own look.
 
-<img src="docs/in-a-fight.png" width="573" alt="The target and casting windows during a fight">
+<img src="docs/fullscreen.png" width="1210" alt="The whole screen during a fight, with TriageUI's windows">
 
 ## Install
 
@@ -51,7 +51,9 @@ Quiet and dark, so the game stays in front. Every window sits on the overlays' d
 - **Give**, **Trade**, **Loot** and **Bank:** slots in rows with the coin boxes **pp**, **gp**, **sp** and **cp**; drop coins on their box. Loot has Zeal's **Link All** and **Loot All**, the bank Zeal's **Change**.
 - **Skills:** click **Skill** or **Value** to sort (from Zeal). **Tracking:** a button per con color along the top. **Alternate advancement**, **Friends** and **Compass:** the same controls in the same look.
 
-<img src="docs/spell-bar-and-effects.png" width="444" alt="The spell bar beside the effects window">
+<img src="docs/spell-bar-and-book.png" width="578" alt="The spell bar beside the open spell book">
+
+<img src="docs/effects.png" width="239" alt="The effects window over the songs window, with a harmful effect's red bar">
 
 <img src="docs/hot-buttons-and-bags.png" width="402" alt="The actions window over the hot button window, beside two open bags">
 
