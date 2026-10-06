@@ -51,15 +51,11 @@ Quiet and dark, so the game stays in front. Every window sits on the overlays' d
 - **Give**, **Trade**, **Loot** and **Bank:** slots in rows with the coin boxes **pp**, **gp**, **sp** and **cp**; drop coins on their box. Loot has Zeal's **Link All** and **Loot All**, the bank Zeal's **Change**.
 - **Skills:** click **Skill** or **Value** to sort (from Zeal). **Tracking:** a button per con color along the top. **Alternate advancement**, **Friends** and **Compass:** the same controls in the same look.
 
-<img src="docs/spell-bar-and-book.png" width="578" alt="The spell bar beside the open spell book">
+<img src="docs/spell-bar-and-book.png" width="578" height="375" alt="The spell bar beside the open spell book"> <img src="docs/effects.png" width="195" height="375" alt="The effects window over the songs window, with a harmful effect's red bar">
 
-<img src="docs/effects.png" width="239" alt="The effects window over the songs window, with a harmful effect's red bar">
+<img src="docs/inventory.png" width="380" alt="The inventory window"> <img src="docs/hot-buttons-and-bags.png" width="402" alt="The actions window over the hot button window, beside two open bags">
 
-<img src="docs/hot-buttons-and-bags.png" width="402" alt="The actions window over the hot button window, beside two open bags">
-
-<img src="docs/inventory.png" width="380" alt="The inventory window">
-
-<img src="docs/loot.png" width="551" alt="The loot window open on a corpse">
+<img src="docs/loot.png" width="344" height="304" alt="The loot window open on a corpse"> <img src="docs/aa.png" width="394" height="304" alt="The alternate advancement window">
 
 ## The chat windows
 
